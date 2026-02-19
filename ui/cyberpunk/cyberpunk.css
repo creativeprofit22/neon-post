@@ -1,0 +1,13 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Cyberpunk Design System — Entry Point
+   Single CSS file to import. Load order matters:
+   1. tokens  — color palette, spacing, typography
+   2. effects — @keyframes, @property, data-attribute selectors
+   3. base    — resets, scrollbar, scanlines, overlays
+   4. overrides — maps PA's CSS vars to cyberpunk tokens
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@import url("tokens.css");
+@import url("effects.css");
+@import url("base.css");
+@import url("overrides.css");

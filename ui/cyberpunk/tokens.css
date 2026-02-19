@@ -1,0 +1,206 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Cyberpunk Design System — Tokens
+   Scoped under [data-theme="cyberpunk"]. Dark-only palette (oklch).
+   ══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="cyberpunk"] {
+  /* ── Primary ── */
+  --cyan-0: oklch(0.83 0.18 195);
+  --cyan-1: oklch(0.35 0.08 195);
+  --cyan-2: oklch(0.14 0.04 195);
+
+  /* ── Accents ── */
+  --magenta-0: oklch(0.65 0.28 350);
+  --magenta-1: oklch(0.30 0.12 350);
+  --magenta-2: oklch(0.15 0.06 350);
+
+  --violet-0: oklch(0.60 0.25 300);
+  --violet-1: oklch(0.28 0.12 300);
+  --violet-2: oklch(0.14 0.06 300);
+
+  /* ── Semantics ── */
+  --green-0: oklch(0.87 0.30 145);
+  --green-1: oklch(0.35 0.10 150);
+  --green-2: oklch(0.16 0.05 150);
+
+  --red-0: oklch(0.65 0.25 15);
+  --red-1: oklch(0.28 0.10 15);
+  --red-2: oklch(0.14 0.05 15);
+
+  --amber-0: oklch(0.80 0.18 75);
+  --amber-1: oklch(0.35 0.08 75);
+  --amber-2: oklch(0.16 0.04 75);
+
+  --blue-0: oklch(0.60 0.22 260);
+  --amber-yellow: oklch(0.85 0.20 95);
+
+  /* ── Surfaces ── */
+  --bg-void: oklch(0.03 0.01 250);
+  --bg-base: oklch(0.07 0.02 250);
+  --bg-raised: oklch(0.11 0.03 250);
+  --bg-elevated: oklch(0.15 0.03 250);
+  --bg-overlay: oklch(0.20 0.04 250);
+  --bg-glass: oklch(0.07 0.02 250 / 0.85);
+
+  /* ── Metal tones ── */
+  --metal-dark: oklch(0.18 0.04 250);
+  --metal-mid: oklch(0.27 0.05 250);
+  --metal-light: oklch(0.42 0.06 250);
+  --metal-bright: oklch(0.62 0.05 250);
+
+  /* ── Text ── */
+  --text-primary: oklch(0.94 0.02 250);
+  --text-secondary: oklch(0.62 0.05 250);
+  --text-muted: oklch(0.42 0.06 250);
+  --text-inverse: oklch(0.03 0.01 250);
+
+  /* ── Borders ── */
+  --border-default: oklch(0.18 0.04 250);
+  --border-subtle: oklch(0.11 0.03 250);
+  --border-strong: oklch(0.27 0.05 250);
+
+  /* ── Font families ── */
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", monospace;
+
+  /* ── Type scale (minor third 1.200) ── */
+  --text-xs: 0.694rem;
+  --text-sm: 0.833rem;
+  --text-base: 1rem;
+  --text-md: 1.2rem;
+  --text-lg: 1.44rem;
+  --text-xl: 1.728rem;
+  --text-2xl: 2.074rem;
+  --text-3xl: 2.488rem;
+  --text-4xl: 2.986rem;
+
+  /* ── Letter spacing ── */
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0em;
+  --tracking-wide: 0.04em;
+  --tracking-wider: 0.08em;
+
+  /* ── Easing ── */
+  --ease-default: cubic-bezier(0.2, 0, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-sharp: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Glow shadows ── */
+  --glow-cyan: 0 0 8px oklch(0.83 0.18 195 / 0.6), 0 0 24px oklch(0.83 0.18 195 / 0.2);
+  --glow-magenta: 0 0 8px oklch(0.65 0.28 350 / 0.6), 0 0 24px oklch(0.65 0.28 350 / 0.2);
+  --glow-violet: 0 0 8px oklch(0.60 0.25 300 / 0.5), 0 0 24px oklch(0.60 0.25 300 / 0.15);
+  --glow-green: 0 0 8px oklch(0.87 0.30 145 / 0.5), 0 0 24px oklch(0.87 0.30 145 / 0.15);
+  --glow-red: 0 0 8px oklch(0.65 0.25 15 / 0.5), 0 0 24px oklch(0.65 0.25 15 / 0.15);
+  --glow-amber: 0 0 8px oklch(0.80 0.18 75 / 0.5), 0 0 24px oklch(0.80 0.18 75 / 0.15);
+  --glow-subtle: 0 0 6px oklch(0.83 0.18 195 / 0.3), 0 0 12px oklch(0.83 0.18 195 / 0.1);
+  --glow-medium: 0 0 10px oklch(0.83 0.18 195 / 0.5), 0 0 25px oklch(0.83 0.18 195 / 0.2);
+  --glow-strong: 0 0 15px oklch(0.83 0.18 195 / 0.7), 0 0 40px oklch(0.83 0.18 195 / 0.3), 0 0 80px oklch(0.83 0.18 195 / 0.1);
+
+  /* ── Decorative patterns ── */
+  --deco-panel-gradient: linear-gradient(180deg, oklch(0.42 0.06 250 / 0.06) 0%, oklch(0.27 0.05 250 / 0.03) 30%, transparent 60%, oklch(0.18 0.04 250 / 0.08) 100%);
+  --deco-header-gradient: linear-gradient(180deg, oklch(0.20 0.04 250 / 0.8) 0%, oklch(0.15 0.03 250 / 0.6) 50%, oklch(0.11 0.03 250 / 0.4) 100%);
+  --deco-brushed-texture: repeating-linear-gradient(90deg, oklch(0.62 0.05 250 / 0.02) 0px, transparent 1px, transparent 3px);
+  --deco-inset-shadow: inset 0 2px 4px oklch(0.03 0.01 250 / 0.4);
+  --deco-panel-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.08), inset 0 -2px 0 rgba(0, 0, 0, 0.15), 0 8px 32px rgba(0, 0, 0, 0.5);
+  --deco-backdrop: oklch(0 0 0 / 0.7);
+  --deco-scanline: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(0, 0, 0, 0.12) 2px, rgba(0, 0, 0, 0.12) 4px);
+  --deco-scanline-opacity: 0.25;
+  --deco-glow-multiplier: 1;
+
+  /* ── Shimmer effects ── */
+  --deco-shimmer-h: linear-gradient(90deg, transparent, oklch(0.83 0.18 195 / 0.15), transparent);
+  --deco-shimmer-v: linear-gradient(to bottom, transparent 0%, oklch(0.83 0.18 195 / 0.15) 50%, transparent 100%);
+
+  /* ── Text glow ── */
+  --deco-text-glow: 0 0 8px oklch(0.83 0.18 195 / 0.4);
+  --deco-text-glow-strong: 0 0 10px oklch(0.83 0.18 195 / 0.5), 0 0 25px oklch(0.83 0.18 195 / 0.2);
+
+  /* ── LED / dot glow ── */
+  --deco-led-glow: 0 0 6px oklch(0.83 0.18 195 / 0.5);
+
+  /* ── Card borders ── */
+  --deco-card-border-featured: conic-gradient(from var(--border-angle), oklch(0.83 0.18 195 / 0.5), oklch(0.83 0.18 195 / 0.1), oklch(0.83 0.18 195 / 0.5)) 1;
+  --deco-card-border-standard: conic-gradient(from var(--border-angle), oklch(0.42 0.06 250 / 0.4), oklch(0.42 0.06 250 / 0.15), oklch(0.42 0.06 250 / 0.4)) 1;
+
+  /* ── Card inset shadows ── */
+  --deco-card-inset-featured: inset 0 1px 0 oklch(0.42 0.06 250 / 0.12), inset 0 -1px 0 oklch(0 0 0 / 0.3), inset 1px 0 0 oklch(0.42 0.06 250 / 0.06), inset -1px 0 0 oklch(0 0 0 / 0.2);
+  --deco-card-inset-standard: inset 0 1px 0 oklch(0.42 0.06 250 / 0.1), inset 0 -1px 0 oklch(0 0 0 / 0.25), inset 1px 0 0 oklch(0.42 0.06 250 / 0.04), inset -1px 0 0 oklch(0 0 0 / 0.15);
+
+  /* ── Vignette ── */
+  --deco-vignette: radial-gradient(ellipse at center, transparent 40%, oklch(0 0 0 / 0.4) 100%);
+  --deco-vignette-subtle: radial-gradient(circle, transparent 50%, rgba(0, 0, 0, 0.12) 100%);
+
+  /* ── Spotlight (mouse hover) ── */
+  --deco-spotlight-featured: radial-gradient(circle 300px at var(--mouse-x, 50%) var(--mouse-y, 50%), oklch(0.83 0.18 195 / 0.12), transparent);
+  --deco-spotlight-standard: radial-gradient(circle 250px at var(--mouse-x, 50%) var(--mouse-y, 50%), oklch(0.83 0.18 195 / 0.07), transparent);
+
+  /* ── Accent lines ── */
+  --deco-accent-line: linear-gradient(90deg, transparent, oklch(0.83 0.18 195 / 0.4), transparent);
+  --deco-accent-line-dim: linear-gradient(90deg, transparent, oklch(0.83 0.18 195 / 0.2), transparent);
+  --deco-accent-line-metal: linear-gradient(90deg, transparent, oklch(0.42 0.06 250 / 0.3), transparent);
+
+  /* ── Scan bar ── */
+  --deco-scan-color: oklch(0.83 0.18 195 / 0.4);
+  --deco-scan-shadow: 0 0 8px oklch(0.83 0.18 195 / 0.3), 0 0 2px oklch(0.83 0.18 195 / 0.6);
+
+  /* ── Hover glow shadows ── */
+  --deco-hover-glow-cyan: 0 0 8px oklch(0.83 0.18 195 / 0.3);
+  --deco-hover-glow-red: 0 0 8px oklch(0.65 0.25 15 / 0.3);
+  --deco-hover-glow-violet: 0 0 8px oklch(0.60 0.25 300 / 0.3);
+  --deco-hover-glow-amber: 0 0 8px oklch(0.80 0.18 75 / 0.3);
+
+  /* ── Danger stripe ── */
+  --deco-danger-stripe: repeating-linear-gradient(-45deg, var(--red-0), var(--red-0) 8px, transparent 8px, transparent 16px);
+
+  /* ── Text glow — red ── */
+  --deco-text-glow-red: 0 0 10px oklch(0.65 0.25 15 / 0.4);
+
+  /* ── Input / Select focus shadows ── */
+  --deco-input-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --deco-input-focus-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 0 1px oklch(0.83 0.18 195 / 0.4), 0 0 12px oklch(0.83 0.18 195 / 0.15);
+  --deco-input-focus-shadow-error: inset 0 2px 4px rgba(0, 0, 0, 0.3), 0 0 8px oklch(0.65 0.25 15 / 0.4);
+  --deco-icon-drop-shadow: drop-shadow(0 0 4px oklch(0.83 0.18 195 / 0.5));
+
+  /* ── Amber data accent family ── */
+  --deco-text-glow-amber: 0 0 8px oklch(0.80 0.18 75 / 0.4);
+  --deco-led-glow-amber: 0 0 6px oklch(0.80 0.18 75 / 0.5);
+  --deco-accent-line-data: linear-gradient(90deg, oklch(0.80 0.18 75 / 0.5), oklch(0.80 0.18 75 / 0.2), transparent);
+
+  /* ── Violet structure accent family ── */
+  --deco-text-glow-violet: 0 0 8px oklch(0.60 0.25 300 / 0.4);
+  --deco-accent-line-violet: linear-gradient(90deg, transparent, oklch(0.60 0.25 300 / 0.4), transparent);
+  --deco-led-glow-violet: 0 0 6px oklch(0.60 0.25 300 / 0.5);
+
+  /* ── Multi-hue gradients ── */
+  --deco-accent-line-warm: linear-gradient(90deg, transparent, oklch(0.83 0.18 195 / 0.5), oklch(0.65 0.28 350 / 0.5), transparent);
+
+  /* ── LED states ── */
+  --deco-led-amber-off: oklch(0.30 0.04 75 / 0.3);
+  --deco-led-amber-on: oklch(0.80 0.18 75);
+  --deco-led-violet-off: oklch(0.30 0.04 300 / 0.3);
+  --deco-led-violet-on: oklch(0.60 0.25 300);
+
+  /* ── Power-on scan ── */
+  --deco-scan-warm: oklch(0.80 0.18 75 / 0.3);
+  --deco-scan-warm-shadow: 0 0 8px oklch(0.80 0.18 75 / 0.2), 0 0 2px oklch(0.80 0.18 75 / 0.4);
+
+  /* ── Scrollbar ── */
+  --deco-scrollbar-thumb: oklch(0.83 0.18 195 / 0.5);
+  --deco-scrollbar-track: oklch(0.18 0.04 250);
+
+  /* ── Z-index scale ── */
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-dropdown: 20;
+  --z-modal-backdrop: 30;
+  --z-modal: 31;
+  --z-toast: 40;
+  --z-tooltip: 50;
+  --z-scanline: 9999;
+
+  /* ── Animation durations ── */
+  --duration-instant: 50ms;
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 350ms;
+}

@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="cyberpunk/cyberpunk.css">
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
     :root {
@@ -517,7 +518,7 @@
     .hint.visible { opacity: 1; }
   </style>
 </head>
-<body>
+<body data-theme="cyberpunk">
   <header>
     <div style="display: flex; align-items: center; gap: 16px;">
       <h1>Mind Map</h1>
@@ -1449,5 +1450,6 @@
       return div.innerHTML;
     }
   </script>
+  <script type="module" src="cyberpunk/index.js"></script>
 </body>
 </html>

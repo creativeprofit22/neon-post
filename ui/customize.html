@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="cyberpunk/cyberpunk.css">
   <style>
     :root {
       --bg-primary: #0a0a0b;
@@ -677,7 +678,7 @@
     }
   </style>
 </head>
-<body>
+<body data-theme="cyberpunk">
   <header>
     <h1><span>Personalize</span></h1>
     <div class="header-actions">
@@ -1263,5 +1264,6 @@
     loadTimezones().then(() => loadProfile());
     setupLocationAutocomplete();
   </script>
+  <script type="module" src="cyberpunk/index.js"></script>
 </body>
 </html>

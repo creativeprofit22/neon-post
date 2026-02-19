@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="cyberpunk/cyberpunk.css">
   <style>
     :root {
       --bg-primary: #0a0a0b;
@@ -645,7 +646,7 @@
     }
   </style>
 </head>
-<body>
+<body data-theme="cyberpunk">
   <div class="onboarding">
     <div class="logo"></div>
 
@@ -1157,5 +1158,6 @@
       if (e.key === 'Enter') completeOAuth();
     });
   </script>
+  <script type="module" src="cyberpunk/index.js"></script>
 </body>
 </html>

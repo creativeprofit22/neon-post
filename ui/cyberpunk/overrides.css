@@ -1,0 +1,28 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Cyberpunk Design System — Overrides
+   Maps Pocket Agent's existing CSS variable names to cyberpunk tokens.
+   This is the bridge layer: PA's inline styles use --bg-primary etc.,
+   and this file reassigns them to the cyberpunk palette.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="cyberpunk"] {
+  /* ── Surface mapping ── */
+  --bg-primary: var(--bg-void);
+  --bg-secondary: var(--bg-base);
+  --bg-tertiary: var(--bg-raised);
+
+  /* ── Border mapping ── */
+  --border: var(--border-default);
+
+  /* ── Text mapping (names match, but values now come from cyberpunk tokens) ── */
+  /* --text-primary, --text-secondary, --text-muted are already defined in tokens.css */
+
+  /* ── Accent mapping ── */
+  --accent: var(--cyan-0);
+  --accent-secondary: var(--magenta-0);
+
+  /* ── Semantic mapping ── */
+  --error: var(--red-0);
+  --success: var(--green-0);
+  --warning: var(--amber-0);
+}

@@ -1,0 +1,627 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Cyberpunk Design System — Effects
+   @keyframes, @property, voltage/health/scroll selectors.
+   Keyframes are global (no scoping needed). Attribute selectors are global.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Traveling Light — Animated border property ── */
+@property --border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* ── Border rotate keyframes ── */
+@keyframes border-rotate {
+  to {
+    --border-angle: 360deg;
+  }
+}
+
+/* ── Glitch RGB split ── */
+@keyframes glitch-rgb {
+  0%,
+  100% {
+    text-shadow: none;
+  }
+  25% {
+    text-shadow:
+      2px 0 oklch(0.65 0.25 15 / 0.8),
+      -2px 0 oklch(0.83 0.18 195 / 0.8);
+  }
+  50% {
+    text-shadow:
+      -1px 0 oklch(0.65 0.25 15 / 0.8),
+      1px 0 oklch(0.83 0.18 195 / 0.8);
+  }
+  75% {
+    text-shadow:
+      2px 0 oklch(0.65 0.25 15 / 0.8),
+      -2px 0 oklch(0.83 0.18 195 / 0.8);
+  }
+}
+
+/* ── Skew snap ── */
+@keyframes skew-snap {
+  0% {
+    transform: skew(-1.5deg);
+  }
+  100% {
+    transform: skew(0deg);
+  }
+}
+
+/* ── Corner spark ── */
+@keyframes corner-spark {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ── Corner brackets hover spark ── */
+.corner-brackets:hover [data-bracket] {
+  animation: corner-spark 0.6s ease-out;
+}
+
+/* ── Toast entry: slide down + skew snap ── */
+@keyframes toast-enter {
+  0% {
+    transform: translateX(20px) skew(-1.5deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0) skew(0deg);
+    opacity: 1;
+  }
+}
+
+/* ── Toast dismiss: slide right + fade ── */
+@keyframes toast-dismiss {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* ── Global glitch (triggered on error toasts) ── */
+@keyframes global-glitch {
+  0%,
+  100% {
+    filter: none;
+  }
+  20% {
+    filter: hue-rotate(15deg) saturate(1.5);
+  }
+  40% {
+    filter: hue-rotate(-10deg) saturate(1.3);
+  }
+  60% {
+    filter: hue-rotate(5deg) saturate(1.2);
+  }
+}
+
+/* ── Voltage tiers — data attribute selectors ── */
+[data-voltage="low"] {
+  animation: border-rotate 6s linear infinite;
+}
+
+[data-voltage="medium"] {
+  animation: border-rotate 3s linear infinite;
+}
+
+[data-voltage="high"] {
+  animation: border-rotate 1s linear infinite;
+}
+
+/* ── Workflow Stream — Particle flow along offset-path ── */
+@keyframes particle-flow {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+/* ── Stream pulse — shockwave on trigger ── */
+@keyframes stream-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.stream-pulse {
+  animation: stream-pulse 0.6s ease-in-out;
+}
+
+/* ── Stage gate pulse — AI processing / output completion ── */
+@keyframes stage-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.stage-pulse {
+  animation: stage-glow-pulse 1.2s ease-in-out infinite;
+}
+
+/* ── Stream flash overlay ── */
+@keyframes stream-flash {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ── Shimmer sweep — metallic highlight sweep across surface ── */
+@keyframes shimmer-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+/* ── Scan move — 1px glow line scanning top to bottom ── */
+@keyframes scan-move {
+  0% {
+    top: -2px;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+/* ── Line grow — accent line scaling from center ── */
+@keyframes line-grow {
+  0% {
+    transform: scaleX(0);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+/* ── LED flicker — realistic indicator light ── */
+@keyframes led-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  93% {
+    opacity: 0.4;
+  }
+  94% {
+    opacity: 1;
+  }
+  96% {
+    opacity: 0.6;
+  }
+  97% {
+    opacity: 1;
+  }
+}
+
+/* ── LED warmup — power-on glow fade-in ── */
+@keyframes led-warmup {
+  0% {
+    opacity: 0;
+    filter: brightness(0.3);
+  }
+  50% {
+    opacity: 0.7;
+    filter: brightness(0.8);
+  }
+  100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+}
+
+/* ── Segment pulse — seven-segment display flicker ── */
+@keyframes segment-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* ── Danger pulse — red alert glow throb ── */
+@keyframes danger-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 8px rgba(220, 70, 50, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 16px rgba(220, 70, 50, 0.8),
+      0 0 32px rgba(220, 70, 50, 0.3);
+  }
+}
+
+/* ── LCD blink ── */
+@keyframes lcd-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* ── Capacitor discharge — cyan flash ── */
+@keyframes capacitor-discharge {
+  0% {
+    box-shadow:
+      inset 0 0 20px rgba(100, 220, 255, 0.8),
+      0 0 0 rgba(100, 220, 255, 0);
+  }
+  30% {
+    box-shadow:
+      inset 0 0 8px rgba(100, 220, 255, 0.3),
+      0 0 15px rgba(100, 220, 255, 0.6),
+      0 0 30px rgba(100, 220, 255, 0.3);
+  }
+  100% {
+    box-shadow:
+      inset 0 0 0 rgba(100, 220, 255, 0),
+      0 0 40px rgba(100, 220, 255, 0),
+      0 0 60px rgba(100, 220, 255, 0);
+  }
+}
+
+/* ── Danger discharge — red flash ── */
+@keyframes danger-discharge {
+  0% {
+    box-shadow:
+      inset 0 0 20px rgba(220, 70, 50, 0.8),
+      0 0 0 rgba(220, 70, 50, 0);
+  }
+  30% {
+    box-shadow:
+      inset 0 0 8px rgba(220, 70, 50, 0.3),
+      0 0 15px rgba(220, 70, 50, 0.6),
+      0 0 30px rgba(220, 70, 50, 0.3);
+  }
+  100% {
+    box-shadow:
+      inset 0 0 0 rgba(220, 70, 50, 0),
+      0 0 40px rgba(220, 70, 50, 0),
+      0 0 60px rgba(220, 70, 50, 0);
+  }
+}
+
+/* ── Skeleton shimmer ── */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  animation: skeleton-shimmer 2s ease-in-out infinite;
+}
+
+/* ── Skeleton scanline ── */
+@keyframes skeleton-scanline {
+  0% {
+    background-position: 0 200%;
+  }
+  100% {
+    background-position: 0 -200%;
+  }
+}
+
+.skeleton-scanline {
+  animation: skeleton-scanline 3s ease-in-out infinite;
+}
+
+/* ── Skeleton pulse ── */
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.skeleton-pulse {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+/* ── Icon pulse ── */
+@keyframes icon-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+/* ── Alert flash ── */
+@keyframes alert-flash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+/* ── Fade in ── */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ── Modal enter ── */
+@keyframes modal-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ── Signal broadcast ── */
+@keyframes signal-broadcast {
+  0% {
+    opacity: 0.15;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0.15;
+    transform: scale(0.92);
+  }
+}
+
+/* ── Signal ping ── */
+@keyframes signal-ping {
+  0% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+}
+
+/* ── Shimmer horizontal ── */
+@keyframes shimmer-h {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ── Shimmer vertical ── */
+@keyframes shimmer-v {
+  0%,
+  100% {
+    background-position: 0 0%;
+  }
+  50% {
+    background-position: 0 100%;
+  }
+}
+
+/* ── Heartbeat glow ── */
+@keyframes heartbeat-glow {
+  0% {
+    opacity: 1;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ── Heartbeat pulse ── */
+@keyframes heartbeat-pulse {
+  0% {
+    opacity: 0.6;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}
+
+/* ── Power-on scan ── */
+@keyframes power-on-scan {
+  0% {
+    left: -10%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    left: 110%;
+    opacity: 0;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Environmental Awareness — CSS driven by environment engine signals
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Warmth-driven glow hue: cyan (195) -> amber (75) ── */
+[data-theme="cyberpunk"] {
+  --env-glow-hue: calc(195 - var(--env-warmth, 0) * 120);
+}
+
+/* ── Low battery: dim glows and scanlines ── */
+[data-env-voltage="low"] {
+  --deco-glow-multiplier: 0.3;
+  --deco-scanline-opacity: 0.05;
+}
+
+/* ── Signal interference: scanline flicker on weak network ── */
+@keyframes signal-interference {
+  0%,
+  100% {
+    opacity: var(--deco-scanline-opacity, 0.15);
+  }
+  50% {
+    opacity: calc(var(--deco-scanline-opacity, 0.15) * 1.5);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   System Health — Degradation states driven by data-health-tier
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Warning: slight desaturation ── */
+[data-health-tier="warning"] [data-health-container] {
+  filter: saturate(0.85);
+}
+
+/* ── Critical: noticeable desaturation + bracket flicker ── */
+[data-health-tier="critical"] [data-health-container] {
+  filter: saturate(0.6);
+}
+
+[data-health-tier="critical"] .corner-brackets [data-bracket] {
+  animation: corner-spark 0.3s steps(2) infinite;
+}
+
+/* ── Terminal: heavy desaturation + fast bracket flicker ── */
+[data-health-tier="terminal"] [data-health-container] {
+  filter: saturate(0.3);
+}
+
+[data-health-tier="terminal"] .corner-brackets [data-bracket] {
+  animation: corner-spark 0.15s steps(2) infinite;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Reduced Motion
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .stream-pulse,
+  .stage-pulse,
+  .skeleton-shimmer,
+  .skeleton-scanline,
+  .skeleton-pulse,
+  .corner-brackets:hover [data-bracket],
+  .input-wrapper:focus-within [data-spark],
+  [data-voltage="low"],
+  [data-voltage="medium"],
+  [data-voltage="high"],
+  [data-health-tier="critical"] .corner-brackets [data-bracket],
+  [data-health-tier="terminal"] .corner-brackets [data-bracket] {
+    animation: none !important;
+  }
+
+  [data-health-tier] [data-health-container] {
+    filter: none !important;
+  }
+
+  [data-scroll-depth] [data-health-container] {
+    transition: none !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Scroll Descent — Depth-driven atmosphere shift
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Mid (0.25-0.50) ── */
+[data-health-tier="healthy"][data-scroll-depth="mid"] {
+  --deco-scanline-opacity: 0.2;
+  --deco-glow-multiplier: 0.9;
+}
+
+/* ── Deep (0.50-0.75) ── */
+[data-health-tier="healthy"][data-scroll-depth="deep"] {
+  --deco-scanline-opacity: 0.3;
+  --deco-glow-multiplier: 0.7;
+}
+
+/* ── Abyss (0.75-1.0) ── */
+[data-health-tier="healthy"][data-scroll-depth="abyss"] {
+  --deco-scanline-opacity: 0.45;
+  --deco-glow-multiplier: 0.5;
+}
