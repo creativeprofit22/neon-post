@@ -272,6 +272,18 @@ body[data-theme="cyberpunk"] {
   position: relative;
 }
 
+/* Settings-grid top accent gradient line */
+[data-theme="cyberpunk"] .settings-grid::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--sa, var(--wa, var(--cyan-0))), transparent 60%);
+  pointer-events: none;
+}
+
 [data-theme="cyberpunk"] .aspect-card:hover {
   border-color: color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 30%, var(--glass-border));
   box-shadow: var(--glass-highlight), var(--glow-subtle);
@@ -425,10 +437,13 @@ body[data-theme="cyberpunk"] {
 /* ── Settings rows (cron, settings) ── */
 [data-theme="cyberpunk"] .setting-row {
   border-bottom-color: var(--border-subtle);
+  border-left: 2px solid transparent;
+  transition: background 0.15s var(--ease-default), border-color 0.2s var(--ease-default);
 }
 
 [data-theme="cyberpunk"] .setting-row:hover {
   background: color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 4%, transparent);
+  border-left-color: var(--sa, var(--wa, var(--cyan-0)));
 }
 
 /* ── Schedule tabs (cron) ── */
@@ -787,6 +802,7 @@ body[data-theme="cyberpunk"] {
   background: oklch(0.87 0.30 145 / 0.1);
   color: var(--green-0);
   box-shadow: 0 0 6px oklch(0.87 0.30 145 / 0.2);
+  animation: status-pulse-green 3s ease-in-out infinite;
 }
 
 [data-theme="cyberpunk"] .status.error {
@@ -803,6 +819,7 @@ body[data-theme="cyberpunk"] {
 [data-theme="cyberpunk"] .status.info {
   background: oklch(0.83 0.18 195 / 0.1);
   color: var(--cyan-0);
+  animation: status-pulse-cyan 3s ease-in-out infinite;
 }
 
 /* ── 5. Cards (settings) ── */
@@ -828,14 +845,38 @@ body[data-theme="cyberpunk"] {
 
 /* ── 6. Info boxes (settings) ── */
 [data-theme="cyberpunk"] .info-box {
-  background: var(--bg-base);
-  border: 1px solid color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 20%, transparent);
+  background: var(--glass-bg);
+  border: 1px solid color-mix(in srgb, var(--sa, var(--wa, oklch(0.83 0.18 195))) 20%, transparent);
+  border-left: 3px solid var(--sa, var(--wa, var(--cyan-0)));
   border-radius: 2px;
+  font-family: var(--font-mono);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--sa, var(--wa, oklch(0.83 0.18 195))) 15%, transparent);
 }
 
 [data-theme="cyberpunk"] .info-box svg,
 [data-theme="cyberpunk"] .info-box i {
-  color: var(--wa, var(--cyan-0));
+  color: var(--sa, var(--wa, var(--cyan-0)));
+}
+
+/* ── 6b. Details/summary (settings) ── */
+[data-theme="cyberpunk"] details summary {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--sa, var(--wa, var(--cyan-0)));
+  cursor: pointer;
+  font-size: var(--text-xs);
+}
+
+[data-theme="cyberpunk"] details[open] summary {
+  text-shadow: 0 0 8px color-mix(in srgb, var(--sa, var(--wa, oklch(0.83 0.18 195))) 40%, transparent);
+  margin-bottom: 8px;
+}
+
+/* ── 6c. Progress bar (settings — updates) ── */
+[data-theme="cyberpunk"] #update-progress-bar {
+  background: var(--sa, var(--wa, var(--cyan-0))) !important;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--sa, var(--wa, oklch(0.83 0.18 195))) 40%, transparent);
 }
 
 /* ── 7. Risk badge + tooltip (settings) ── */
@@ -1041,4 +1082,86 @@ body[data-theme="cyberpunk"] {
 @keyframes window-scanline {
   0% { top: 0; }
   100% { top: 100vh; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Per-Section Accent System
+   JS sets data-section-accent on <section>. CSS custom properties map to
+   the appropriate color family, then generic rules reference --sa.
+   Cyan needs no rule — falls through to --wa default.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Section accent token mapping ── */
+[data-section-accent="blue"] {
+  --sa: var(--blue-0);
+  --sa-dim: oklch(0.30 0.10 260);
+  --sa-glow: 0 0 8px oklch(0.60 0.22 260 / 0.5), 0 0 24px oklch(0.60 0.22 260 / 0.15);
+}
+
+[data-section-accent="violet"] {
+  --sa: var(--violet-0);
+  --sa-dim: var(--violet-1);
+  --sa-glow: var(--glow-violet);
+}
+
+[data-section-accent="amber"] {
+  --sa: var(--amber-0);
+  --sa-dim: var(--amber-1);
+  --sa-glow: var(--glow-amber);
+}
+
+[data-section-accent="green"] {
+  --sa: var(--green-0);
+  --sa-dim: var(--green-1);
+  --sa-glow: var(--glow-green);
+}
+
+[data-section-accent="magenta"] {
+  --sa: var(--magenta-0);
+  --sa-dim: var(--magenta-1);
+  --sa-glow: var(--glow-magenta);
+}
+
+/* ── Section title inherits section accent ── */
+[data-theme="cyberpunk"] [data-section-accent] .section-title {
+  color: var(--sa, var(--wa, var(--cyan-0)));
+  text-shadow: 0 0 8px color-mix(in srgb, var(--sa, var(--wa, oklch(0.83 0.18 195))) 40%, transparent);
+}
+
+/* ── Toggle active inherits section accent ── */
+[data-theme="cyberpunk"] [data-section-accent] .toggle.active {
+  background: var(--sa, var(--wa, var(--cyan-0)));
+  border-color: var(--sa, var(--wa, var(--cyan-0)));
+}
+
+[data-theme="cyberpunk"] [data-section-accent] .toggle.active::after {
+  box-shadow: 0 0 6px var(--sa, var(--wa, var(--cyan-0)));
+}
+
+/* ── Per-row provider accent stripes (API Keys fallback) ── */
+[data-theme="cyberpunk"] .key-row[data-provider] {
+  border-left: 2px solid var(--wa-dim, var(--cyan-1));
+}
+
+[data-theme="cyberpunk"] .key-row[data-provider="anthropic"] {
+  border-left-color: var(--cyan-0);
+}
+
+[data-theme="cyberpunk"] .key-row[data-provider="openai"] {
+  border-left-color: var(--green-0);
+}
+
+[data-theme="cyberpunk"] .key-row[data-provider="kimi"] {
+  border-left-color: var(--amber-0);
+}
+
+[data-theme="cyberpunk"] .key-row[data-provider="glm"] {
+  border-left-color: var(--violet-0);
+}
+
+/* ── iOS code display treatment ── */
+[data-theme="cyberpunk"] [data-cyber-code] {
+  background: var(--glass-bg) !important;
+  border-color: color-mix(in srgb, var(--sa, var(--wa, oklch(0.83 0.18 195))) 40%, transparent) !important;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--sa, var(--wa, oklch(0.83 0.18 195))) 15%, transparent);
 }

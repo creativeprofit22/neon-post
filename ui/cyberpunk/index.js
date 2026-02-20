@@ -240,6 +240,40 @@ function decorateUI() {
     else if (text.includes("glm")) table.dataset.provider = "glm";
     else table.dataset.provider = "other";
   });
+
+  // ── Per-section accent colors (settings) ──
+  const sectionAccentMap = {
+    auth: "cyan",
+    api_keys: "cyan",
+    telegram: "blue",
+    ios: "violet",
+    memory: "amber",
+    browser: "amber",
+    pocket_cli: "green",
+    updates: "magenta",
+  };
+  document.querySelectorAll(".section").forEach((section) => {
+    const accent = sectionAccentMap[section.id];
+    if (accent) section.setAttribute("data-section-accent", accent);
+  });
+
+  // ── API Keys per-row provider detection (fallback for tables without subsection-title) ──
+  document.querySelectorAll("#api_keys .key-row").forEach((row) => {
+    if (row.dataset.provider) return;
+    const keyName = row.querySelector(".key-name")?.textContent?.trim().toLowerCase();
+    if (!keyName) return;
+    if (keyName.includes("anthropic")) row.dataset.provider = "anthropic";
+    else if (keyName.includes("openai")) row.dataset.provider = "openai";
+    else if (keyName.includes("kimi")) row.dataset.provider = "kimi";
+    else if (keyName.includes("glm")) row.dataset.provider = "glm";
+    else row.dataset.provider = "other";
+  });
+
+  // ── iOS code display treatment ──
+  ["ios-instance-id", "ios-pairing-code"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el?.parentElement) el.parentElement.setAttribute("data-cyber-code", "");
+  });
 }
 
 // ── Boot ──

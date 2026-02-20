@@ -521,6 +521,17 @@
   50% { opacity: 1; box-shadow: 0 0 8px oklch(0.87 0.30 145 / 0.4); }
 }
 
+/* ── Status pulse — subtle glow throb for status badges ── */
+@keyframes status-pulse-green {
+  0%, 100% { box-shadow: 0 0 6px oklch(0.87 0.30 145 / 0.2); }
+  50% { box-shadow: 0 0 10px oklch(0.87 0.30 145 / 0.35); }
+}
+
+@keyframes status-pulse-cyan {
+  0%, 100% { box-shadow: 0 0 6px oklch(0.83 0.18 195 / 0.2); }
+  50% { box-shadow: 0 0 10px oklch(0.83 0.18 195 / 0.35); }
+}
+
 /* ── Section reveal — scan-line section transition ── */
 @keyframes section-reveal {
   0% { clip-path: inset(0 0 100% 0); opacity: 0; }
