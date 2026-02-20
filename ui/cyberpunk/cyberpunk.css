@@ -5,6 +5,7 @@
    2. effects — @keyframes, @property, data-attribute selectors
    3. base    — resets, scrollbar, scanlines, overlays
    4. overrides — maps PA's CSS vars to cyberpunk tokens
+   5. windows — shared overrides for non-chat windows
    ══════════════════════════════════════════════════════════════════════════ */
 
 @import url("tokens.css");
@@ -12,3 +13,4 @@
 @import url("base.css");
 @import url("overrides.css");
 @import url("chat.css");
+@import url("windows.css");

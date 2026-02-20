@@ -94,6 +94,74 @@ function decorateUI() {
   const sendBtn = document.getElementById("send-btn");
   if (sendBtn) {
     register(electricBorder(sendBtn, { chaos: 0.06, speed: 0.5 }));
+
+    // Swap paw ellipses → detailed cyber paw SVG
+    const sendIcon = sendBtn.querySelector(".send-icon");
+    if (sendIcon) {
+      const originalSendHTML = sendIcon.outerHTML;
+      const cyberPaw = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "svg"
+      );
+      cyberPaw.classList.add("send-icon", "cyber-paw");
+      cyberPaw.setAttribute("viewBox", "0 0 24 24");
+      cyberPaw.setAttribute("fill", "none");
+      cyberPaw.innerHTML = `
+        <g class="paw-group">
+          <path class="paw-pad" d="M12 19.5c-3 0-6-2.2-6-5.5 0-2.8 2.5-4.5 6-4.5s6 1.7 6 4.5c0 3.3-3 5.5-6 5.5z" fill="currentColor"/>
+          <ellipse class="paw-bean b1" cx="6.5" cy="7" rx="2.2" ry="2.8" fill="currentColor"/>
+          <ellipse class="paw-bean b2" cx="10.2" cy="4.5" rx="1.8" ry="2.4" fill="currentColor"/>
+          <ellipse class="paw-bean b3" cx="13.8" cy="4.5" rx="1.8" ry="2.4" fill="currentColor"/>
+          <ellipse class="paw-bean b4" cx="17.5" cy="7" rx="2.2" ry="2.8" fill="currentColor"/>
+        </g>`;
+      sendIcon.replaceWith(cyberPaw);
+      register(() => {
+        const current = sendBtn.querySelector(".cyber-paw");
+        if (current) {
+          const tmp = document.createElement("div");
+          tmp.innerHTML = originalSendHTML;
+          current.replaceWith(tmp.firstElementChild);
+        }
+      });
+    }
+  }
+
+  // Attach button → swap paperclip for data chip SVG
+  const attachBtn = document.querySelector(".attach-btn");
+  if (attachBtn) {
+    const attachSvg = attachBtn.querySelector("svg");
+    if (attachSvg) {
+      const originalAttachHTML = attachSvg.outerHTML;
+      const chipSvg = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "svg"
+      );
+      chipSvg.setAttribute("viewBox", "0 0 24 24");
+      chipSvg.setAttribute("fill", "none");
+      chipSvg.setAttribute("stroke", "currentColor");
+      chipSvg.setAttribute("stroke-width", "1.5");
+      chipSvg.setAttribute("stroke-linecap", "round");
+      chipSvg.setAttribute("stroke-linejoin", "round");
+      chipSvg.innerHTML = `
+        <rect x="6" y="6" width="12" height="12" rx="1"/>
+        <line x1="9" y1="6" x2="9" y2="3"/><line x1="12" y1="6" x2="12" y2="3"/><line x1="15" y1="6" x2="15" y2="3"/>
+        <line x1="9" y1="18" x2="9" y2="21"/><line x1="12" y1="18" x2="12" y2="21"/><line x1="15" y1="18" x2="15" y2="21"/>
+        <line x1="6" y1="9" x2="3" y2="9"/><line x1="6" y1="12" x2="3" y2="12"/><line x1="6" y1="15" x2="3" y2="15"/>
+        <line x1="18" y1="9" x2="21" y2="9"/><line x1="18" y1="12" x2="21" y2="12"/><line x1="18" y1="15" x2="21" y2="15"/>
+        <path d="M9 10h2v4h2v-2" stroke-width="0.8" opacity="0.5"/>
+        <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" opacity="0.3"/>`;
+      attachSvg.replaceWith(chipSvg);
+      attachBtn.classList.add("has-chip");
+      register(() => {
+        const current = attachBtn.querySelector("svg");
+        if (current) {
+          const tmp = document.createElement("div");
+          tmp.innerHTML = originalAttachHTML;
+          current.replaceWith(tmp.firstElementChild);
+        }
+        attachBtn.classList.remove("has-chip");
+      });
+    }
   }
 
   // Input area → vanish effect on send

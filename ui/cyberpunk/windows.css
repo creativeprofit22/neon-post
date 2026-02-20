@@ -1,0 +1,805 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Cyberpunk Design System — Windows
+   Shared overrides for non-chat windows (facts, daily-logs, soul,
+   customize, cron, settings). Scoped under [data-theme="cyberpunk"].
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Page background — animated gradient ── */
+[data-theme="cyberpunk"] body {
+  background:
+    radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.5) 100%),
+    radial-gradient(ellipse at 20% 50%, oklch(0.25 0.16 195 / 0.55), transparent 60%),
+    radial-gradient(ellipse at 80% 20%, oklch(0.22 0.15 300 / 0.45), transparent 50%),
+    radial-gradient(ellipse at 60% 80%, oklch(0.20 0.16 350 / 0.4), transparent 50%),
+    linear-gradient(180deg, oklch(0.06 0.02 250) 0%, oklch(0.06 0.02 250) 100%);
+  background-size: 100% 100%, 200% 200%, 200% 200%, 200% 200%, 100% 100%;
+  animation: cyber-bg-drift 25s ease infinite;
+}
+
+/* ── Header ── */
+[data-theme="cyberpunk"] header {
+  background: var(--bg-base);
+  border-bottom-color: var(--cyan-1);
+}
+
+[data-theme="cyberpunk"] header h1 {
+  font-family: var(--font-mono);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  font-size: var(--text-sm);
+}
+
+[data-theme="cyberpunk"] header h1 span {
+  background: none;
+  -webkit-background-clip: unset;
+  background-clip: unset;
+  -webkit-text-fill-color: var(--cyan-0);
+  color: var(--cyan-0);
+  text-shadow: var(--deco-text-glow);
+}
+
+/* ── Count badges ── */
+[data-theme="cyberpunk"] .fact-count,
+[data-theme="cyberpunk"] .log-count,
+[data-theme="cyberpunk"] .aspect-count {
+  color: var(--cyan-1);
+  font-family: var(--font-mono);
+}
+
+/* ── Buttons — shared ── */
+[data-theme="cyberpunk"] .header-actions button,
+[data-theme="cyberpunk"] .action-bar button,
+[data-theme="cyberpunk"] .create-btn {
+  background: var(--bg-raised);
+  color: var(--text-secondary);
+  border: 1px solid var(--cyan-1);
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  font-size: var(--text-xs);
+  box-shadow: none;
+  transition: all 0.2s var(--ease-default);
+}
+
+[data-theme="cyberpunk"] .header-actions button:hover,
+[data-theme="cyberpunk"] .action-bar button:hover,
+[data-theme="cyberpunk"] .create-btn:hover {
+  background: var(--bg-elevated);
+  color: var(--cyan-0);
+  border-color: var(--cyan-0);
+  box-shadow: var(--glow-subtle);
+  transform: none;
+}
+
+[data-theme="cyberpunk"] .header-actions button:active,
+[data-theme="cyberpunk"] .action-bar button:active,
+[data-theme="cyberpunk"] .create-btn:active {
+  transform: none;
+  box-shadow: var(--glow-cyan);
+}
+
+/* Primary action buttons (gradient buttons in PA) */
+[data-theme="cyberpunk"] .action-bar button:not(.secondary),
+[data-theme="cyberpunk"] .header-actions button:not(.secondary):not(.reboot),
+[data-theme="cyberpunk"] .create-btn {
+  border-color: oklch(0.83 0.18 195 / 0.5);
+  color: var(--cyan-0);
+}
+
+[data-theme="cyberpunk"] .action-bar button:not(.secondary):hover,
+[data-theme="cyberpunk"] .header-actions button:not(.secondary):not(.reboot):hover,
+[data-theme="cyberpunk"] .create-btn:hover {
+  border-color: var(--cyan-0);
+  box-shadow: var(--glow-cyan);
+  background: var(--bg-elevated);
+}
+
+/* Delete / icon buttons */
+[data-theme="cyberpunk"] .delete-btn,
+[data-theme="cyberpunk"] .icon-btn {
+  border-radius: 2px;
+  transition: all 0.15s var(--ease-default);
+}
+
+[data-theme="cyberpunk"] .delete-btn:hover {
+  background: oklch(0.65 0.25 15 / 0.1);
+  color: var(--red-0);
+  box-shadow: 0 0 8px oklch(0.65 0.25 15 / 0.2);
+}
+
+[data-theme="cyberpunk"] .icon-btn {
+  background: var(--bg-base);
+  border-color: var(--border-default);
+  border-radius: 2px;
+}
+
+[data-theme="cyberpunk"] .icon-btn:hover {
+  background: var(--bg-raised);
+  border-color: var(--cyan-1);
+  color: var(--cyan-0);
+}
+
+[data-theme="cyberpunk"] .icon-btn.danger:hover {
+  border-color: var(--red-0);
+  color: var(--red-0);
+  box-shadow: 0 0 8px oklch(0.65 0.25 15 / 0.2);
+}
+
+/* Reboot button */
+[data-theme="cyberpunk"] .header-actions button.reboot.active {
+  border-color: var(--cyan-0);
+  box-shadow: var(--glow-cyan);
+  animation: cyber-reboot-glow 2s ease-in-out infinite;
+}
+
+@keyframes cyber-reboot-glow {
+  0%, 100% { box-shadow: var(--glow-subtle); }
+  50% { box-shadow: var(--glow-cyan); }
+}
+
+/* ── Inputs / Textareas / Selects ── */
+[data-theme="cyberpunk"] .form-group input,
+[data-theme="cyberpunk"] .form-group textarea,
+[data-theme="cyberpunk"] .form-group select,
+[data-theme="cyberpunk"] .setting-row input,
+[data-theme="cyberpunk"] .setting-row textarea,
+[data-theme="cyberpunk"] .setting-row select,
+[data-theme="cyberpunk"] textarea.editor {
+  background: oklch(0.07 0.03 250 / 0.9);
+  border: 1px solid oklch(0.83 0.18 195 / 0.2);
+  border-radius: 2px;
+  color: var(--text-primary);
+  caret-color: var(--cyan-0);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+[data-theme="cyberpunk"] .form-group input:focus,
+[data-theme="cyberpunk"] .form-group textarea:focus,
+[data-theme="cyberpunk"] .form-group select:focus,
+[data-theme="cyberpunk"] .setting-row input:focus,
+[data-theme="cyberpunk"] .setting-row textarea:focus,
+[data-theme="cyberpunk"] .setting-row select:focus,
+[data-theme="cyberpunk"] textarea.editor:focus {
+  border-color: oklch(0.83 0.18 195 / 0.6);
+  box-shadow: var(--deco-input-focus-shadow);
+}
+
+[data-theme="cyberpunk"] .form-group input::placeholder,
+[data-theme="cyberpunk"] .form-group textarea::placeholder,
+[data-theme="cyberpunk"] .setting-row input::placeholder,
+[data-theme="cyberpunk"] .setting-row textarea::placeholder,
+[data-theme="cyberpunk"] textarea.editor::placeholder {
+  color: oklch(0.83 0.18 195 / 0.25);
+}
+
+[data-theme="cyberpunk"] .form-group label,
+[data-theme="cyberpunk"] .setting-row label {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  letter-spacing: var(--tracking-wide);
+}
+
+/* ── Tables (facts, daily-logs) ── */
+[data-theme="cyberpunk"] .facts-table,
+[data-theme="cyberpunk"] .logs-table {
+  border-collapse: collapse;
+}
+
+[data-theme="cyberpunk"] .facts-table th,
+[data-theme="cyberpunk"] .logs-table th {
+  background: var(--bg-base);
+  color: var(--cyan-0);
+  font-family: var(--font-mono);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--cyan-1);
+  text-shadow: var(--deco-text-glow);
+}
+
+[data-theme="cyberpunk"] .facts-table td,
+[data-theme="cyberpunk"] .logs-table td {
+  border-bottom-color: var(--border-subtle);
+}
+
+[data-theme="cyberpunk"] .facts-table tbody tr:hover,
+[data-theme="cyberpunk"] .logs-table tbody tr:hover {
+  background: oklch(0.83 0.18 195 / 0.04);
+}
+
+[data-theme="cyberpunk"] .facts-table .category,
+[data-theme="cyberpunk"] .logs-table .date-cell {
+  background: none;
+  -webkit-background-clip: unset;
+  background-clip: unset;
+  -webkit-text-fill-color: var(--cyan-0);
+  color: var(--cyan-0);
+  font-family: var(--font-mono);
+  text-shadow: var(--deco-text-glow);
+}
+
+[data-theme="cyberpunk"] .facts-table .subject {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+[data-theme="cyberpunk"] .today-badge {
+  background: oklch(0.83 0.18 195 / 0.15);
+  color: var(--cyan-0);
+  -webkit-text-fill-color: var(--cyan-0);
+  border-radius: 2px;
+  font-family: var(--font-mono);
+}
+
+/* ── Cards / Panels ── */
+[data-theme="cyberpunk"] .aspect-card,
+[data-theme="cyberpunk"] .form-section,
+[data-theme="cyberpunk"] .editor-container,
+[data-theme="cyberpunk"] .settings-grid {
+  background: var(--bg-glass);
+  border: 1px solid var(--cyan-1);
+  border-radius: 2px;
+  position: relative;
+}
+
+[data-theme="cyberpunk"] .aspect-card:hover {
+  border-color: oklch(0.83 0.18 195 / 0.5);
+  box-shadow: var(--glow-subtle);
+}
+
+[data-theme="cyberpunk"] .aspect-name {
+  background: none;
+  -webkit-background-clip: unset;
+  background-clip: unset;
+  -webkit-text-fill-color: var(--cyan-0);
+  color: var(--cyan-0);
+  font-family: var(--font-mono);
+  letter-spacing: var(--tracking-wide);
+  text-shadow: var(--deco-text-glow);
+}
+
+[data-theme="cyberpunk"] .aspect-content {
+  color: var(--text-secondary);
+}
+
+[data-theme="cyberpunk"] .aspect-meta {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* Editor toolbar */
+[data-theme="cyberpunk"] .editor-toolbar {
+  background: var(--bg-raised);
+  border-bottom-color: var(--cyan-1);
+  border-radius: 2px 2px 0 0;
+}
+
+[data-theme="cyberpunk"] .editor-toolbar .file-path {
+  color: var(--text-muted);
+}
+
+[data-theme="cyberpunk"] .editor-toolbar .status.saved {
+  color: var(--green-0);
+  text-shadow: 0 0 8px oklch(0.87 0.30 145 / 0.4);
+}
+
+[data-theme="cyberpunk"] .editor-toolbar .status.modified {
+  color: var(--amber-0);
+  text-shadow: var(--deco-text-glow-amber);
+}
+
+/* ── Sidebar / Nav (customize) ── */
+[data-theme="cyberpunk"] .sidebar {
+  background: var(--bg-base);
+  border-right-color: var(--cyan-1);
+}
+
+[data-theme="cyberpunk"] .nav-item {
+  font-family: var(--font-mono);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  font-size: var(--text-xs);
+  border-left-color: transparent;
+  transition: all 0.15s var(--ease-default);
+}
+
+[data-theme="cyberpunk"] .nav-item:hover {
+  background: oklch(0.83 0.18 195 / 0.06);
+  color: var(--cyan-0);
+}
+
+[data-theme="cyberpunk"] .nav-item.active {
+  background: oklch(0.83 0.18 195 / 0.08);
+  color: var(--cyan-0);
+  border-left-color: var(--cyan-0);
+  text-shadow: var(--deco-text-glow);
+}
+
+/* ── Section titles (cron, settings) ── */
+[data-theme="cyberpunk"] .section-title,
+[data-theme="cyberpunk"] .section-header h2 {
+  font-family: var(--font-mono);
+  color: var(--cyan-0);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  text-shadow: var(--deco-text-glow);
+}
+
+[data-theme="cyberpunk"] .section-desc,
+[data-theme="cyberpunk"] .section-header p {
+  color: var(--text-muted);
+}
+
+/* ── Settings rows (cron, settings) ── */
+[data-theme="cyberpunk"] .setting-row {
+  border-bottom-color: var(--border-subtle);
+}
+
+[data-theme="cyberpunk"] .setting-row:hover {
+  background: oklch(0.83 0.18 195 / 0.04);
+}
+
+/* ── Schedule tabs (cron) ── */
+[data-theme="cyberpunk"] .schedule-tab {
+  background: var(--bg-void);
+  border-color: var(--border-default);
+  border-radius: 2px;
+  font-family: var(--font-mono);
+}
+
+[data-theme="cyberpunk"] .schedule-tab:hover {
+  border-color: var(--cyan-1);
+  color: var(--cyan-0);
+}
+
+[data-theme="cyberpunk"] .schedule-tab.active {
+  background: oklch(0.83 0.18 195 / 0.12);
+  border-color: var(--cyan-0);
+  color: var(--cyan-0);
+}
+
+/* Day buttons (cron) */
+[data-theme="cyberpunk"] .day-btn {
+  border-radius: 2px;
+  font-family: var(--font-mono);
+}
+
+[data-theme="cyberpunk"] .day-btn:hover {
+  border-color: var(--cyan-1);
+  color: var(--cyan-0);
+}
+
+[data-theme="cyberpunk"] .day-btn.selected {
+  background: oklch(0.83 0.18 195 / 0.25);
+  border-color: var(--cyan-0);
+  color: var(--cyan-0);
+  box-shadow: var(--glow-subtle);
+}
+
+/* Job items (cron) */
+[data-theme="cyberpunk"] .job-item {
+  border-bottom-color: var(--border-subtle);
+}
+
+[data-theme="cyberpunk"] .job-item:hover {
+  background: oklch(0.83 0.18 195 / 0.04);
+}
+
+[data-theme="cyberpunk"] .job-status {
+  background: var(--cyan-0);
+  box-shadow: var(--deco-led-glow);
+}
+
+[data-theme="cyberpunk"] .job-item.disabled .job-status {
+  background: var(--text-muted);
+  box-shadow: none;
+}
+
+[data-theme="cyberpunk"] .job-name {
+  font-family: var(--font-mono);
+}
+
+[data-theme="cyberpunk"] .job-schedule {
+  color: var(--cyan-0);
+  font-family: var(--font-mono);
+}
+
+[data-theme="cyberpunk"] .job-session-badge {
+  background: var(--bg-void);
+  border-color: var(--border-default);
+  border-radius: 2px;
+  font-family: var(--font-mono);
+}
+
+/* ── Action bar ── */
+[data-theme="cyberpunk"] .action-bar {
+  border-top-color: var(--border-subtle);
+}
+
+[data-theme="cyberpunk"] .action-bar .info {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* ── Empty state ── */
+[data-theme="cyberpunk"] .empty-state {
+  color: var(--text-muted);
+}
+
+[data-theme="cyberpunk"] .empty-state svg {
+  filter: var(--deco-icon-drop-shadow);
+  color: var(--cyan-1);
+}
+
+[data-theme="cyberpunk"] .empty-state p {
+  font-family: var(--font-mono);
+  letter-spacing: var(--tracking-wide);
+}
+
+/* ── Toast overrides ── */
+[data-theme="cyberpunk"] .toast {
+  background: oklch(0.07 0.03 250 / 0.92);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--cyan-1);
+  border-radius: 2px;
+  box-shadow:
+    0 8px 32px oklch(0 0 0 / 0.4),
+    0 0 12px oklch(0.83 0.18 195 / 0.1);
+}
+
+[data-theme="cyberpunk"] .toast::before {
+  background: linear-gradient(90deg, var(--cyan-0), var(--magenta-0));
+}
+
+[data-theme="cyberpunk"] .toast.success {
+  border-color: oklch(0.87 0.30 145 / 0.3);
+  box-shadow:
+    0 8px 32px oklch(0 0 0 / 0.4),
+    0 0 12px oklch(0.87 0.30 145 / 0.15);
+}
+
+[data-theme="cyberpunk"] .toast.success::before {
+  background: linear-gradient(90deg, var(--green-0), oklch(0.87 0.30 145 / 0.6));
+}
+
+[data-theme="cyberpunk"] .toast.success .toast-icon {
+  background: oklch(0.87 0.30 145 / 0.15);
+  color: var(--green-0);
+}
+
+[data-theme="cyberpunk"] .toast.error {
+  border-color: oklch(0.65 0.25 15 / 0.3);
+  box-shadow:
+    0 8px 32px oklch(0 0 0 / 0.4),
+    0 0 12px oklch(0.65 0.25 15 / 0.15);
+}
+
+[data-theme="cyberpunk"] .toast.error::before {
+  background: linear-gradient(90deg, var(--red-0), oklch(0.65 0.25 15 / 0.6));
+}
+
+[data-theme="cyberpunk"] .toast.error .toast-icon {
+  background: oklch(0.65 0.25 15 / 0.15);
+  color: var(--red-0);
+}
+
+[data-theme="cyberpunk"] .toast-icon {
+  background: oklch(0.83 0.18 195 / 0.15);
+  border-radius: 2px;
+  color: var(--cyan-0);
+}
+
+[data-theme="cyberpunk"] .toast-message {
+  font-family: var(--font-mono);
+  letter-spacing: var(--tracking-wide);
+}
+
+/* ── Links ── */
+[data-theme="cyberpunk"] a {
+  color: var(--cyan-0);
+  text-decoration: none;
+  transition: text-shadow 0.2s ease;
+}
+
+[data-theme="cyberpunk"] a:hover {
+  text-shadow: var(--deco-text-glow);
+}
+
+/* ── Autocomplete dropdown (customize) ── */
+[data-theme="cyberpunk"] .autocomplete-dropdown {
+  background: var(--bg-base);
+  border-color: var(--cyan-1);
+  border-radius: 0 0 2px 2px;
+}
+
+[data-theme="cyberpunk"] .autocomplete-item {
+  border-bottom-color: var(--border-subtle);
+}
+
+[data-theme="cyberpunk"] .autocomplete-item:hover {
+  background: oklch(0.83 0.18 195 / 0.06);
+}
+
+[data-theme="cyberpunk"] .autocomplete-item .city {
+  color: var(--cyan-0);
+}
+
+/* ── Content scrollable area ── */
+[data-theme="cyberpunk"] .content {
+  background: transparent;
+}
+
+/* ── Hints ── */
+[data-theme="cyberpunk"] .form-group .hint {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Window-Specific Element Overrides
+   Per-window elements not covered by shared foundation above.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Toggle switches (settings, customize) ── */
+[data-theme="cyberpunk"] .toggle {
+  background: var(--bg-base);
+  border: 1px solid var(--cyan-1);
+  border-radius: 2px;
+  transition: all 0.2s var(--ease-default);
+}
+
+[data-theme="cyberpunk"] .toggle.active {
+  background: var(--cyan-0);
+  border-color: var(--cyan-0);
+  box-shadow: var(--glow-subtle);
+}
+
+[data-theme="cyberpunk"] .toggle-info .toggle-label {
+  font-family: var(--font-mono);
+}
+
+[data-theme="cyberpunk"] .toggle-info .toggle-desc {
+  color: var(--text-muted);
+}
+
+/* ── 2. API Keys table (settings) ── */
+[data-theme="cyberpunk"] .keys-table {
+  background: var(--bg-glass);
+  border: 1px solid var(--cyan-1);
+  border-radius: 2px;
+}
+
+[data-theme="cyberpunk"] .key-row {
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 0.15s var(--ease-default);
+}
+
+[data-theme="cyberpunk"] .key-row:hover {
+  background: oklch(0.83 0.18 195 / 0.04);
+}
+
+[data-theme="cyberpunk"] .key-name {
+  font-family: var(--font-mono);
+}
+
+[data-theme="cyberpunk"] .key-link {
+  color: var(--cyan-0);
+  transition: text-shadow 0.2s ease;
+}
+
+[data-theme="cyberpunk"] .key-link:hover {
+  text-shadow: var(--deco-text-glow);
+}
+
+[data-theme="cyberpunk"] .key-input input {
+  background: oklch(0.07 0.03 250 / 0.9);
+  border: 1px solid oklch(0.83 0.18 195 / 0.2);
+  border-radius: 2px;
+  color: var(--text-primary);
+  caret-color: var(--cyan-0);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+[data-theme="cyberpunk"] .key-input input:focus {
+  border-color: oklch(0.83 0.18 195 / 0.6);
+  box-shadow: var(--deco-input-focus-shadow);
+}
+
+[data-theme="cyberpunk"] .key-input button {
+  background: var(--bg-raised);
+  border: 1px solid var(--cyan-1);
+  border-radius: 2px;
+  color: var(--text-secondary);
+  transition: all 0.2s var(--ease-default);
+}
+
+[data-theme="cyberpunk"] .key-input button:hover {
+  background: var(--bg-elevated);
+  border-color: var(--cyan-0);
+  color: var(--cyan-0);
+  box-shadow: var(--glow-subtle);
+}
+
+/* ── 3. Auth badges (settings) ── */
+[data-theme="cyberpunk"] .auth-badge {
+  border-radius: 2px;
+  font-family: var(--font-mono);
+}
+
+[data-theme="cyberpunk"] .auth-badge.oauth,
+[data-theme="cyberpunk"] .auth-badge.api-key {
+  background: oklch(0.87 0.30 145 / 0.1);
+  color: var(--green-0);
+}
+
+[data-theme="cyberpunk"] .auth-badge.none {
+  background: oklch(0.65 0.25 15 / 0.1);
+  color: var(--red-0);
+}
+
+[data-theme="cyberpunk"] .auth-badge.loading {
+  background: var(--bg-raised);
+  color: var(--text-muted);
+}
+
+/* ── 4. Status indicators (settings) ── */
+[data-theme="cyberpunk"] .status {
+  border-radius: 2px;
+  font-family: var(--font-mono);
+}
+
+[data-theme="cyberpunk"] .status.success {
+  background: oklch(0.87 0.30 145 / 0.1);
+  color: var(--green-0);
+  box-shadow: 0 0 6px oklch(0.87 0.30 145 / 0.2);
+}
+
+[data-theme="cyberpunk"] .status.error {
+  background: oklch(0.65 0.25 15 / 0.1);
+  color: var(--red-0);
+  box-shadow: 0 0 6px oklch(0.65 0.25 15 / 0.2);
+}
+
+[data-theme="cyberpunk"] .status.warning {
+  background: oklch(0.80 0.18 75 / 0.1);
+  color: var(--amber-0);
+}
+
+[data-theme="cyberpunk"] .status.info {
+  background: oklch(0.83 0.18 195 / 0.1);
+  color: var(--cyan-0);
+}
+
+/* ── 5. Cards (settings) ── */
+[data-theme="cyberpunk"] .card {
+  background: var(--bg-glass);
+  border: 1px solid var(--cyan-1);
+  border-radius: 2px;
+}
+
+[data-theme="cyberpunk"] .card-title {
+  font-family: var(--font-mono);
+  color: var(--cyan-0);
+  text-shadow: var(--deco-text-glow);
+}
+
+[data-theme="cyberpunk"] .card-title svg,
+[data-theme="cyberpunk"] .card-title i {
+  color: var(--cyan-0);
+}
+
+/* ── 6. Info boxes (settings) ── */
+[data-theme="cyberpunk"] .info-box {
+  background: var(--bg-base);
+  border: 1px solid oklch(0.83 0.18 195 / 0.2);
+  border-radius: 2px;
+}
+
+[data-theme="cyberpunk"] .info-box svg,
+[data-theme="cyberpunk"] .info-box i {
+  color: var(--cyan-0);
+}
+
+/* ── 7. Risk badge + tooltip (settings) ── */
+[data-theme="cyberpunk"] .risk-badge {
+  background: oklch(0.65 0.25 15 / 0.1);
+  color: var(--red-0);
+  border-radius: 2px;
+  font-family: var(--font-mono);
+}
+
+[data-theme="cyberpunk"] .risk-badge .risk-info {
+  border-color: var(--red-0);
+  color: var(--red-0);
+}
+
+[data-theme="cyberpunk"] .risk-tooltip {
+  background: var(--bg-base);
+  border: 1px solid var(--cyan-1);
+  border-radius: 2px;
+}
+
+/* ── 8. Action buttons (settings) ── */
+[data-theme="cyberpunk"] .oauth-btn {
+  background: var(--bg-raised);
+  border: 1px solid var(--cyan-1);
+  border-radius: 2px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  transition: all 0.2s var(--ease-default);
+}
+
+[data-theme="cyberpunk"] .oauth-btn:hover {
+  background: var(--bg-elevated);
+  border-color: var(--cyan-0);
+  color: var(--cyan-0);
+  box-shadow: var(--glow-subtle);
+}
+
+[data-theme="cyberpunk"] .logout-btn {
+  background: var(--bg-raised);
+  border: 1px solid var(--red-1);
+  border-radius: 2px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  transition: all 0.2s var(--ease-default);
+}
+
+[data-theme="cyberpunk"] .logout-btn:hover {
+  border-color: var(--red-0);
+  color: var(--red-0);
+  box-shadow: var(--glow-red);
+}
+
+[data-theme="cyberpunk"] .skills-setup-btn {
+  background: var(--bg-raised);
+  border: 1px solid var(--cyan-1);
+  border-radius: 2px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  transition: all 0.2s var(--ease-default);
+}
+
+[data-theme="cyberpunk"] .skills-setup-btn:hover {
+  background: var(--bg-elevated);
+  border-color: var(--cyan-0);
+  color: var(--cyan-0);
+  box-shadow: var(--glow-subtle);
+}
+
+[data-theme="cyberpunk"] .badge-required {
+  background: oklch(0.65 0.25 15 / 0.15);
+  color: var(--text-primary);
+  border-radius: 2px;
+}
+
+/* ── 9. Input-with-button combos (settings) ── */
+[data-theme="cyberpunk"] .input-with-btn button {
+  background: var(--bg-raised);
+  border: 1px solid var(--cyan-1);
+  border-radius: 2px;
+  color: var(--text-secondary);
+  transition: all 0.2s var(--ease-default);
+}
+
+[data-theme="cyberpunk"] .input-with-btn button:hover {
+  background: var(--bg-elevated);
+  border-color: var(--cyan-0);
+  color: var(--cyan-0);
+  box-shadow: var(--glow-subtle);
+}
+
+/* ── 10. Time picker (cron) ── */
+[data-theme="cyberpunk"] .time-picker .separator {
+  color: var(--cyan-1);
+}
+
+[data-theme="cyberpunk"] .interval-label {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+/* ── 11. Spinner (settings) ── */
+[data-theme="cyberpunk"] .spinner {
+  border-top-color: var(--cyan-0);
+}

@@ -8,11 +8,12 @@
 
 [data-theme="cyberpunk"] #messages {
   background:
-    radial-gradient(ellipse at 20% 50%, oklch(0.15 0.10 195 / 0.5), transparent 60%),
-    radial-gradient(ellipse at 80% 20%, oklch(0.12 0.12 300 / 0.4), transparent 50%),
-    radial-gradient(ellipse at 60% 80%, oklch(0.10 0.08 350 / 0.3), transparent 50%),
-    linear-gradient(180deg, oklch(0.05 0.02 250) 0%, oklch(0.08 0.03 220) 100%);
-  background-size: 200% 200%, 200% 200%, 200% 200%, 100% 100%;
+    radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.5) 100%),
+    radial-gradient(ellipse at 20% 50%, oklch(0.25 0.16 195 / 0.55), transparent 60%),
+    radial-gradient(ellipse at 80% 20%, oklch(0.22 0.15 300 / 0.45), transparent 50%),
+    radial-gradient(ellipse at 60% 80%, oklch(0.20 0.16 350 / 0.4), transparent 50%),
+    linear-gradient(180deg, oklch(0.06 0.02 250) 0%, oklch(0.06 0.02 250) 100%);
+  background-size: 100% 100%, 200% 200%, 200% 200%, 200% 200%, 100% 100%;
   animation: cyber-bg-drift 25s ease infinite;
 }
 
@@ -78,6 +79,19 @@
 [data-theme="cyberpunk"] .ai-msg-bubble {
   flex: 1;
   min-width: 0;
+}
+
+/* ── User message: reset base bleed-through ── */
+
+[data-theme="cyberpunk"] .message.user {
+  color: var(--text-primary);
+  background: transparent;
+  box-shadow: none;
+  border-bottom-right-radius: 0;
+}
+
+[data-theme="cyberpunk"] .message.user:hover {
+  transform: none;
 }
 
 /* ── User message: cyberpunk HUD panel ── */
@@ -395,6 +409,7 @@
   border-color: oklch(0.83 0.18 195 / 0.6);
   box-shadow: 0 0 8px oklch(0.83 0.18 195 / 0.2);
   transform: none;
+  animation: hamburger-glitch 0.2s ease;
 }
 
 [data-theme="cyberpunk"] .hamburger-btn span {
@@ -407,6 +422,32 @@
 [data-theme="cyberpunk"] .hamburger-btn:hover span {
   background: var(--cyan-0);
   box-shadow: 0 0 6px oklch(0.83 0.18 195 / 0.6);
+  transition: transform 0.15s ease;
+}
+
+[data-theme="cyberpunk"] .hamburger-btn:hover span:nth-child(1) {
+  transform: translateX(-1px);
+}
+
+[data-theme="cyberpunk"] .hamburger-btn:hover span:nth-child(2) {
+  transform: translateX(0);
+}
+
+[data-theme="cyberpunk"] .hamburger-btn:hover span:nth-child(3) {
+  transform: translateX(1px);
+}
+
+@keyframes hamburger-glitch {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(-2px); }
+  40% { transform: translateX(3px); }
+  60% { transform: translateX(-1px); }
+  80% { transform: translateX(2px); }
+  100% { transform: translateX(0); }
+}
+
+[data-theme="cyberpunk"] .hamburger-btn.active span {
+  box-shadow: 0 0 8px var(--cyan-0), 0 0 16px oklch(0.83 0.18 195 / 0.3);
 }
 
 [data-theme="cyberpunk"] .menu-dropdown {
@@ -438,11 +479,339 @@
   padding-left: 20px;
 }
 
+[data-theme="cyberpunk"] .menu-item svg {
+  transition: transform 0.4s ease;
+}
+
 [data-theme="cyberpunk"] .menu-item:hover svg {
   filter: drop-shadow(0 0 3px var(--cyan-0));
+  transform: rotate(360deg);
 }
 
 [data-theme="cyberpunk"] .menu-item.danger:hover {
   background: oklch(0.65 0.25 15 / 0.08);
   color: var(--red-0);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Tab Bar
+   ══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="cyberpunk"] .tabs-container {
+  background: var(--bg-void);
+  border-bottom: 1px solid oklch(0.83 0.18 195 / 0.15);
+}
+
+[data-theme="cyberpunk"] .tab {
+  background: var(--bg-base);
+  border: 1px solid oklch(0.83 0.18 195 / 0.15);
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+[data-theme="cyberpunk"] .tab:hover {
+  background: var(--bg-raised);
+  border-color: oklch(0.83 0.18 195 / 0.3);
+  box-shadow: 0 0 6px oklch(0.83 0.18 195 / 0.1);
+  color: var(--text-primary);
+}
+
+[data-theme="cyberpunk"] .tab.active {
+  background: var(--bg-raised);
+  border-color: oklch(0.83 0.18 195 / 0.4);
+  border-bottom: 2px solid var(--cyan-0);
+  color: var(--cyan-0);
+  box-shadow: 0 2px 8px oklch(0.83 0.18 195 / 0.15);
+}
+
+[data-theme="cyberpunk"] .tab-close:hover {
+  color: var(--red-0);
+  text-shadow: var(--deco-text-glow-red);
+}
+
+[data-theme="cyberpunk"] .new-tab-btn {
+  background: transparent;
+  border: 1px dashed oklch(0.83 0.18 195 / 0.25);
+  border-radius: 2px;
+  color: var(--cyan-1);
+  font-family: var(--font-mono);
+  transition: all 0.2s ease;
+}
+
+[data-theme="cyberpunk"] .new-tab-btn:hover {
+  border-color: oklch(0.83 0.18 195 / 0.5);
+  color: var(--cyan-0);
+  box-shadow: 0 0 8px oklch(0.83 0.18 195 / 0.15);
+  animation: tab-new-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes tab-new-pulse {
+  0%, 100% { border-color: oklch(0.83 0.18 195 / 0.5); }
+  50% { border-color: oklch(0.83 0.18 195 / 0.8); }
+}
+
+[data-theme="cyberpunk"] .tab .loading-shimmer {
+  background: linear-gradient(90deg, transparent, oklch(0.83 0.18 195 / 0.15), transparent);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Search & Workflow Buttons
+   ══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="cyberpunk"] .search-toggle,
+[data-theme="cyberpunk"] .workflows-toggle {
+  background: var(--bg-base);
+  border: 1px solid oklch(0.83 0.18 195 / 0.2);
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+[data-theme="cyberpunk"] .search-toggle:hover,
+[data-theme="cyberpunk"] .workflows-toggle:hover {
+  color: var(--cyan-0);
+  border-color: oklch(0.83 0.18 195 / 0.5);
+  box-shadow: 0 0 8px oklch(0.83 0.18 195 / 0.15);
+  text-shadow: var(--deco-text-glow);
+}
+
+[data-theme="cyberpunk"] .workflow-btn {
+  background: var(--bg-base);
+  border: 1px solid oklch(0.83 0.18 195 / 0.25);
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+[data-theme="cyberpunk"] .workflow-btn:hover {
+  border-color: oklch(0.83 0.18 195 / 0.5);
+  color: var(--cyan-0);
+  box-shadow: 0 0 6px oklch(0.83 0.18 195 / 0.12);
+}
+
+[data-theme="cyberpunk"] .workflow-btn.magenta,
+[data-theme="cyberpunk"] .workflow-btn:nth-child(even) {
+  border-color: oklch(0.65 0.28 350 / 0.25);
+}
+
+[data-theme="cyberpunk"] .workflow-btn.magenta:hover,
+[data-theme="cyberpunk"] .workflow-btn:nth-child(even):hover {
+  border-color: oklch(0.65 0.28 350 / 0.5);
+  color: var(--magenta-0);
+  box-shadow: 0 0 6px oklch(0.65 0.28 350 / 0.12);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Model Badge Select
+   ══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="cyberpunk"] .model-badge {
+  background: oklch(0.10 0.03 250);
+  border: 1px solid oklch(0.83 0.18 195 / 0.3);
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--cyan-0);
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 22px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2300d4ff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+[data-theme="cyberpunk"] .model-badge:hover {
+  border-color: oklch(0.83 0.18 195 / 0.6);
+  box-shadow: 0 0 8px oklch(0.83 0.18 195 / 0.15);
+}
+
+[data-theme="cyberpunk"] .model-badge:focus {
+  outline: none;
+  border-color: var(--cyan-0);
+  box-shadow: var(--glow-subtle);
+}
+
+[data-theme="cyberpunk"] .model-badge option {
+  background: var(--bg-base);
+  color: var(--cyan-0);
+  font-family: var(--font-mono);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   About Modal
+   ══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="cyberpunk"] .modal-overlay {
+  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="cyberpunk"] .modal {
+  background: oklch(0.08 0.03 250);
+  border: 1px solid oklch(0.83 0.18 195 / 0.3);
+  border-radius: 2px;
+  box-shadow:
+    0 0 20px oklch(0.83 0.18 195 / 0.1),
+    0 16px 48px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="cyberpunk"] .modal-close {
+  color: var(--cyan-0);
+  transition: all 0.15s ease;
+}
+
+[data-theme="cyberpunk"] .modal-close:hover {
+  text-shadow: var(--deco-text-glow);
+  box-shadow: 0 0 8px oklch(0.83 0.18 195 / 0.2);
+}
+
+[data-theme="cyberpunk"] .about-link {
+  background: var(--bg-base);
+  border: 1px solid oklch(0.83 0.18 195 / 0.2);
+  border-radius: 2px;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+[data-theme="cyberpunk"] .about-link:hover {
+  border-color: oklch(0.83 0.18 195 / 0.5);
+  color: var(--cyan-0);
+  box-shadow: 0 0 6px oklch(0.83 0.18 195 / 0.1);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Send Button
+   ══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="cyberpunk"] #send-btn {
+  background: var(--bg-base);
+  border: 1px solid oklch(0.83 0.18 195 / 0.4);
+  border-radius: 2px;
+  color: var(--cyan-0);
+  transition: all 0.2s ease;
+}
+
+[data-theme="cyberpunk"] #send-btn:hover:not(:disabled) {
+  background: var(--bg-raised);
+  border-color: var(--cyan-0);
+  box-shadow: var(--glow-subtle);
+}
+
+[data-theme="cyberpunk"] #send-btn:disabled {
+  background: var(--bg-void);
+  border-color: oklch(0.83 0.18 195 / 0.1);
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
+/* ── Cyber paw: idle pulse glow ── */
+
+[data-theme="cyberpunk"] #send-btn:not(:disabled) .cyber-paw {
+  animation: paw-pulse 2s ease-in-out infinite;
+}
+
+[data-theme="cyberpunk"] #send-btn:disabled .cyber-paw {
+  filter: none;
+  animation: none;
+}
+
+@keyframes paw-pulse {
+  0%, 100% { filter: drop-shadow(0 0 3px oklch(0.83 0.18 195 / 0.3)); }
+  50% { filter: drop-shadow(0 0 8px oklch(0.83 0.18 195 / 0.6)); }
+}
+
+/* ── Cyber paw: press animation (beans spread, pad squishes) ── */
+
+[data-theme="cyberpunk"] #send-btn .cyber-paw .paw-pad,
+[data-theme="cyberpunk"] #send-btn .cyber-paw .paw-bean {
+  transform-box: fill-box;
+  transform-origin: center center;
+  transition: transform 0.12s ease;
+}
+
+[data-theme="cyberpunk"] #send-btn:active:not(:disabled) .cyber-paw .paw-pad {
+  transform: scaleY(0.82) translateY(2px);
+}
+
+[data-theme="cyberpunk"] #send-btn:active:not(:disabled) .cyber-paw .b1 {
+  transform: translate(-2px, -1.5px);
+}
+
+[data-theme="cyberpunk"] #send-btn:active:not(:disabled) .cyber-paw .b2 {
+  transform: translate(-1px, -2px);
+}
+
+[data-theme="cyberpunk"] #send-btn:active:not(:disabled) .cyber-paw .b3 {
+  transform: translate(1px, -2px);
+}
+
+[data-theme="cyberpunk"] #send-btn:active:not(:disabled) .cyber-paw .b4 {
+  transform: translate(2px, -1.5px);
+}
+
+[data-theme="cyberpunk"] .stop-btn {
+  background: var(--bg-base);
+  border: 1px solid oklch(0.65 0.25 15 / 0.4);
+  border-radius: 2px;
+  color: var(--red-0);
+}
+
+[data-theme="cyberpunk"] .stop-btn:hover {
+  border-color: var(--red-0);
+  box-shadow: var(--glow-red);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Attach Button
+   ══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="cyberpunk"] .attach-btn {
+  color: var(--cyan-0);
+  transition: all 0.2s ease;
+}
+
+[data-theme="cyberpunk"] .attach-btn:hover {
+  color: var(--cyan-0);
+  filter: drop-shadow(0 0 6px oklch(0.83 0.18 195 / 0.5));
+  transform: rotate(15deg);
+}
+
+/* ── Chip icon: scan-line sweep on hover ── */
+
+[data-theme="cyberpunk"] .attach-btn.has-chip {
+  position: relative;
+  overflow: hidden;
+}
+
+[data-theme="cyberpunk"] .attach-btn.has-chip:hover {
+  transform: none;
+}
+
+[data-theme="cyberpunk"] .attach-btn.has-chip::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, oklch(0.83 0.18 195 / 0.35), transparent);
+  pointer-events: none;
+}
+
+[data-theme="cyberpunk"] .attach-btn.has-chip:hover::after {
+  animation: chip-scan 0.6s ease-in-out;
+}
+
+@keyframes chip-scan {
+  0% { left: -40%; }
+  100% { left: 100%; }
 }
