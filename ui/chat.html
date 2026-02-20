@@ -3729,7 +3729,7 @@
       clearSuggestion();
 
       // Trigger cyberpunk vanish effect (ghost chars dissolve after clear)
-      if (document.documentElement.dataset.theme === 'cyberpunk' && window.__cyberVanish) {
+      if (document.body.dataset.theme === 'cyberpunk' && window.__cyberVanish) {
         window.__cyberVanish.trigger(vanishText);
       }
       clearAttachments();
@@ -4010,7 +4010,7 @@
       if (!animate) div.style.animation = 'none';
 
       // Cyberpunk theme: avatar row for assistant, sticky-note for user
-      const isCyberpunk = document.documentElement.dataset.theme === 'cyberpunk';
+      const isCyberpunk = document.body.dataset.theme === 'cyberpunk';
       let contentTarget = div;
       if (isCyberpunk && role === 'assistant') {
         const row = document.createElement('div');
@@ -4295,7 +4295,7 @@
     function addStatusIndicator(initialMessage) {
       const div = document.createElement('div');
       div.className = 'status-indicator';
-      const isCyberpunk = document.documentElement.dataset.theme === 'cyberpunk';
+      const isCyberpunk = document.body.dataset.theme === 'cyberpunk';
       const barsHtml = isCyberpunk
         ? '<div class="cyber-thinking-bars">' +
           '<div class="cyber-thinking-bar"></div>'.repeat(7) +
