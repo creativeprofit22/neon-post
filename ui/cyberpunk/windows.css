@@ -5,21 +5,32 @@
    ══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Page background — animated gradient ── */
-[data-theme="cyberpunk"] body {
+body[data-theme="cyberpunk"] {
   background:
+    radial-gradient(circle, color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 5%, transparent) 1px, transparent 1px),
     radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.5) 100%),
-    radial-gradient(ellipse at 20% 50%, oklch(0.25 0.16 195 / 0.55), transparent 60%),
-    radial-gradient(ellipse at 80% 20%, oklch(0.22 0.15 300 / 0.45), transparent 50%),
-    radial-gradient(ellipse at 60% 80%, oklch(0.20 0.16 350 / 0.4), transparent 50%),
-    linear-gradient(180deg, oklch(0.06 0.02 250) 0%, oklch(0.06 0.02 250) 100%);
-  background-size: 100% 100%, 200% 200%, 200% 200%, 200% 200%, 100% 100%;
-  animation: cyber-bg-drift 25s ease infinite;
+    radial-gradient(ellipse at 20% 50%, oklch(0.32 0.19 195 / 0.65), transparent 60%),
+    radial-gradient(ellipse at 80% 20%, oklch(0.28 0.17 300 / 0.55), transparent 50%),
+    radial-gradient(ellipse at 60% 80%, oklch(0.25 0.19 350 / 0.50), transparent 50%),
+    linear-gradient(180deg, oklch(0.09 0.03 250) 0%, oklch(0.06 0.02 250) 100%);
+  background-size: 24px 24px, 100% 100%, 200% 200%, 200% 200%, 200% 200%, 100% 100%;
+  animation: win-bg-drift 25s ease infinite;
+}
+
+@keyframes win-bg-drift {
+  0%, 100% { background-position: 0 0, 0% 50%, 100% 0%, 50% 100%, 0% 0%; }
+  33% { background-position: 0 0, 100% 30%, 0% 80%, 80% 20%, 0% 0%; }
+  66% { background-position: 0 0, 50% 80%, 60% 40%, 20% 60%, 0% 0%; }
 }
 
 /* ── Header ── */
 [data-theme="cyberpunk"] header {
-  background: var(--bg-base);
-  border-bottom-color: var(--cyan-1);
+  background: var(--glass-bg-dense);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+  z-index: var(--z-dropdown, 20);
 }
 
 [data-theme="cyberpunk"] header h1 {
@@ -33,16 +44,16 @@
   background: none;
   -webkit-background-clip: unset;
   background-clip: unset;
-  -webkit-text-fill-color: var(--cyan-0);
-  color: var(--cyan-0);
-  text-shadow: var(--deco-text-glow);
+  -webkit-text-fill-color: var(--wa, var(--cyan-0));
+  color: var(--wa, var(--cyan-0));
+  text-shadow: var(--wa-text-glow, var(--deco-text-glow));
 }
 
 /* ── Count badges ── */
 [data-theme="cyberpunk"] .fact-count,
 [data-theme="cyberpunk"] .log-count,
 [data-theme="cyberpunk"] .aspect-count {
-  color: var(--cyan-1);
+  color: var(--wa-dim, var(--cyan-1));
   font-family: var(--font-mono);
 }
 
@@ -52,7 +63,7 @@
 [data-theme="cyberpunk"] .create-btn {
   background: var(--bg-raised);
   color: var(--text-secondary);
-  border: 1px solid var(--cyan-1);
+  border: 1px solid var(--wa-dim, var(--cyan-1));
   border-radius: 2px;
   font-family: var(--font-mono);
   letter-spacing: var(--tracking-wide);
@@ -66,8 +77,8 @@
 [data-theme="cyberpunk"] .action-bar button:hover,
 [data-theme="cyberpunk"] .create-btn:hover {
   background: var(--bg-elevated);
-  color: var(--cyan-0);
-  border-color: var(--cyan-0);
+  color: var(--wa, var(--cyan-0));
+  border-color: var(--wa, var(--cyan-0));
   box-shadow: var(--glow-subtle);
   transform: none;
 }
@@ -76,22 +87,22 @@
 [data-theme="cyberpunk"] .action-bar button:active,
 [data-theme="cyberpunk"] .create-btn:active {
   transform: none;
-  box-shadow: var(--glow-cyan);
+  box-shadow: var(--wa-glow, var(--glow-cyan));
 }
 
 /* Primary action buttons (gradient buttons in PA) */
 [data-theme="cyberpunk"] .action-bar button:not(.secondary),
 [data-theme="cyberpunk"] .header-actions button:not(.secondary):not(.reboot),
 [data-theme="cyberpunk"] .create-btn {
-  border-color: oklch(0.83 0.18 195 / 0.5);
-  color: var(--cyan-0);
+  border-color: color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 50%, transparent);
+  color: var(--wa, var(--cyan-0));
 }
 
 [data-theme="cyberpunk"] .action-bar button:not(.secondary):hover,
 [data-theme="cyberpunk"] .header-actions button:not(.secondary):not(.reboot):hover,
 [data-theme="cyberpunk"] .create-btn:hover {
-  border-color: var(--cyan-0);
-  box-shadow: var(--glow-cyan);
+  border-color: var(--wa, var(--cyan-0));
+  box-shadow: var(--wa-glow, var(--glow-cyan));
   background: var(--bg-elevated);
 }
 
@@ -116,8 +127,8 @@
 
 [data-theme="cyberpunk"] .icon-btn:hover {
   background: var(--bg-raised);
-  border-color: var(--cyan-1);
-  color: var(--cyan-0);
+  border-color: var(--wa-dim, var(--cyan-1));
+  color: var(--wa, var(--cyan-0));
 }
 
 [data-theme="cyberpunk"] .icon-btn.danger:hover {
@@ -128,8 +139,8 @@
 
 /* Reboot button */
 [data-theme="cyberpunk"] .header-actions button.reboot.active {
-  border-color: var(--cyan-0);
-  box-shadow: var(--glow-cyan);
+  border-color: var(--wa, var(--cyan-0));
+  box-shadow: var(--wa-glow, var(--glow-cyan));
   animation: cyber-reboot-glow 2s ease-in-out infinite;
 }
 
@@ -147,10 +158,10 @@
 [data-theme="cyberpunk"] .setting-row select,
 [data-theme="cyberpunk"] textarea.editor {
   background: oklch(0.07 0.03 250 / 0.9);
-  border: 1px solid oklch(0.83 0.18 195 / 0.2);
+  border: 1px solid color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 20%, transparent);
   border-radius: 2px;
   color: var(--text-primary);
-  caret-color: var(--cyan-0);
+  caret-color: var(--wa, var(--cyan-0));
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
@@ -161,7 +172,7 @@
 [data-theme="cyberpunk"] .setting-row textarea:focus,
 [data-theme="cyberpunk"] .setting-row select:focus,
 [data-theme="cyberpunk"] textarea.editor:focus {
-  border-color: oklch(0.83 0.18 195 / 0.6);
+  border-color: color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 60%, transparent);
   box-shadow: var(--deco-input-focus-shadow);
 }
 
@@ -171,6 +182,22 @@
 [data-theme="cyberpunk"] .setting-row textarea::placeholder,
 [data-theme="cyberpunk"] textarea.editor::placeholder {
   color: oklch(0.83 0.18 195 / 0.25);
+}
+
+/* ── Custom select dropdowns ── */
+[data-theme="cyberpunk"] .form-group select,
+[data-theme="cyberpunk"] .setting-row select {
+  font-family: var(--font-mono);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M6 8L2 4h8L6 8z' fill='%2364dcff'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+[data-theme="cyberpunk"] .form-group select:focus,
+[data-theme="cyberpunk"] .setting-row select:focus {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M6 8L2 4h8L6 8z' fill='%2364dcff'/%3E%3C/svg%3E");
 }
 
 [data-theme="cyberpunk"] .form-group label,
@@ -189,12 +216,12 @@
 [data-theme="cyberpunk"] .facts-table th,
 [data-theme="cyberpunk"] .logs-table th {
   background: var(--bg-base);
-  color: var(--cyan-0);
+  color: var(--wa, var(--cyan-0));
   font-family: var(--font-mono);
   letter-spacing: var(--tracking-wider);
   text-transform: uppercase;
-  border-bottom: 1px solid var(--cyan-1);
-  text-shadow: var(--deco-text-glow);
+  border-bottom: 1px solid var(--wa-dim, var(--cyan-1));
+  text-shadow: var(--wa-text-glow, var(--deco-text-glow));
 }
 
 [data-theme="cyberpunk"] .facts-table td,
@@ -204,7 +231,7 @@
 
 [data-theme="cyberpunk"] .facts-table tbody tr:hover,
 [data-theme="cyberpunk"] .logs-table tbody tr:hover {
-  background: oklch(0.83 0.18 195 / 0.04);
+  background: color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 4%, transparent);
 }
 
 [data-theme="cyberpunk"] .facts-table .category,
@@ -212,10 +239,10 @@
   background: none;
   -webkit-background-clip: unset;
   background-clip: unset;
-  -webkit-text-fill-color: var(--cyan-0);
-  color: var(--cyan-0);
+  -webkit-text-fill-color: var(--wa, var(--cyan-0));
+  color: var(--wa, var(--cyan-0));
   font-family: var(--font-mono);
-  text-shadow: var(--deco-text-glow);
+  text-shadow: var(--wa-text-glow, var(--deco-text-glow));
 }
 
 [data-theme="cyberpunk"] .facts-table .subject {
@@ -224,9 +251,9 @@
 }
 
 [data-theme="cyberpunk"] .today-badge {
-  background: oklch(0.83 0.18 195 / 0.15);
-  color: var(--cyan-0);
-  -webkit-text-fill-color: var(--cyan-0);
+  background: color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 15%, transparent);
+  color: var(--wa, var(--cyan-0));
+  -webkit-text-fill-color: var(--wa, var(--cyan-0));
   border-radius: 2px;
   font-family: var(--font-mono);
 }
@@ -236,26 +263,29 @@
 [data-theme="cyberpunk"] .form-section,
 [data-theme="cyberpunk"] .editor-container,
 [data-theme="cyberpunk"] .settings-grid {
-  background: var(--bg-glass);
-  border: 1px solid var(--cyan-1);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
   border-radius: 2px;
+  box-shadow: var(--glass-highlight);
   position: relative;
 }
 
 [data-theme="cyberpunk"] .aspect-card:hover {
-  border-color: oklch(0.83 0.18 195 / 0.5);
-  box-shadow: var(--glow-subtle);
+  border-color: color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 30%, var(--glass-border));
+  box-shadow: var(--glass-highlight), var(--glow-subtle);
 }
 
 [data-theme="cyberpunk"] .aspect-name {
   background: none;
   -webkit-background-clip: unset;
   background-clip: unset;
-  -webkit-text-fill-color: var(--cyan-0);
-  color: var(--cyan-0);
+  -webkit-text-fill-color: var(--wa, var(--cyan-0));
+  color: var(--wa, var(--cyan-0));
   font-family: var(--font-mono);
   letter-spacing: var(--tracking-wide);
-  text-shadow: var(--deco-text-glow);
+  text-shadow: var(--wa-text-glow, var(--deco-text-glow));
 }
 
 [data-theme="cyberpunk"] .aspect-content {
@@ -270,7 +300,7 @@
 /* Editor toolbar */
 [data-theme="cyberpunk"] .editor-toolbar {
   background: var(--bg-raised);
-  border-bottom-color: var(--cyan-1);
+  border-bottom-color: var(--wa-dim, var(--cyan-1));
   border-radius: 2px 2px 0 0;
 }
 
@@ -290,8 +320,10 @@
 
 /* ── Sidebar / Nav (customize) ── */
 [data-theme="cyberpunk"] .sidebar {
-  background: var(--bg-base);
-  border-right-color: var(--cyan-1);
+  background: var(--glass-bg-dense);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-right: 1px solid var(--glass-border);
 }
 
 [data-theme="cyberpunk"] .nav-item {
@@ -304,25 +336,85 @@
 }
 
 [data-theme="cyberpunk"] .nav-item:hover {
-  background: oklch(0.83 0.18 195 / 0.06);
-  color: var(--cyan-0);
+  background: color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 6%, transparent);
+  color: var(--wa, var(--cyan-0));
 }
 
 [data-theme="cyberpunk"] .nav-item.active {
-  background: oklch(0.83 0.18 195 / 0.08);
-  color: var(--cyan-0);
-  border-left-color: var(--cyan-0);
-  text-shadow: var(--deco-text-glow);
+  background: color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 8%, transparent);
+  color: var(--wa, var(--cyan-0));
+  border-left-color: var(--wa, var(--cyan-0));
+  text-shadow: var(--wa-text-glow, var(--deco-text-glow));
+}
+
+/* ── Subsection titles (h3 — "Anthropic (Claude)", "Model Settings", etc.) ── */
+[data-theme="cyberpunk"] .subsection-title {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--wa, var(--cyan-0));
+  text-shadow: var(--wa-text-glow, var(--deco-text-glow));
+  margin-top: 24px !important;
+  margin-bottom: 12px !important;
+  position: relative;
+  padding-bottom: 8px;
+}
+
+[data-theme="cyberpunk"] .subsection-title:first-of-type {
+  margin-top: 16px !important;
+}
+
+[data-theme="cyberpunk"] .subsection-title::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--wa, var(--cyan-0)), transparent 60%);
+  pointer-events: none;
+}
+
+/* ── Nav icon accent glow (settings sidebar) ── */
+[data-theme="cyberpunk"] .nav-item svg {
+  color: var(--wa-dim, var(--cyan-1));
+  opacity: 1;
+  transition: color 0.15s var(--ease-default), filter 0.15s var(--ease-default);
+}
+
+[data-theme="cyberpunk"] .nav-item:hover svg {
+  color: var(--wa, var(--cyan-0));
+  filter: drop-shadow(0 0 4px var(--wa, var(--cyan-0)));
+}
+
+[data-theme="cyberpunk"] .nav-item.active svg {
+  color: var(--wa, var(--cyan-0));
+  filter: drop-shadow(0 0 6px var(--wa, var(--cyan-0)));
+  animation: led-flicker 4s ease infinite;
+}
+
+/* ── Section padding — clear corner bracket decorators ── */
+[data-theme="cyberpunk"] .section,
+[data-theme="cyberpunk"] .tab-content,
+[data-theme="cyberpunk"] .step {
+  padding: 16px;
+}
+
+/* ── Section reveal transition ── */
+[data-theme="cyberpunk"] .section.active {
+  animation: section-reveal 300ms ease-out;
 }
 
 /* ── Section titles (cron, settings) ── */
 [data-theme="cyberpunk"] .section-title,
 [data-theme="cyberpunk"] .section-header h2 {
   font-family: var(--font-mono);
-  color: var(--cyan-0);
+  color: var(--wa, var(--cyan-0));
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
-  text-shadow: var(--deco-text-glow);
+  text-shadow: var(--wa-text-glow, var(--deco-text-glow));
 }
 
 [data-theme="cyberpunk"] .section-desc,
@@ -336,7 +428,7 @@
 }
 
 [data-theme="cyberpunk"] .setting-row:hover {
-  background: oklch(0.83 0.18 195 / 0.04);
+  background: color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 4%, transparent);
 }
 
 /* ── Schedule tabs (cron) ── */
@@ -348,14 +440,16 @@
 }
 
 [data-theme="cyberpunk"] .schedule-tab:hover {
-  border-color: var(--cyan-1);
-  color: var(--cyan-0);
+  border-color: var(--wa-dim, var(--cyan-1));
+  color: var(--wa, var(--cyan-0));
 }
 
 [data-theme="cyberpunk"] .schedule-tab.active {
-  background: oklch(0.83 0.18 195 / 0.12);
-  border-color: var(--cyan-0);
-  color: var(--cyan-0);
+  background: color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 10%, var(--glass-bg));
+  backdrop-filter: blur(calc(var(--glass-blur) / 2));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) / 2));
+  border-color: var(--wa, var(--cyan-0));
+  color: var(--wa, var(--cyan-0));
 }
 
 /* Day buttons (cron) */
@@ -365,14 +459,14 @@
 }
 
 [data-theme="cyberpunk"] .day-btn:hover {
-  border-color: var(--cyan-1);
-  color: var(--cyan-0);
+  border-color: var(--wa-dim, var(--cyan-1));
+  color: var(--wa, var(--cyan-0));
 }
 
 [data-theme="cyberpunk"] .day-btn.selected {
-  background: oklch(0.83 0.18 195 / 0.25);
-  border-color: var(--cyan-0);
-  color: var(--cyan-0);
+  background: color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 25%, transparent);
+  border-color: var(--wa, var(--cyan-0));
+  color: var(--wa, var(--cyan-0));
   box-shadow: var(--glow-subtle);
 }
 
@@ -382,11 +476,11 @@
 }
 
 [data-theme="cyberpunk"] .job-item:hover {
-  background: oklch(0.83 0.18 195 / 0.04);
+  background: color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 4%, transparent);
 }
 
 [data-theme="cyberpunk"] .job-status {
-  background: var(--cyan-0);
+  background: var(--wa, var(--cyan-0));
   box-shadow: var(--deco-led-glow);
 }
 
@@ -400,7 +494,7 @@
 }
 
 [data-theme="cyberpunk"] .job-schedule {
-  color: var(--cyan-0);
+  color: var(--wa, var(--cyan-0));
   font-family: var(--font-mono);
 }
 
@@ -428,7 +522,7 @@
 
 [data-theme="cyberpunk"] .empty-state svg {
   filter: var(--deco-icon-drop-shadow);
-  color: var(--cyan-1);
+  color: var(--wa-dim, var(--cyan-1));
 }
 
 [data-theme="cyberpunk"] .empty-state p {
@@ -438,12 +532,14 @@
 
 /* ── Toast overrides ── */
 [data-theme="cyberpunk"] .toast {
-  background: oklch(0.07 0.03 250 / 0.92);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--cyan-1);
+  background: var(--glass-bg-dense);
+  backdrop-filter: blur(calc(var(--glass-blur) * 1.5));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.5));
+  border: 1px solid var(--glass-border);
   border-radius: 2px;
   box-shadow:
-    0 8px 32px oklch(0 0 0 / 0.4),
+    var(--glass-highlight),
+    var(--glass-shadow),
     0 0 12px oklch(0.83 0.18 195 / 0.1);
 }
 
@@ -507,8 +603,10 @@
 
 /* ── Autocomplete dropdown (customize) ── */
 [data-theme="cyberpunk"] .autocomplete-dropdown {
-  background: var(--bg-base);
-  border-color: var(--cyan-1);
+  background: var(--glass-bg-dense);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-color: var(--glass-border);
   border-radius: 0 0 2px 2px;
 }
 
@@ -517,11 +615,11 @@
 }
 
 [data-theme="cyberpunk"] .autocomplete-item:hover {
-  background: oklch(0.83 0.18 195 / 0.06);
+  background: color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 6%, transparent);
 }
 
 [data-theme="cyberpunk"] .autocomplete-item .city {
-  color: var(--cyan-0);
+  color: var(--wa, var(--cyan-0));
 }
 
 /* ── Content scrollable area ── */
@@ -543,15 +641,23 @@
 /* ── 1. Toggle switches (settings, customize) ── */
 [data-theme="cyberpunk"] .toggle {
   background: var(--bg-base);
-  border: 1px solid var(--cyan-1);
+  border: 1px solid var(--wa-dim, var(--cyan-1));
   border-radius: 2px;
   transition: all 0.2s var(--ease-default);
 }
 
 [data-theme="cyberpunk"] .toggle.active {
-  background: var(--cyan-0);
-  border-color: var(--cyan-0);
+  background: var(--wa, var(--cyan-0));
+  border-color: var(--wa, var(--cyan-0));
   box-shadow: var(--glow-subtle);
+}
+
+[data-theme="cyberpunk"] .toggle::after {
+  border-radius: 2px;
+}
+
+[data-theme="cyberpunk"] .toggle.active::after {
+  box-shadow: 0 0 6px var(--wa, var(--cyan-0));
 }
 
 [data-theme="cyberpunk"] .toggle-info .toggle-label {
@@ -564,9 +670,12 @@
 
 /* ── 2. API Keys table (settings) ── */
 [data-theme="cyberpunk"] .keys-table {
-  background: var(--bg-glass);
-  border: 1px solid var(--cyan-1);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
   border-radius: 2px;
+  box-shadow: var(--glass-highlight);
 }
 
 [data-theme="cyberpunk"] .key-row {
@@ -575,7 +684,7 @@
 }
 
 [data-theme="cyberpunk"] .key-row:hover {
-  background: oklch(0.83 0.18 195 / 0.04);
+  background: color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 4%, transparent);
 }
 
 [data-theme="cyberpunk"] .key-name {
@@ -583,31 +692,31 @@
 }
 
 [data-theme="cyberpunk"] .key-link {
-  color: var(--cyan-0);
+  color: var(--wa, var(--cyan-0));
   transition: text-shadow 0.2s ease;
 }
 
 [data-theme="cyberpunk"] .key-link:hover {
-  text-shadow: var(--deco-text-glow);
+  text-shadow: var(--wa-text-glow, var(--deco-text-glow));
 }
 
 [data-theme="cyberpunk"] .key-input input {
   background: oklch(0.07 0.03 250 / 0.9);
-  border: 1px solid oklch(0.83 0.18 195 / 0.2);
+  border: 1px solid color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 20%, transparent);
   border-radius: 2px;
   color: var(--text-primary);
-  caret-color: var(--cyan-0);
+  caret-color: var(--wa, var(--cyan-0));
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 [data-theme="cyberpunk"] .key-input input:focus {
-  border-color: oklch(0.83 0.18 195 / 0.6);
+  border-color: color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 60%, transparent);
   box-shadow: var(--deco-input-focus-shadow);
 }
 
 [data-theme="cyberpunk"] .key-input button {
   background: var(--bg-raised);
-  border: 1px solid var(--cyan-1);
+  border: 1px solid var(--wa-dim, var(--cyan-1));
   border-radius: 2px;
   color: var(--text-secondary);
   transition: all 0.2s var(--ease-default);
@@ -615,9 +724,26 @@
 
 [data-theme="cyberpunk"] .key-input button:hover {
   background: var(--bg-elevated);
-  border-color: var(--cyan-0);
-  color: var(--cyan-0);
+  border-color: var(--wa, var(--cyan-0));
+  color: var(--wa, var(--cyan-0));
   box-shadow: var(--glow-subtle);
+}
+
+/* ── Provider accent stripes ── */
+[data-theme="cyberpunk"] .keys-table[data-provider] .key-row {
+  border-left: 2px solid var(--wa-dim, var(--cyan-1));
+}
+
+[data-theme="cyberpunk"] .keys-table[data-provider="anthropic"] .key-row {
+  border-left-color: var(--cyan-0);
+}
+
+[data-theme="cyberpunk"] .keys-table[data-provider="kimi"] .key-row {
+  border-left-color: var(--amber-0);
+}
+
+[data-theme="cyberpunk"] .keys-table[data-provider="glm"] .key-row {
+  border-left-color: var(--violet-0);
 }
 
 /* ── 3. Auth badges (settings) ── */
@@ -640,6 +766,15 @@
 [data-theme="cyberpunk"] .auth-badge.loading {
   background: var(--bg-raised);
   color: var(--text-muted);
+}
+
+[data-theme="cyberpunk"] .auth-badge.oauth,
+[data-theme="cyberpunk"] .auth-badge.api-key {
+  animation: auth-breathe 3s ease-in-out infinite;
+}
+
+[data-theme="cyberpunk"] .auth-badge.none {
+  animation: led-flicker 4s ease infinite;
 }
 
 /* ── 4. Status indicators (settings) ── */
@@ -672,32 +807,35 @@
 
 /* ── 5. Cards (settings) ── */
 [data-theme="cyberpunk"] .card {
-  background: var(--bg-glass);
-  border: 1px solid var(--cyan-1);
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
   border-radius: 2px;
+  box-shadow: var(--glass-highlight);
 }
 
 [data-theme="cyberpunk"] .card-title {
   font-family: var(--font-mono);
-  color: var(--cyan-0);
-  text-shadow: var(--deco-text-glow);
+  color: var(--wa, var(--cyan-0));
+  text-shadow: var(--wa-text-glow, var(--deco-text-glow));
 }
 
 [data-theme="cyberpunk"] .card-title svg,
 [data-theme="cyberpunk"] .card-title i {
-  color: var(--cyan-0);
+  color: var(--wa, var(--cyan-0));
 }
 
 /* ── 6. Info boxes (settings) ── */
 [data-theme="cyberpunk"] .info-box {
   background: var(--bg-base);
-  border: 1px solid oklch(0.83 0.18 195 / 0.2);
+  border: 1px solid color-mix(in srgb, var(--wa, oklch(0.83 0.18 195)) 20%, transparent);
   border-radius: 2px;
 }
 
 [data-theme="cyberpunk"] .info-box svg,
 [data-theme="cyberpunk"] .info-box i {
-  color: var(--cyan-0);
+  color: var(--wa, var(--cyan-0));
 }
 
 /* ── 7. Risk badge + tooltip (settings) ── */
@@ -714,15 +852,17 @@
 }
 
 [data-theme="cyberpunk"] .risk-tooltip {
-  background: var(--bg-base);
-  border: 1px solid var(--cyan-1);
+  background: var(--glass-bg-dense);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
   border-radius: 2px;
 }
 
 /* ── 8. Action buttons (settings) ── */
 [data-theme="cyberpunk"] .oauth-btn {
   background: var(--bg-raised);
-  border: 1px solid var(--cyan-1);
+  border: 1px solid var(--wa-dim, var(--cyan-1));
   border-radius: 2px;
   color: var(--text-secondary);
   font-family: var(--font-mono);
@@ -731,8 +871,8 @@
 
 [data-theme="cyberpunk"] .oauth-btn:hover {
   background: var(--bg-elevated);
-  border-color: var(--cyan-0);
-  color: var(--cyan-0);
+  border-color: var(--wa, var(--cyan-0));
+  color: var(--wa, var(--cyan-0));
   box-shadow: var(--glow-subtle);
 }
 
@@ -753,7 +893,7 @@
 
 [data-theme="cyberpunk"] .skills-setup-btn {
   background: var(--bg-raised);
-  border: 1px solid var(--cyan-1);
+  border: 1px solid var(--wa-dim, var(--cyan-1));
   border-radius: 2px;
   color: var(--text-secondary);
   font-family: var(--font-mono);
@@ -762,8 +902,8 @@
 
 [data-theme="cyberpunk"] .skills-setup-btn:hover {
   background: var(--bg-elevated);
-  border-color: var(--cyan-0);
-  color: var(--cyan-0);
+  border-color: var(--wa, var(--cyan-0));
+  color: var(--wa, var(--cyan-0));
   box-shadow: var(--glow-subtle);
 }
 
@@ -776,7 +916,7 @@
 /* ── 9. Input-with-button combos (settings) ── */
 [data-theme="cyberpunk"] .input-with-btn button {
   background: var(--bg-raised);
-  border: 1px solid var(--cyan-1);
+  border: 1px solid var(--wa-dim, var(--cyan-1));
   border-radius: 2px;
   color: var(--text-secondary);
   transition: all 0.2s var(--ease-default);
@@ -784,14 +924,14 @@
 
 [data-theme="cyberpunk"] .input-with-btn button:hover {
   background: var(--bg-elevated);
-  border-color: var(--cyan-0);
-  color: var(--cyan-0);
+  border-color: var(--wa, var(--cyan-0));
+  color: var(--wa, var(--cyan-0));
   box-shadow: var(--glow-subtle);
 }
 
 /* ── 10. Time picker (cron) ── */
 [data-theme="cyberpunk"] .time-picker .separator {
-  color: var(--cyan-1);
+  color: var(--wa-dim, var(--cyan-1));
 }
 
 [data-theme="cyberpunk"] .interval-label {
@@ -801,5 +941,104 @@
 
 /* ── 11. Spinner (settings) ── */
 [data-theme="cyberpunk"] .spinner {
-  border-top-color: var(--cyan-0);
+  border-top-color: var(--wa, var(--cyan-0));
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Per-Window Accent System
+   JS sets data-window-accent on <body>. CSS custom properties map to
+   the appropriate color family, then generic rules reference them.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Accent token mapping ── */
+[data-window-accent="cyan"] {
+  --wa: var(--cyan-0);
+  --wa-dim: var(--cyan-1);
+  --wa-glow: var(--glow-cyan);
+  --wa-text-glow: var(--deco-text-glow);
+}
+
+[data-window-accent="violet"] {
+  --wa: var(--violet-0);
+  --wa-dim: var(--violet-1);
+  --wa-glow: var(--glow-violet);
+  --wa-text-glow: var(--deco-text-glow-violet);
+}
+
+[data-window-accent="magenta"] {
+  --wa: var(--magenta-0);
+  --wa-dim: var(--magenta-1);
+  --wa-glow: var(--glow-magenta);
+  --wa-text-glow: 0 0 8px oklch(0.65 0.28 350 / 0.4);
+}
+
+[data-window-accent="amber"] {
+  --wa: var(--amber-0);
+  --wa-dim: var(--amber-1);
+  --wa-glow: var(--glow-amber);
+  --wa-text-glow: var(--deco-text-glow-amber);
+}
+
+/* ── Accented header — gradient stripe + colored title ── */
+[data-theme="cyberpunk"][data-window-accent] header {
+  background: linear-gradient(180deg, oklch(0.12 0.04 250 / 0.65), var(--glass-bg-dense));
+  border-bottom: none;
+  position: relative;
+}
+
+/* Top gradient stripe */
+[data-theme="cyberpunk"][data-window-accent] header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--wa), transparent 80%);
+  pointer-events: none;
+}
+
+/* Bottom accent border line */
+[data-theme="cyberpunk"][data-window-accent] header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--wa-dim), transparent 60%);
+  pointer-events: none;
+}
+
+/* Title text glows in accent color */
+[data-theme="cyberpunk"][data-window-accent] header h1 span {
+  -webkit-text-fill-color: var(--wa);
+  color: var(--wa);
+  text-shadow: var(--wa-text-glow);
+}
+
+/* Count badges inherit accent */
+[data-theme="cyberpunk"][data-window-accent] .fact-count,
+[data-theme="cyberpunk"][data-window-accent] .log-count,
+[data-theme="cyberpunk"][data-window-accent] .aspect-count {
+  color: var(--wa-dim);
+}
+
+/* ── Window scan line (injected by JS) ── */
+[data-theme="cyberpunk"] .cyber-window-scanline {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--wa, var(--cyan-0));
+  opacity: 0.12;
+  box-shadow: 0 0 8px var(--wa, oklch(0.83 0.18 195 / 0.3));
+  animation: window-scanline 6s linear infinite;
+  pointer-events: none;
+  z-index: 9998;
+}
+
+@keyframes window-scanline {
+  0% { top: 0; }
+  100% { top: 100vh; }
 }

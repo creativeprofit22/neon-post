@@ -8,19 +8,20 @@
 
 [data-theme="cyberpunk"] #messages {
   background:
+    radial-gradient(circle, oklch(0.83 0.18 195 / 0.06) 1px, transparent 1px),
     radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.5) 100%),
-    radial-gradient(ellipse at 20% 50%, oklch(0.25 0.16 195 / 0.55), transparent 60%),
-    radial-gradient(ellipse at 80% 20%, oklch(0.22 0.15 300 / 0.45), transparent 50%),
-    radial-gradient(ellipse at 60% 80%, oklch(0.20 0.16 350 / 0.4), transparent 50%),
-    linear-gradient(180deg, oklch(0.06 0.02 250) 0%, oklch(0.06 0.02 250) 100%);
-  background-size: 100% 100%, 200% 200%, 200% 200%, 200% 200%, 100% 100%;
+    radial-gradient(ellipse at 20% 50%, oklch(0.32 0.19 195 / 0.65), transparent 60%),
+    radial-gradient(ellipse at 80% 20%, oklch(0.28 0.17 300 / 0.55), transparent 50%),
+    radial-gradient(ellipse at 60% 80%, oklch(0.25 0.19 350 / 0.50), transparent 50%),
+    linear-gradient(180deg, oklch(0.09 0.03 250) 0%, oklch(0.06 0.02 250) 100%);
+  background-size: 24px 24px, 100% 100%, 200% 200%, 200% 200%, 200% 200%, 100% 100%;
   animation: cyber-bg-drift 25s ease infinite;
 }
 
 @keyframes cyber-bg-drift {
-  0%, 100% { background-position: 0% 50%, 100% 0%, 50% 100%, 0% 0%; }
-  33% { background-position: 100% 30%, 0% 80%, 80% 20%, 0% 0%; }
-  66% { background-position: 50% 80%, 60% 40%, 20% 60%, 0% 0%; }
+  0%, 100% { background-position: 0 0, 0% 50%, 100% 0%, 50% 100%, 0% 0%; }
+  33% { background-position: 0 0, 100% 30%, 0% 80%, 80% 20%, 0% 0%; }
+  66% { background-position: 0 0, 50% 80%, 60% 40%, 20% 60%, 0% 0%; }
 }
 
 /* ── Assistant message: neon gradient border ── */
@@ -660,8 +661,59 @@
   border: 1px solid oklch(0.83 0.18 195 / 0.3);
   border-radius: 2px;
   box-shadow:
-    0 0 20px oklch(0.83 0.18 195 / 0.1),
+    0 0 20px oklch(0.83 0.18 195 / 0.15),
+    0 0 60px oklch(0.65 0.28 350 / 0.06),
     0 16px 48px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  position: relative;
+}
+
+/* Gradient top stripe across modal */
+[data-theme="cyberpunk"] .modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--cyan-0), var(--magenta-0), var(--violet-0));
+  z-index: 1;
+}
+
+/* Scanline sweep inside modal */
+[data-theme="cyberpunk"] .modal::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: oklch(0.83 0.18 195 / 0.15);
+  box-shadow: 0 0 8px oklch(0.83 0.18 195 / 0.1);
+  animation: modal-scanline 4s linear infinite;
+  pointer-events: none;
+  z-index: 2;
+}
+
+@keyframes modal-scanline {
+  0% { top: 0; }
+  100% { top: 100%; }
+}
+
+[data-theme="cyberpunk"] .modal-header {
+  background: linear-gradient(180deg, oklch(0.12 0.04 250 / 0.9), oklch(0.08 0.03 250));
+  border-bottom-color: oklch(0.83 0.18 195 / 0.2);
+}
+
+[data-theme="cyberpunk"] .modal-title h2 {
+  font-family: var(--font-mono);
+  color: var(--cyan-0);
+  text-shadow: var(--deco-text-glow);
+  letter-spacing: var(--tracking-wide);
+}
+
+[data-theme="cyberpunk"] .modal-title p {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
 }
 
 [data-theme="cyberpunk"] .modal-close {
@@ -671,7 +723,13 @@
 
 [data-theme="cyberpunk"] .modal-close:hover {
   text-shadow: var(--deco-text-glow);
-  box-shadow: 0 0 8px oklch(0.83 0.18 195 / 0.2);
+  color: var(--red-0);
+}
+
+[data-theme="cyberpunk"] .about-content {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  line-height: 1.6;
 }
 
 [data-theme="cyberpunk"] .about-link {
@@ -679,13 +737,28 @@
   border: 1px solid oklch(0.83 0.18 195 / 0.2);
   border-radius: 2px;
   color: var(--text-secondary);
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 [data-theme="cyberpunk"] .about-link:hover {
   border-color: oklch(0.83 0.18 195 / 0.5);
   color: var(--cyan-0);
-  box-shadow: 0 0 6px oklch(0.83 0.18 195 / 0.1);
+  box-shadow: 0 0 8px oklch(0.83 0.18 195 / 0.12);
+}
+
+/* Alternate link gets magenta accent */
+[data-theme="cyberpunk"] .about-link:last-child {
+  border-color: oklch(0.65 0.28 350 / 0.2);
+}
+
+[data-theme="cyberpunk"] .about-link:last-child:hover {
+  border-color: oklch(0.65 0.28 350 / 0.5);
+  color: var(--magenta-0);
+  box-shadow: 0 0 8px oklch(0.65 0.28 350 / 0.12);
+}
+
+[data-theme="cyberpunk"] .about-link:last-child svg {
+  color: var(--magenta-0);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

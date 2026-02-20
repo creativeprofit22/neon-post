@@ -44,9 +44,39 @@ function decorateUI() {
   // Splash gets noise + boot only — skip heavy decorators
   if (isSplash) return;
 
+  // ── Window accent detection ──
+  const h1Text = (
+    document.querySelector("header h1")?.textContent || ""
+  ).trim().toLowerCase();
+  const accentMap = {
+    "my brain": "cyan",
+    "daily logs": "cyan",
+    "my approach": "violet",
+    "mind map": "violet",
+    "personalize": "magenta",
+    "routines": "amber",
+    "settings": "cyan",
+  };
+  for (const [key, accent] of Object.entries(accentMap)) {
+    if (h1Text.includes(key)) {
+      document.body.setAttribute("data-window-accent", accent);
+      break;
+    }
+  }
+
+  // ── Scan line on non-chat windows ──
+  if (!document.getElementById("messages") && document.body.dataset.windowAccent) {
+    const scanLine = document.createElement("div");
+    scanLine.className = "cyber-window-scanline";
+    scanLine.setAttribute("aria-hidden", "true");
+    document.body.appendChild(scanLine);
+    register(() => scanLine.remove());
+  }
+
   // Headers → corner brackets with voltage "medium"
+  const accentColor = "var(--wa, var(--cyan-0))";
   document.querySelectorAll("header").forEach((el) => {
-    register(cornerBrackets(el, { voltage: "medium" }));
+    register(cornerBrackets(el, { voltage: "medium", color: accentColor }));
   });
 
   // Active sidebar nav item → traveling light
@@ -57,7 +87,7 @@ function decorateUI() {
 
   // Main content panels → corner brackets "tl-br"
   document.querySelectorAll(".section, .tab-content, .step").forEach((el) => {
-    register(cornerBrackets(el, { corners: "tl-br" }));
+    register(cornerBrackets(el, { corners: "tl-br", color: accentColor }));
   });
 
   // Page titles → glitch text (trigger on load, cyan variant)
@@ -73,7 +103,7 @@ function decorateUI() {
       ".version-badge, .model-badge, .fact-count, .log-count, .aspect-count"
     )
     .forEach((el) => {
-      register(cornerBrackets(el, { size: 6, corners: "all" }));
+      register(cornerBrackets(el, { size: 6, corners: "all", color: accentColor }));
     });
 
   // Input areas → traveling light voltage "low"
@@ -87,7 +117,7 @@ function decorateUI() {
   document
     .querySelectorAll(".status.info, .status.success, .status.error")
     .forEach((el) => {
-      register(cornerBrackets(el, { size: 6, corners: "all" }));
+      register(cornerBrackets(el, { size: 6, corners: "all", color: accentColor }));
     });
 
   // Chat send button → electric border (subtle)
@@ -195,6 +225,21 @@ function decorateUI() {
     observer.observe(messages, { childList: true, subtree: true });
     register(() => observer.disconnect());
   }
+
+  // ── Provider accent stripes on keys tables ──
+  document.querySelectorAll(".keys-table").forEach((table) => {
+    // Walk backwards from table to find preceding h3.subsection-title
+    let prev = table.previousElementSibling;
+    while (prev && !prev.classList?.contains("subsection-title")) {
+      prev = prev.previousElementSibling;
+    }
+    if (!prev) return;
+    const text = prev.textContent.toLowerCase();
+    if (text.includes("anthropic")) table.dataset.provider = "anthropic";
+    else if (text.includes("kimi")) table.dataset.provider = "kimi";
+    else if (text.includes("glm")) table.dataset.provider = "glm";
+    else table.dataset.provider = "other";
+  });
 }
 
 // ── Boot ──

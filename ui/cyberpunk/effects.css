@@ -515,6 +515,18 @@
   }
 }
 
+/* ── Auth breathe — connected badge pulse ── */
+@keyframes auth-breathe {
+  0%, 100% { opacity: 0.8; box-shadow: 0 0 4px oklch(0.87 0.30 145 / 0.2); }
+  50% { opacity: 1; box-shadow: 0 0 8px oklch(0.87 0.30 145 / 0.4); }
+}
+
+/* ── Section reveal — scan-line section transition ── */
+@keyframes section-reveal {
+  0% { clip-path: inset(0 0 100% 0); opacity: 0; }
+  100% { clip-path: inset(0 0 0% 0); opacity: 1; }
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    Environmental Awareness — CSS driven by environment engine signals
    ══════════════════════════════════════════════════════════════════════════ */
