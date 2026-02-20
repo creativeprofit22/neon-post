@@ -4009,7 +4009,7 @@
       div.className = `message ${role}`;
       if (!animate) div.style.animation = 'none';
 
-      // Cyberpunk theme: avatar row for assistant, sticky-note for user
+      // Cyberpunk theme: cat avatar for assistant, HUD panel for user
       const isCyberpunk = document.body.dataset.theme === 'cyberpunk';
       let contentTarget = div;
       if (isCyberpunk && role === 'assistant') {
@@ -4017,7 +4017,36 @@
         row.className = 'ai-msg-row';
         const avatar = document.createElement('div');
         avatar.className = 'ai-avatar';
-        avatar.innerHTML = '<div class="ai-avatar-cube"></div>';
+        avatar.innerHTML = `<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <g transform="translate(2, 4)">
+            <!-- Ears -->
+            <polygon points="5,12 2,2 10,8" fill="var(--cyan-0)" opacity="0.9"/>
+            <polygon points="27,12 30,2 22,8" fill="var(--cyan-0)" opacity="0.9"/>
+            <!-- Head -->
+            <ellipse cx="16" cy="14" rx="12" ry="10" fill="var(--cyan-1)" stroke="var(--cyan-0)" stroke-width="0.8"/>
+            <!-- Eyes -->
+            <ellipse cx="11" cy="13" rx="2.5" ry="3" fill="var(--cyan-0)" opacity="0.95">
+              <animate attributeName="ry" values="3;0.4;3" dur="4s" repeatCount="indefinite" begin="2s"/>
+            </ellipse>
+            <ellipse cx="21" cy="13" rx="2.5" ry="3" fill="var(--cyan-0)" opacity="0.95">
+              <animate attributeName="ry" values="3;0.4;3" dur="4s" repeatCount="indefinite" begin="2s"/>
+            </ellipse>
+            <!-- Pupils -->
+            <ellipse cx="11" cy="13" rx="1" ry="2.2" fill="var(--bg-void)">
+              <animate attributeName="ry" values="2.2;0.3;2.2" dur="4s" repeatCount="indefinite" begin="2s"/>
+            </ellipse>
+            <ellipse cx="21" cy="13" rx="1" ry="2.2" fill="var(--bg-void)">
+              <animate attributeName="ry" values="2.2;0.3;2.2" dur="4s" repeatCount="indefinite" begin="2s"/>
+            </ellipse>
+            <!-- Nose -->
+            <polygon points="16,16 14.5,17.5 17.5,17.5" fill="var(--magenta-0)" opacity="0.7"/>
+            <!-- Whiskers -->
+            <line x1="2" y1="15" x2="10" y2="16" stroke="var(--cyan-0)" stroke-width="0.5" opacity="0.5"/>
+            <line x1="2" y1="18" x2="10" y2="17.5" stroke="var(--cyan-0)" stroke-width="0.5" opacity="0.5"/>
+            <line x1="22" y1="16" x2="30" y2="15" stroke="var(--cyan-0)" stroke-width="0.5" opacity="0.5"/>
+            <line x1="22" y1="17.5" x2="30" y2="18" stroke="var(--cyan-0)" stroke-width="0.5" opacity="0.5"/>
+          </g>
+        </svg>`;
         const bubble = document.createElement('div');
         bubble.className = 'ai-msg-bubble';
         row.appendChild(avatar);
@@ -4025,10 +4054,13 @@
         div.appendChild(row);
         contentTarget = bubble;
       } else if (isCyberpunk && role === 'user') {
-        div.classList.add('sticky-note');
+        div.classList.add('cyber-panel');
         if (typeof addMessage._userCount === 'undefined') addMessage._userCount = 0;
         if (addMessage._userCount % 2 === 1) div.classList.add('alternate');
         addMessage._userCount++;
+        const scanlines = document.createElement('div');
+        scanlines.className = 'cyber-panel-scanlines';
+        div.appendChild(scanlines);
       }
 
       // Add attachments display for user messages
@@ -4296,14 +4328,37 @@
       const div = document.createElement('div');
       div.className = 'status-indicator';
       const isCyberpunk = document.body.dataset.theme === 'cyberpunk';
-      const barsHtml = isCyberpunk
-        ? '<div class="cyber-thinking-bars">' +
-          '<div class="cyber-thinking-bar"></div>'.repeat(7) +
-          '</div>'
+      const thinkingHtml = isCyberpunk
+        ? `<div class="cyber-thinking-cat">
+            <svg viewBox="0 0 40 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <g class="thinking-cat-body">
+                <!-- Body -->
+                <ellipse cx="20" cy="16" rx="10" ry="6" fill="var(--cyan-1)" stroke="var(--cyan-0)" stroke-width="0.6"/>
+                <!-- Head -->
+                <circle cx="30" cy="11" r="5" fill="var(--cyan-1)" stroke="var(--cyan-0)" stroke-width="0.6"/>
+                <!-- Ears -->
+                <polygon points="27,7 26,2 29,5" fill="var(--cyan-0)" opacity="0.8"/>
+                <polygon points="33,7 34,2 31,5" fill="var(--cyan-0)" opacity="0.8"/>
+                <!-- Eyes -->
+                <ellipse cx="29" cy="10.5" rx="1" ry="1.2" fill="var(--cyan-0)"/>
+                <ellipse cx="32.5" cy="10.5" rx="1" ry="1.2" fill="var(--cyan-0)"/>
+                <!-- Nose -->
+                <polygon points="30.7,12 30,13 31.4,13" fill="var(--magenta-0)" opacity="0.6"/>
+              </g>
+              <!-- Front legs -->
+              <g class="thinking-cat-leg-fl"><line x1="25" y1="20" x2="25" y2="26" stroke="var(--cyan-0)" stroke-width="1.2" stroke-linecap="round"/></g>
+              <g class="thinking-cat-leg-fr"><line x1="28" y1="20" x2="28" y2="26" stroke="var(--cyan-0)" stroke-width="1.2" stroke-linecap="round"/></g>
+              <!-- Back legs -->
+              <g class="thinking-cat-leg-bl"><line x1="13" y1="20" x2="13" y2="26" stroke="var(--cyan-0)" stroke-width="1.2" stroke-linecap="round"/></g>
+              <g class="thinking-cat-leg-br"><line x1="16" y1="20" x2="16" y2="26" stroke="var(--cyan-0)" stroke-width="1.2" stroke-linecap="round"/></g>
+              <!-- Tail -->
+              <g class="thinking-cat-tail"><path d="M10 16 Q4 10 6 6" stroke="var(--cyan-0)" stroke-width="1.2" fill="none" stroke-linecap="round"/></g>
+            </svg>
+           </div>`
         : '';
       div.innerHTML = `
         <div class="status-spinner"></div>
-        ${barsHtml}
+        ${thinkingHtml}
         <div class="status-content">
           <div class="status-action">${escapeHtml(initialMessage)}</div>
           <div class="status-detail"></div>
