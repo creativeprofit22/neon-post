@@ -13,3 +13,4 @@ export { noiseOverlay } from "./noise-overlay.js";
 export { statusDot } from "./status-dot.js";
 export { signalBeacon } from "./signal-beacon.js";
 export { bootSequence } from "./boot-sequence.js";
+export { vanishInput } from "./vanish-input.js";

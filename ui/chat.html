@@ -3720,10 +3720,18 @@
       const isQueued = isLoadingBySession.get(sessionId);
       const messageId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
+      // Capture text for vanish effect before clearing
+      const vanishText = input.value;
+
       // Always clear input immediately for responsive UX
       input.value = '';
       input.style.height = 'auto';
       clearSuggestion();
+
+      // Trigger cyberpunk vanish effect (ghost chars dissolve after clear)
+      if (document.documentElement.dataset.theme === 'cyberpunk' && window.__cyberVanish) {
+        window.__cyberVanish.trigger(vanishText);
+      }
       clearAttachments();
       if (workflow) clearWorkflow();
 
@@ -4001,6 +4009,28 @@
       div.className = `message ${role}`;
       if (!animate) div.style.animation = 'none';
 
+      // Cyberpunk theme: avatar row for assistant, sticky-note for user
+      const isCyberpunk = document.documentElement.dataset.theme === 'cyberpunk';
+      let contentTarget = div;
+      if (isCyberpunk && role === 'assistant') {
+        const row = document.createElement('div');
+        row.className = 'ai-msg-row';
+        const avatar = document.createElement('div');
+        avatar.className = 'ai-avatar';
+        avatar.innerHTML = '<div class="ai-avatar-cube"></div>';
+        const bubble = document.createElement('div');
+        bubble.className = 'ai-msg-bubble';
+        row.appendChild(avatar);
+        row.appendChild(bubble);
+        div.appendChild(row);
+        contentTarget = bubble;
+      } else if (isCyberpunk && role === 'user') {
+        div.classList.add('sticky-note');
+        if (typeof addMessage._userCount === 'undefined') addMessage._userCount = 0;
+        if (addMessage._userCount % 2 === 1) div.classList.add('alternate');
+        addMessage._userCount++;
+      }
+
       // Add attachments display for user messages
       if (attachments && attachments.length > 0) {
         const attDiv = document.createElement('div');
@@ -4022,7 +4052,7 @@
           attDiv.appendChild(attItem);
         }
 
-        div.appendChild(attDiv);
+        contentTarget.appendChild(attDiv);
       }
 
       // Add text content
@@ -4036,7 +4066,7 @@
         }
         // Append children directly to avoid nesting issues
         while (contentDiv.firstChild) {
-          div.appendChild(contentDiv.firstChild);
+          contentTarget.appendChild(contentDiv.firstChild);
         }
         // Intercept link and image clicks
         div.addEventListener('click', (e) => {
@@ -4101,7 +4131,7 @@
           }
         }
 
-        div.appendChild(mediaDiv);
+        contentTarget.appendChild(mediaDiv);
       }
 
       // Add footer with copy button and timestamp
@@ -4130,7 +4160,7 @@
         timestampDiv.textContent = formatTimestamp(ts);
         footerDiv.appendChild(timestampDiv);
 
-        div.appendChild(footerDiv);
+        contentTarget.appendChild(footerDiv);
       }
 
       // Insert before status indicator if one exists (keeps indicator at bottom)
@@ -4265,8 +4295,15 @@
     function addStatusIndicator(initialMessage) {
       const div = document.createElement('div');
       div.className = 'status-indicator';
+      const isCyberpunk = document.documentElement.dataset.theme === 'cyberpunk';
+      const barsHtml = isCyberpunk
+        ? '<div class="cyber-thinking-bars">' +
+          '<div class="cyber-thinking-bar"></div>'.repeat(7) +
+          '</div>'
+        : '';
       div.innerHTML = `
         <div class="status-spinner"></div>
+        ${barsHtml}
         <div class="status-content">
           <div class="status-action">${escapeHtml(initialMessage)}</div>
           <div class="status-detail"></div>

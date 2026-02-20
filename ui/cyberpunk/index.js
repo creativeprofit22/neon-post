@@ -24,6 +24,7 @@ import { cornerBrackets } from "./decorators/corner-brackets.js";
 import { travelingLight } from "./decorators/traveling-light.js";
 import { glitchText } from "./decorators/glitch-text.js";
 import { electricBorder } from "./decorators/electric-border.js";
+import { vanishInput } from "./decorators/vanish-input.js";
 
 // ── Cleanup registry ──
 const cleanups = [];
@@ -93,6 +94,14 @@ function decorateUI() {
   const sendBtn = document.getElementById("send-btn");
   if (sendBtn) {
     register(electricBorder(sendBtn, { chaos: 0.06, speed: 0.5 }));
+  }
+
+  // Input area → vanish effect on send
+  const inputAreaEl = document.getElementById("input-area");
+  if (inputAreaEl) {
+    const { trigger, cleanup } = vanishInput(inputAreaEl);
+    register(cleanup);
+    window.__cyberVanish = { trigger };
   }
 
   // MutationObserver for dynamic chat content
