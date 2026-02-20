@@ -3729,8 +3729,9 @@
       clearSuggestion();
 
       // Trigger cyberpunk vanish effect (ghost chars dissolve after clear)
-      if (document.body.dataset.theme === 'cyberpunk' && window.__cyberVanish) {
-        window.__cyberVanish.trigger(vanishText);
+      if (document.body.dataset.theme === 'cyberpunk') {
+        if (window.__cyberVanish) window.__cyberVanish.trigger(vanishText);
+        input.closest('.input-container')?.classList.remove('typing');
       }
       clearAttachments();
       if (workflow) clearWorkflow();
@@ -4058,9 +4059,21 @@
         if (typeof addMessage._userCount === 'undefined') addMessage._userCount = 0;
         if (addMessage._userCount % 2 === 1) div.classList.add('alternate');
         addMessage._userCount++;
+        // Terminal header bar
+        const header = document.createElement('div');
+        header.className = 'cyber-panel-header';
+        div.appendChild(header);
+        // Scanlines
         const scanlines = document.createElement('div');
         scanlines.className = 'cyber-panel-scanlines';
         div.appendChild(scanlines);
+        // Corner brackets
+        const cornerTL = document.createElement('div');
+        cornerTL.className = 'cyber-panel-corner tl';
+        div.appendChild(cornerTL);
+        const cornerBR = document.createElement('div');
+        cornerBR.className = 'cyber-panel-corner br';
+        div.appendChild(cornerBR);
       }
 
       // Add attachments display for user messages
@@ -5085,6 +5098,16 @@
         clearSuggestion();
       }
       autoResizeTextarea();
+
+      // Cyberpunk: toggle typing class for glow effect
+      const container = input.closest('.input-container');
+      if (container && document.body.dataset.theme === 'cyberpunk') {
+        if (input.value.length > 0) {
+          container.classList.add('typing');
+        } else {
+          container.classList.remove('typing');
+        }
+      }
     }
 
     function setSuggestion(text) {

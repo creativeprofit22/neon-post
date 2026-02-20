@@ -8,22 +8,18 @@
 
 [data-theme="cyberpunk"] #messages {
   background:
-    linear-gradient(135deg,
-      oklch(0.05 0.03 250) 0%,
-      oklch(0.08 0.04 220) 25%,
-      oklch(0.06 0.05 280) 50%,
-      oklch(0.07 0.03 195) 75%,
-      oklch(0.05 0.04 250) 100%
-    );
-  background-size: 400% 400%;
-  animation: cyber-bg-drift 20s ease infinite;
+    radial-gradient(ellipse at 20% 50%, oklch(0.15 0.10 195 / 0.5), transparent 60%),
+    radial-gradient(ellipse at 80% 20%, oklch(0.12 0.12 300 / 0.4), transparent 50%),
+    radial-gradient(ellipse at 60% 80%, oklch(0.10 0.08 350 / 0.3), transparent 50%),
+    linear-gradient(180deg, oklch(0.05 0.02 250) 0%, oklch(0.08 0.03 220) 100%);
+  background-size: 200% 200%, 200% 200%, 200% 200%, 100% 100%;
+  animation: cyber-bg-drift 25s ease infinite;
 }
 
 @keyframes cyber-bg-drift {
-  0%, 100% { background-position: 0% 50%; }
-  25% { background-position: 100% 25%; }
-  50% { background-position: 100% 50%; }
-  75% { background-position: 0% 75%; }
+  0%, 100% { background-position: 0% 50%, 100% 0%, 50% 100%, 0% 0%; }
+  33% { background-position: 100% 30%, 0% 80%, 80% 20%, 0% 0%; }
+  66% { background-position: 50% 80%, 60% 40%, 20% 60%, 0% 0%; }
 }
 
 /* ── Assistant message: neon gradient border ── */
@@ -87,48 +83,56 @@
 /* ── User message: cyberpunk HUD panel ── */
 
 [data-theme="cyberpunk"] .message.user.cyber-panel {
-  background: linear-gradient(180deg, oklch(0.10 0.04 195 / 0.6), oklch(0.06 0.02 250 / 0.8));
-  border: 1px solid oklch(0.83 0.18 195 / 0.25);
+  background: linear-gradient(180deg, oklch(0.12 0.05 195 / 0.85), oklch(0.07 0.03 250 / 0.9));
+  border: 1px solid oklch(0.83 0.18 195 / 0.35);
   border-radius: 2px;
   position: relative;
+  padding-top: 28px;
   box-shadow:
-    inset 0 1px 0 oklch(0.83 0.18 195 / 0.1),
-    inset 0 -1px 0 oklch(0 0 0 / 0.3),
-    0 4px 16px rgba(0, 0, 0, 0.4);
+    0 0 12px oklch(0.83 0.18 195 / 0.08),
+    0 4px 20px rgba(0, 0, 0, 0.5);
   transform: none;
+  overflow: hidden;
 }
 
 [data-theme="cyberpunk"] .message.user.cyber-panel:hover {
-  border-color: oklch(0.83 0.18 195 / 0.4);
+  border-color: oklch(0.83 0.18 195 / 0.55);
   box-shadow:
-    inset 0 1px 0 oklch(0.83 0.18 195 / 0.15),
-    inset 0 -1px 0 oklch(0 0 0 / 0.3),
-    0 4px 16px rgba(0, 0, 0, 0.4),
-    0 0 12px oklch(0.83 0.18 195 / 0.1);
+    0 0 20px oklch(0.83 0.18 195 / 0.15),
+    0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
-/* HUD corner brackets */
-[data-theme="cyberpunk"] .message.user.cyber-panel::before,
-[data-theme="cyberpunk"] .message.user.cyber-panel::after {
-  content: '';
+/* Terminal header bar */
+[data-theme="cyberpunk"] .cyber-panel-header {
   position: absolute;
-  width: 10px;
-  height: 10px;
-  pointer-events: none;
-  border-color: oklch(0.83 0.18 195 / 0.5);
-  border-style: solid;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 22px;
+  background: linear-gradient(90deg, oklch(0.83 0.18 195 / 0.15), oklch(0.83 0.18 195 / 0.05));
+  border-bottom: 1px solid oklch(0.83 0.18 195 / 0.2);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  gap: 5px;
 }
 
-[data-theme="cyberpunk"] .message.user.cyber-panel::before {
-  top: -1px;
-  left: -1px;
-  border-width: 1px 0 0 1px;
+[data-theme="cyberpunk"] .cyber-panel-header::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cyan-0);
+  box-shadow: 0 0 4px var(--cyan-0);
 }
 
-[data-theme="cyberpunk"] .message.user.cyber-panel::after {
-  bottom: -1px;
-  right: -1px;
-  border-width: 0 1px 1px 0;
+[data-theme="cyberpunk"] .cyber-panel-header::after {
+  content: 'USER://INPUT';
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: oklch(0.83 0.18 195 / 0.5);
+  text-transform: uppercase;
 }
 
 /* Scan-line texture inside user panel */
@@ -138,29 +142,74 @@
   pointer-events: none;
   background: repeating-linear-gradient(
     0deg,
-    transparent 0px, transparent 3px,
-    oklch(0.83 0.18 195 / 0.03) 3px, oklch(0.83 0.18 195 / 0.03) 4px
+    transparent 0px, transparent 2px,
+    oklch(0.83 0.18 195 / 0.04) 2px, oklch(0.83 0.18 195 / 0.04) 3px
   );
-  border-radius: 2px;
 }
+
+/* HUD corner brackets */
+[data-theme="cyberpunk"] .cyber-panel-corner {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+}
+
+[data-theme="cyberpunk"] .cyber-panel-corner::before,
+[data-theme="cyberpunk"] .cyber-panel-corner::after {
+  content: '';
+  position: absolute;
+  background: var(--cyan-0);
+}
+
+[data-theme="cyberpunk"] .cyber-panel-corner::before {
+  width: 100%;
+  height: 1px;
+}
+
+[data-theme="cyberpunk"] .cyber-panel-corner::after {
+  width: 1px;
+  height: 100%;
+}
+
+[data-theme="cyberpunk"] .cyber-panel-corner.tl { top: 0; left: 0; }
+[data-theme="cyberpunk"] .cyber-panel-corner.tl::before { top: 0; left: 0; }
+[data-theme="cyberpunk"] .cyber-panel-corner.tl::after { top: 0; left: 0; }
+
+[data-theme="cyberpunk"] .cyber-panel-corner.br { bottom: 0; right: 0; }
+[data-theme="cyberpunk"] .cyber-panel-corner.br::before { bottom: 0; right: 0; }
+[data-theme="cyberpunk"] .cyber-panel-corner.br::after { bottom: 0; right: 0; }
 
 /* Alternate user panel — magenta accent */
 [data-theme="cyberpunk"] .message.user.cyber-panel.alternate {
-  border-color: oklch(0.65 0.28 350 / 0.2);
+  background: linear-gradient(180deg, oklch(0.12 0.06 350 / 0.7), oklch(0.07 0.03 250 / 0.9));
+  border-color: oklch(0.65 0.28 350 / 0.3);
 }
 
 [data-theme="cyberpunk"] .message.user.cyber-panel.alternate:hover {
-  border-color: oklch(0.65 0.28 350 / 0.35);
+  border-color: oklch(0.65 0.28 350 / 0.5);
   box-shadow:
-    inset 0 1px 0 oklch(0.65 0.28 350 / 0.1),
-    inset 0 -1px 0 oklch(0 0 0 / 0.3),
-    0 4px 16px rgba(0, 0, 0, 0.4),
-    0 0 12px oklch(0.65 0.28 350 / 0.08);
+    0 0 20px oklch(0.65 0.28 350 / 0.12),
+    0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
-[data-theme="cyberpunk"] .message.user.cyber-panel.alternate::before,
-[data-theme="cyberpunk"] .message.user.cyber-panel.alternate::after {
-  border-color: oklch(0.65 0.28 350 / 0.4);
+[data-theme="cyberpunk"] .message.user.cyber-panel.alternate .cyber-panel-header {
+  background: linear-gradient(90deg, oklch(0.65 0.28 350 / 0.15), oklch(0.65 0.28 350 / 0.05));
+  border-bottom-color: oklch(0.65 0.28 350 / 0.2);
+}
+
+[data-theme="cyberpunk"] .message.user.cyber-panel.alternate .cyber-panel-header::before {
+  background: var(--magenta-0);
+  box-shadow: 0 0 4px var(--magenta-0);
+}
+
+[data-theme="cyberpunk"] .message.user.cyber-panel.alternate .cyber-panel-header::after {
+  color: oklch(0.65 0.28 350 / 0.5);
+}
+
+[data-theme="cyberpunk"] .message.user.cyber-panel.alternate .cyber-panel-corner::before,
+[data-theme="cyberpunk"] .message.user.cyber-panel.alternate .cyber-panel-corner::after {
+  background: var(--magenta-0);
 }
 
 /* ── Keyframes ── */
@@ -286,4 +335,114 @@
   15% { opacity: 1; transform: translate(calc(var(--flow-x, -20px) * 0.1), var(--flow-y-start, 0px)) scale(1); }
   85% { opacity: 0.6; }
   100% { opacity: 0; transform: translate(var(--flow-x, -60px), var(--flow-y-end, 0px)) scale(0.3); }
+}
+
+/* ── Typing effects on input area ── */
+
+[data-theme="cyberpunk"] .input-container {
+  position: relative;
+  border-color: oklch(0.83 0.18 195 / 0.2);
+  background: oklch(0.07 0.03 250 / 0.9);
+  border-radius: 2px;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+[data-theme="cyberpunk"] .input-container:focus-within {
+  border-color: oklch(0.83 0.18 195 / 0.6);
+  box-shadow:
+    0 0 8px oklch(0.83 0.18 195 / 0.2),
+    0 0 20px oklch(0.83 0.18 195 / 0.08),
+    inset 0 0 12px oklch(0.83 0.18 195 / 0.05);
+}
+
+/* Subtle bottom-edge glow line when typing */
+[data-theme="cyberpunk"] .input-container.typing::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan-0), transparent);
+  animation: typing-glow-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes typing-glow-pulse {
+  0%, 100% { opacity: 0.3; left: 10%; right: 10%; }
+  50% { opacity: 0.8; left: 5%; right: 5%; }
+}
+
+/* Caret color */
+[data-theme="cyberpunk"] #message-input {
+  caret-color: var(--cyan-0);
+}
+
+[data-theme="cyberpunk"] #message-input::placeholder {
+  color: oklch(0.83 0.18 195 / 0.25);
+}
+
+/* ── Hamburger menu cyberpunk overrides ── */
+
+[data-theme="cyberpunk"] .hamburger-btn {
+  background: oklch(0.10 0.04 195 / 0.6);
+  border: 1px solid oklch(0.83 0.18 195 / 0.3);
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+[data-theme="cyberpunk"] .hamburger-btn:hover {
+  background: oklch(0.15 0.06 195 / 0.8);
+  border-color: oklch(0.83 0.18 195 / 0.6);
+  box-shadow: 0 0 8px oklch(0.83 0.18 195 / 0.2);
+  transform: none;
+}
+
+[data-theme="cyberpunk"] .hamburger-btn span {
+  background: var(--cyan-0);
+  border-radius: 0;
+  height: 1.5px;
+  box-shadow: 0 0 3px oklch(0.83 0.18 195 / 0.4);
+}
+
+[data-theme="cyberpunk"] .hamburger-btn:hover span {
+  background: var(--cyan-0);
+  box-shadow: 0 0 6px oklch(0.83 0.18 195 / 0.6);
+}
+
+[data-theme="cyberpunk"] .menu-dropdown {
+  background: oklch(0.08 0.03 250 / 0.95);
+  border: 1px solid oklch(0.83 0.18 195 / 0.3);
+  border-radius: 2px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.6),
+    0 0 15px oklch(0.83 0.18 195 / 0.08);
+  backdrop-filter: blur(12px);
+}
+
+[data-theme="cyberpunk"] .menu-item {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid oklch(0.83 0.18 195 / 0.06);
+  transition: all 0.15s ease;
+}
+
+[data-theme="cyberpunk"] .menu-item:last-child {
+  border-bottom: none;
+}
+
+[data-theme="cyberpunk"] .menu-item:hover {
+  background: oklch(0.83 0.18 195 / 0.08);
+  color: var(--cyan-0);
+  padding-left: 20px;
+}
+
+[data-theme="cyberpunk"] .menu-item:hover svg {
+  filter: drop-shadow(0 0 3px var(--cyan-0));
+}
+
+[data-theme="cyberpunk"] .menu-item.danger:hover {
+  background: oklch(0.65 0.25 15 / 0.08);
+  color: var(--red-0);
 }
