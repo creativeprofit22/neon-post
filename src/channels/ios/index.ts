@@ -158,6 +158,13 @@ export class iOSChannel extends BaseChannel {
     return this.mode;
   }
 
+  /** Force reconnect relay WebSocket — used after system sleep/wake */
+  async forceReconnect(): Promise<void> {
+    if (this.mode === 'relay') {
+      await (this.backend as iOSRelayClient).forceReconnect();
+    }
+  }
+
   sendToDevice(deviceId: string, message: object): boolean {
     return this.backend.sendToDevice(deviceId, message);
   }

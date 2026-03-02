@@ -4373,6 +4373,13 @@
       // Refresh model badge when window gains focus (in case user changed it in settings)
       window.addEventListener('focus', updateModelBadge);
 
+      // Reload history when window regains visibility (e.g. after sleep/wake)
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          loadHistory();
+        }
+      });
+
       // Check for updates (delayed to not slow down startup)
       setTimeout(checkForUpdates, 3000);
 

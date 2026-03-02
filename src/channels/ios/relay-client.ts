@@ -340,6 +340,32 @@ export class iOSRelayClient {
     return this._isRunning;
   }
 
+  /** Force reconnect — used after system sleep/wake to recover stale WebSocket */
+  async forceReconnect(): Promise<void> {
+    if (!this._isRunning) return;
+    console.log('[iOS Relay] Force reconnecting (sleep/wake recovery)');
+
+    // Clear any pending reconnect timer
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
+    // Close stale WebSocket without triggering scheduleReconnect
+    const prevShouldReconnect = this.shouldReconnect;
+    this.shouldReconnect = false;
+    if (this.ws) {
+      this.stopPing();
+      this.ws.close();
+      this.ws = null;
+    }
+    this.shouldReconnect = prevShouldReconnect;
+
+    // Reset backoff and reconnect immediately
+    this.reconnectAttempts = 0;
+    await this.connect();
+  }
+
   private connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       const url = `${this.relayUrl}/room/${this.instanceId}?role=host`;

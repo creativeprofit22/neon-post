@@ -3003,6 +3003,12 @@ app.whenReady().then(async () => {
       getBrowserManager().forceReconnectCdp().catch((err) => {
         console.warn('[Power] CDP reconnect after resume failed:', err);
       });
+      // Force iOS relay reconnection — WebSocket is dead after sleep
+      if (iosChannel) {
+        iosChannel.forceReconnect().catch((err) => {
+          console.warn('[Power] iOS relay reconnect after resume failed:', err);
+        });
+      }
     });
 
     // Handle lock screen (display off but CPU running)
@@ -3017,6 +3023,12 @@ app.whenReady().then(async () => {
       getBrowserManager().forceReconnectCdp().catch((err) => {
         console.warn('[Power] CDP reconnect after unlock failed:', err);
       });
+      // Force iOS relay reconnection — connection may have gone stale during lock
+      if (iosChannel) {
+        iosChannel.forceReconnect().catch((err) => {
+          console.warn('[Power] iOS relay reconnect after unlock failed:', err);
+        });
+      }
     });
 
     // Clean up on app quit
