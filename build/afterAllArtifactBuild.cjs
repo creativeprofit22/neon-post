@@ -38,7 +38,7 @@ exports.default = async function(context) {
     return artifactPaths;
   }
 
-  const { createDmg } = require('./createDmg');
+  const { createDmg } = require('./createDmg.cjs');
 
   for (const artifactPath of artifactPaths) {
     if (!artifactPath.endsWith('.dmg')) {
