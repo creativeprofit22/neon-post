@@ -57,23 +57,28 @@ export interface CronJob {
 }
 
 export interface SmartContextOptions {
-  recentMessageLimit: number;      // Number of recent messages to include
-  rollingSummaryInterval: number;  // Create summaries every N messages
-  semanticRetrievalCount: number;  // Number of semantically relevant messages to retrieve
-  currentQuery?: string;           // Current user query for semantic search
+  recentMessageLimit: number; // Number of recent messages to include
+  rollingSummaryInterval: number; // Create summaries every N messages
+  semanticRetrievalCount: number; // Number of semantically relevant messages to retrieve
+  currentQuery?: string; // Current user query for semantic search
 }
 
 export interface SmartContext {
   recentMessages: Array<{ role: string; content: string; timestamp?: string }>;
   rollingSummary: string | null;
-  relevantMessages: Array<{ role: string; content: string; timestamp?: string; similarity?: number }>;
+  relevantMessages: Array<{
+    role: string;
+    content: string;
+    timestamp?: string;
+    similarity?: number;
+  }>;
   totalTokens: number;
   stats: {
     totalMessages: number;
     summarizedMessages: number;
     recentCount: number;
     relevantCount: number;
-    newSummaryCreated: boolean;  // True if a new rolling summary was created this turn
+    newSummaryCreated: boolean; // True if a new rolling summary was created this turn
   };
 }
 
@@ -367,7 +372,7 @@ export class MemoryManager {
 
     // Migration: add subject column if missing (must run BEFORE FTS rebuild)
     const columns = this.db.pragma('table_info(facts)') as Array<{ name: string }>;
-    const hasSubject = columns.some(c => c.name === 'subject');
+    const hasSubject = columns.some((c) => c.name === 'subject');
     if (!hasSubject) {
       this.db.exec(`ALTER TABLE facts ADD COLUMN subject TEXT NOT NULL DEFAULT ''`);
       console.log('[Memory] Migrated facts table: added subject column');
@@ -378,7 +383,7 @@ export class MemoryManager {
 
     // Migration: add session_id to messages if missing
     const msgColumns = this.db.pragma('table_info(messages)') as Array<{ name: string }>;
-    const hasSessionId = msgColumns.some(c => c.name === 'session_id');
+    const hasSessionId = msgColumns.some((c) => c.name === 'session_id');
     if (!hasSessionId) {
       this.db.exec(`ALTER TABLE messages ADD COLUMN session_id TEXT REFERENCES sessions(id)`);
       console.log('[Memory] Migrated messages table: added session_id column');
@@ -386,7 +391,7 @@ export class MemoryManager {
 
     // Migration: add session_id to summaries if missing
     const sumColumns = this.db.pragma('table_info(summaries)') as Array<{ name: string }>;
-    const sumHasSessionId = sumColumns.some(c => c.name === 'session_id');
+    const sumHasSessionId = sumColumns.some((c) => c.name === 'session_id');
     if (!sumHasSessionId) {
       this.db.exec(`ALTER TABLE summaries ADD COLUMN session_id TEXT REFERENCES sessions(id)`);
       console.log('[Memory] Migrated summaries table: added session_id column');
@@ -394,7 +399,7 @@ export class MemoryManager {
 
     // Migration: add metadata column to messages if missing
     const msgColsForMeta = this.db.pragma('table_info(messages)') as Array<{ name: string }>;
-    const hasMetadata = msgColsForMeta.some(c => c.name === 'metadata');
+    const hasMetadata = msgColsForMeta.some((c) => c.name === 'metadata');
     if (!hasMetadata) {
       this.db.exec(`ALTER TABLE messages ADD COLUMN metadata TEXT`);
       console.log('[Memory] Migrated messages table: added metadata column');
@@ -408,21 +413,21 @@ export class MemoryManager {
 
     // Migration: add sdk_session_id to sessions for SDK session persistence
     const sessColumns = this.db.pragma('table_info(sessions)') as Array<{ name: string }>;
-    if (!sessColumns.some(c => c.name === 'sdk_session_id')) {
+    if (!sessColumns.some((c) => c.name === 'sdk_session_id')) {
       this.db.exec('ALTER TABLE sessions ADD COLUMN sdk_session_id TEXT');
       console.log('[Memory] Migrated sessions table: added sdk_session_id column');
     }
 
     // Migration: add mode column to sessions for per-session mode lock
     const sessColumnsForMode = this.db.pragma('table_info(sessions)') as Array<{ name: string }>;
-    if (!sessColumnsForMode.some(c => c.name === 'mode')) {
+    if (!sessColumnsForMode.some((c) => c.name === 'mode')) {
       this.db.exec("ALTER TABLE sessions ADD COLUMN mode TEXT DEFAULT 'coder'");
       console.log('[Memory] Migrated sessions table: added mode column');
     }
 
     // Migration: add working_directory column to sessions for per-session workspace
     const sessColumnsForWd = this.db.pragma('table_info(sessions)') as Array<{ name: string }>;
-    if (!sessColumnsForWd.some(c => c.name === 'working_directory')) {
+    if (!sessColumnsForWd.some((c) => c.name === 'working_directory')) {
       this.db.exec('ALTER TABLE sessions ADD COLUMN working_directory TEXT');
       console.log('[Memory] Migrated sessions table: added working_directory column');
     }
@@ -438,15 +443,23 @@ export class MemoryManager {
     // Helper to check if column exists
     const hasColumn = (table: string, column: string): boolean => {
       const columns = this.db.pragma(`table_info(${table})`) as Array<{ name: string }>;
-      return columns.some(c => c.name === column);
+      return columns.some((c) => c.name === column);
     };
 
     // Migrate calendar_events
     if (!hasColumn('calendar_events', 'session_id')) {
-      this.db.exec(`ALTER TABLE calendar_events ADD COLUMN session_id TEXT REFERENCES sessions(id)`);
-      const count = (this.db.prepare('SELECT COUNT(*) as c FROM calendar_events WHERE session_id IS NULL').get() as { c: number }).c;
+      this.db.exec(
+        `ALTER TABLE calendar_events ADD COLUMN session_id TEXT REFERENCES sessions(id)`
+      );
+      const count = (
+        this.db
+          .prepare('SELECT COUNT(*) as c FROM calendar_events WHERE session_id IS NULL')
+          .get() as { c: number }
+      ).c;
       if (count > 0) {
-        this.db.prepare('UPDATE calendar_events SET session_id = ? WHERE session_id IS NULL').run(DEFAULT_SESSION_ID);
+        this.db
+          .prepare('UPDATE calendar_events SET session_id = ? WHERE session_id IS NULL')
+          .run(DEFAULT_SESSION_ID);
         console.log(`[Memory] Migrated ${count} calendar events to default session`);
       }
       console.log('[Memory] Migrated calendar_events table: added session_id column');
@@ -455,9 +468,15 @@ export class MemoryManager {
     // Migrate tasks
     if (!hasColumn('tasks', 'session_id')) {
       this.db.exec(`ALTER TABLE tasks ADD COLUMN session_id TEXT REFERENCES sessions(id)`);
-      const count = (this.db.prepare('SELECT COUNT(*) as c FROM tasks WHERE session_id IS NULL').get() as { c: number }).c;
+      const count = (
+        this.db.prepare('SELECT COUNT(*) as c FROM tasks WHERE session_id IS NULL').get() as {
+          c: number;
+        }
+      ).c;
       if (count > 0) {
-        this.db.prepare('UPDATE tasks SET session_id = ? WHERE session_id IS NULL').run(DEFAULT_SESSION_ID);
+        this.db
+          .prepare('UPDATE tasks SET session_id = ? WHERE session_id IS NULL')
+          .run(DEFAULT_SESSION_ID);
         console.log(`[Memory] Migrated ${count} tasks to default session`);
       }
       console.log('[Memory] Migrated tasks table: added session_id column');
@@ -466,9 +485,15 @@ export class MemoryManager {
     // Migrate cron_jobs
     if (!hasColumn('cron_jobs', 'session_id')) {
       this.db.exec(`ALTER TABLE cron_jobs ADD COLUMN session_id TEXT REFERENCES sessions(id)`);
-      const count = (this.db.prepare('SELECT COUNT(*) as c FROM cron_jobs WHERE session_id IS NULL').get() as { c: number }).c;
+      const count = (
+        this.db.prepare('SELECT COUNT(*) as c FROM cron_jobs WHERE session_id IS NULL').get() as {
+          c: number;
+        }
+      ).c;
       if (count > 0) {
-        this.db.prepare('UPDATE cron_jobs SET session_id = ? WHERE session_id IS NULL').run(DEFAULT_SESSION_ID);
+        this.db
+          .prepare('UPDATE cron_jobs SET session_id = ? WHERE session_id IS NULL')
+          .run(DEFAULT_SESSION_ID);
         console.log(`[Memory] Migrated ${count} cron jobs to default session`);
       }
       console.log('[Memory] Migrated cron_jobs table: added session_id column');
@@ -476,7 +501,9 @@ export class MemoryManager {
 
     // Create indexes for session filtering
     try {
-      this.db.exec(`CREATE INDEX IF NOT EXISTS idx_calendar_session ON calendar_events(session_id)`);
+      this.db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_calendar_session ON calendar_events(session_id)`
+      );
       this.db.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_session ON tasks(session_id)`);
       this.db.exec(`CREATE INDEX IF NOT EXISTS idx_cron_session ON cron_jobs(session_id)`);
     } catch {
@@ -493,29 +520,51 @@ export class MemoryManager {
 
     // Only create default session if NO sessions exist at all
     // (Don't recreate it if user deleted it and has other sessions)
-    const sessionCount = (this.db.prepare('SELECT COUNT(*) as c FROM sessions').get() as { c: number }).c;
-    const existing = this.db.prepare('SELECT id FROM sessions WHERE id = ?').get(DEFAULT_SESSION_ID);
+    const sessionCount = (
+      this.db.prepare('SELECT COUNT(*) as c FROM sessions').get() as { c: number }
+    ).c;
+    const existing = this.db
+      .prepare('SELECT id FROM sessions WHERE id = ?')
+      .get(DEFAULT_SESSION_ID);
     if (!existing && sessionCount === 0) {
       // Create default session
-      this.db.prepare(`
+      this.db
+        .prepare(
+          `
         INSERT INTO sessions (id, name, created_at, updated_at)
         VALUES (?, ?, (strftime('%Y-%m-%dT%H:%M:%fZ')), (strftime('%Y-%m-%dT%H:%M:%fZ')))
-      `).run(DEFAULT_SESSION_ID, DEFAULT_SESSION_NAME);
+      `
+        )
+        .run(DEFAULT_SESSION_ID, DEFAULT_SESSION_NAME);
       console.log('[Memory] Created default session');
     }
 
     // Migrate orphan messages/summaries to default session (only if it exists)
-    const defaultExists = this.db.prepare('SELECT id FROM sessions WHERE id = ?').get(DEFAULT_SESSION_ID);
+    const defaultExists = this.db
+      .prepare('SELECT id FROM sessions WHERE id = ?')
+      .get(DEFAULT_SESSION_ID);
     if (defaultExists) {
-      const orphanCount = (this.db.prepare('SELECT COUNT(*) as c FROM messages WHERE session_id IS NULL').get() as { c: number }).c;
+      const orphanCount = (
+        this.db.prepare('SELECT COUNT(*) as c FROM messages WHERE session_id IS NULL').get() as {
+          c: number;
+        }
+      ).c;
       if (orphanCount > 0) {
-        this.db.prepare('UPDATE messages SET session_id = ? WHERE session_id IS NULL').run(DEFAULT_SESSION_ID);
+        this.db
+          .prepare('UPDATE messages SET session_id = ? WHERE session_id IS NULL')
+          .run(DEFAULT_SESSION_ID);
         console.log(`[Memory] Migrated ${orphanCount} messages to default session`);
       }
 
-      const orphanSumCount = (this.db.prepare('SELECT COUNT(*) as c FROM summaries WHERE session_id IS NULL').get() as { c: number }).c;
+      const orphanSumCount = (
+        this.db.prepare('SELECT COUNT(*) as c FROM summaries WHERE session_id IS NULL').get() as {
+          c: number;
+        }
+      ).c;
       if (orphanSumCount > 0) {
-        this.db.prepare('UPDATE summaries SET session_id = ? WHERE session_id IS NULL').run(DEFAULT_SESSION_ID);
+        this.db
+          .prepare('UPDATE summaries SET session_id = ? WHERE session_id IS NULL')
+          .run(DEFAULT_SESSION_ID);
         console.log(`[Memory] Migrated ${orphanSumCount} summaries to default session`);
       }
     }
@@ -527,13 +576,20 @@ export class MemoryManager {
   private rebuildFtsIndex(): void {
     try {
       // Check if FTS table is empty but facts exist
-      const ftsCount = (this.db.prepare('SELECT COUNT(*) as c FROM facts_fts').get() as { c: number }).c;
-      const factsCount = (this.db.prepare('SELECT COUNT(*) as c FROM facts').get() as { c: number }).c;
+      const ftsCount = (
+        this.db.prepare('SELECT COUNT(*) as c FROM facts_fts').get() as { c: number }
+      ).c;
+      const factsCount = (this.db.prepare('SELECT COUNT(*) as c FROM facts').get() as { c: number })
+        .c;
 
       if (ftsCount === 0 && factsCount > 0) {
         console.log('[Memory] Rebuilding FTS index...');
-        const facts = this.db.prepare('SELECT id, category, subject, content FROM facts').all() as Fact[];
-        const insert = this.db.prepare('INSERT INTO facts_fts(rowid, category, subject, content) VALUES (?, ?, ?, ?)');
+        const facts = this.db
+          .prepare('SELECT id, category, subject, content FROM facts')
+          .all() as Fact[];
+        const insert = this.db.prepare(
+          'INSERT INTO facts_fts(rowid, category, subject, content) VALUES (?, ?, ?, ?)'
+        );
 
         for (const fact of facts) {
           insert.run(fact.id, fact.category, fact.subject, fact.content);
@@ -554,7 +610,7 @@ export class MemoryManager {
     console.log('[Memory] Embeddings initialized');
 
     // Embed any facts that don't have embeddings
-    this.embedMissingFacts().catch(err => {
+    this.embedMissingFacts().catch((err) => {
       console.error('[Memory] Failed to embed missing facts:', err);
     });
   }
@@ -565,12 +621,16 @@ export class MemoryManager {
   private async embedMissingFacts(): Promise<void> {
     if (!hasEmbeddings()) return;
 
-    const factsWithoutEmbeddings = this.db.prepare(`
+    const factsWithoutEmbeddings = this.db
+      .prepare(
+        `
       SELECT f.id, f.category, f.subject, f.content
       FROM facts f
       LEFT JOIN chunks c ON f.id = c.fact_id
       WHERE c.id IS NULL
-    `).all() as Fact[];
+    `
+      )
+      .all() as Fact[];
 
     if (factsWithoutEmbeddings.length === 0) return;
 
@@ -602,10 +662,14 @@ export class MemoryManager {
       this.db.prepare('DELETE FROM chunks WHERE fact_id = ?').run(fact.id);
 
       // Insert new chunk with embedding
-      this.db.prepare(`
+      this.db
+        .prepare(
+          `
         INSERT INTO chunks (fact_id, content, embedding)
         VALUES (?, ?, ?)
-      `).run(fact.id, textToEmbed, embeddingBuffer);
+      `
+        )
+        .run(fact.id, textToEmbed, embeddingBuffer);
     } catch (err) {
       console.error(`[Memory] Failed to embed fact ${fact.id}:`, err);
     }
@@ -624,7 +688,11 @@ export class MemoryManager {
    * Create a new session
    * @throws Error if session name already exists
    */
-  createSession(name: string, mode: 'general' | 'coder' = 'coder', workingDirectory?: string | null): Session {
+  createSession(
+    name: string,
+    mode: 'general' | 'coder' = 'coder',
+    workingDirectory?: string | null
+  ): Session {
     // Check for duplicate name
     const existing = this.getSessionByName(name);
     if (existing) {
@@ -632,10 +700,14 @@ export class MemoryManager {
     }
 
     const id = `session-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    this.db.prepare(`
+    this.db
+      .prepare(
+        `
       INSERT INTO sessions (id, name, mode, working_directory, created_at, updated_at)
       VALUES (?, ?, ?, ?, (strftime('%Y-%m-%dT%H:%M:%fZ')), (strftime('%Y-%m-%dT%H:%M:%fZ')))
-    `).run(id, name, mode, workingDirectory ?? null);
+    `
+      )
+      .run(id, name, mode, workingDirectory ?? null);
 
     return this.getSession(id)!;
   }
@@ -644,11 +716,15 @@ export class MemoryManager {
    * Get a session by name (exact match)
    */
   getSessionByName(name: string): Session | null {
-    const row = this.db.prepare(`
+    const row = this.db
+      .prepare(
+        `
       SELECT id, name, mode, working_directory, created_at, updated_at
       FROM sessions
       WHERE name = ?
-    `).get(name) as Session | undefined;
+    `
+      )
+      .get(name) as Session | undefined;
 
     return row || null;
   }
@@ -657,11 +733,15 @@ export class MemoryManager {
    * Get a session by ID
    */
   getSession(id: string): Session | null {
-    const row = this.db.prepare(`
+    const row = this.db
+      .prepare(
+        `
       SELECT id, name, mode, working_directory, created_at, updated_at
       FROM sessions
       WHERE id = ?
-    `).get(id) as Session | undefined;
+    `
+      )
+      .get(id) as Session | undefined;
 
     return row || null;
   }
@@ -681,7 +761,9 @@ export class MemoryManager {
       telegram_linked: number;
       telegram_group_name: string | null;
     }
-    const rows = this.db.prepare(`
+    const rows = this.db
+      .prepare(
+        `
       SELECT
         s.id,
         s.name,
@@ -695,8 +777,10 @@ export class MemoryManager {
       LEFT JOIN telegram_chat_sessions t ON s.id = t.session_id
       GROUP BY s.id
       ORDER BY s.updated_at DESC
-    `).all() as SessionRow[];
-    return rows.map(row => ({
+    `
+      )
+      .all() as SessionRow[];
+    return rows.map((row) => ({
       id: row.id,
       name: row.name,
       mode: (row.mode as 'general' | 'coder') || 'coder',
@@ -712,7 +796,9 @@ export class MemoryManager {
    * Get the working directory for a session (null means use root workspace)
    */
   getSessionWorkingDirectory(sessionId: string): string | null {
-    const row = this.db.prepare('SELECT working_directory FROM sessions WHERE id = ?').get(sessionId) as { working_directory: string | null } | undefined;
+    const row = this.db
+      .prepare('SELECT working_directory FROM sessions WHERE id = ?')
+      .get(sessionId) as { working_directory: string | null } | undefined;
     return row?.working_directory ?? null;
   }
 
@@ -720,10 +806,14 @@ export class MemoryManager {
    * Set the working directory for a session
    */
   setSessionWorkingDirectory(sessionId: string, workingDirectory: string | null): void {
-    this.db.prepare(`
+    this.db
+      .prepare(
+        `
       UPDATE sessions SET working_directory = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ'))
       WHERE id = ?
-    `).run(workingDirectory, sessionId);
+    `
+      )
+      .run(workingDirectory, sessionId);
   }
 
   /**
@@ -738,17 +828,25 @@ export class MemoryManager {
     }
 
     if (workingDirectory !== undefined) {
-      const result = this.db.prepare(`
+      const result = this.db
+        .prepare(
+          `
         UPDATE sessions SET name = ?, working_directory = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ'))
         WHERE id = ?
-      `).run(name, workingDirectory, id);
+      `
+        )
+        .run(name, workingDirectory, id);
       return result.changes > 0;
     }
 
-    const result = this.db.prepare(`
+    const result = this.db
+      .prepare(
+        `
       UPDATE sessions SET name = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ'))
       WHERE id = ?
-    `).run(name, id);
+    `
+      )
+      .run(name, id);
 
     return result.changes > 0;
   }
@@ -761,10 +859,14 @@ export class MemoryManager {
     // Order matters: delete child records before parent records
 
     // Delete message embeddings for messages in this session
-    this.db.prepare(`
+    this.db
+      .prepare(
+        `
       DELETE FROM message_embeddings
       WHERE message_id IN (SELECT id FROM messages WHERE session_id = ?)
-    `).run(id);
+    `
+      )
+      .run(id);
 
     // Delete messages and summaries
     this.db.prepare('DELETE FROM messages WHERE session_id = ?').run(id);
@@ -790,14 +892,18 @@ export class MemoryManager {
    * Touch session (update updated_at timestamp)
    */
   touchSession(id: string): void {
-    this.db.prepare(`UPDATE sessions SET updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ')) WHERE id = ?`).run(id);
+    this.db
+      .prepare(`UPDATE sessions SET updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ')) WHERE id = ?`)
+      .run(id);
   }
 
   /**
    * Get session message count
    */
   getSessionMessageCount(sessionId: string): number {
-    const row = this.db.prepare('SELECT COUNT(*) as c FROM messages WHERE session_id = ?').get(sessionId) as { c: number };
+    const row = this.db
+      .prepare('SELECT COUNT(*) as c FROM messages WHERE session_id = ?')
+      .get(sessionId) as { c: number };
     return row.c;
   }
 
@@ -805,7 +911,9 @@ export class MemoryManager {
    * Get the mode for a session (defaults to 'coder' for legacy sessions)
    */
   getSessionMode(sessionId: string): 'general' | 'coder' {
-    const row = this.db.prepare('SELECT mode FROM sessions WHERE id = ?').get(sessionId) as { mode: string | null } | undefined;
+    const row = this.db.prepare('SELECT mode FROM sessions WHERE id = ?').get(sessionId) as
+      | { mode: string | null }
+      | undefined;
     return (row?.mode as 'general' | 'coder') || 'coder';
   }
 
@@ -813,10 +921,14 @@ export class MemoryManager {
    * Set the mode for a session (only allowed when session has no messages)
    */
   setSessionMode(sessionId: string, mode: 'general' | 'coder'): boolean {
-    const result = this.db.prepare(`
+    const result = this.db
+      .prepare(
+        `
       UPDATE sessions SET mode = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ'))
       WHERE id = ?
-    `).run(mode, sessionId);
+    `
+      )
+      .run(mode, sessionId);
     return result.changes > 0;
   }
 
@@ -827,13 +939,17 @@ export class MemoryManager {
    */
   linkTelegramChat(chatId: number, sessionId: string, groupName?: string): boolean {
     try {
-      this.db.prepare(`
+      this.db
+        .prepare(
+          `
         INSERT INTO telegram_chat_sessions (chat_id, session_id, group_name)
         VALUES (?, ?, ?)
         ON CONFLICT(chat_id) DO UPDATE SET
           session_id = excluded.session_id,
           group_name = excluded.group_name
-      `).run(chatId, sessionId, groupName || null);
+      `
+        )
+        .run(chatId, sessionId, groupName || null);
       return true;
     } catch (err) {
       console.error('[Memory] Failed to link Telegram chat:', err);
@@ -845,7 +961,9 @@ export class MemoryManager {
    * Unlink a Telegram chat from its session
    */
   unlinkTelegramChat(chatId: number): boolean {
-    const result = this.db.prepare('DELETE FROM telegram_chat_sessions WHERE chat_id = ?').run(chatId);
+    const result = this.db
+      .prepare('DELETE FROM telegram_chat_sessions WHERE chat_id = ?')
+      .run(chatId);
     return result.changes > 0;
   }
 
@@ -853,9 +971,13 @@ export class MemoryManager {
    * Get the session ID for a Telegram chat
    */
   getSessionForChat(chatId: number): string | null {
-    const row = this.db.prepare(`
+    const row = this.db
+      .prepare(
+        `
       SELECT session_id FROM telegram_chat_sessions WHERE chat_id = ?
-    `).get(chatId) as { session_id: string } | undefined;
+    `
+      )
+      .get(chatId) as { session_id: string } | undefined;
     return row?.session_id || null;
   }
 
@@ -863,9 +985,13 @@ export class MemoryManager {
    * Get the Telegram chat ID for a session
    */
   getChatForSession(sessionId: string): number | null {
-    const row = this.db.prepare(`
+    const row = this.db
+      .prepare(
+        `
       SELECT chat_id FROM telegram_chat_sessions WHERE session_id = ?
-    `).get(sessionId) as { chat_id: number } | undefined;
+    `
+      )
+      .get(sessionId) as { chat_id: number } | undefined;
     return row?.chat_id || null;
   }
 
@@ -873,11 +999,15 @@ export class MemoryManager {
    * Get all Telegram chat to session mappings
    */
   getAllTelegramChatSessions(): TelegramChatSession[] {
-    return this.db.prepare(`
+    return this.db
+      .prepare(
+        `
       SELECT chat_id, session_id, group_name, created_at
       FROM telegram_chat_sessions
       ORDER BY created_at DESC
-    `).all() as TelegramChatSession[];
+    `
+      )
+      .all() as TelegramChatSession[];
   }
 
   // ============ DAILY LOG METHODS ============
@@ -894,11 +1024,15 @@ export class MemoryManager {
    */
   getDailyLog(date?: string): DailyLog | null {
     const targetDate = date || this.getTodayDate();
-    const row = this.db.prepare(`
+    const row = this.db
+      .prepare(
+        `
       SELECT id, date, content, updated_at
       FROM daily_logs
       WHERE date = ?
-    `).get(targetDate) as DailyLog | undefined;
+    `
+      )
+      .get(targetDate) as DailyLog | undefined;
 
     return row || null;
   }
@@ -909,7 +1043,10 @@ export class MemoryManager {
    */
   appendToDailyLog(entry: string): DailyLog {
     const today = this.getTodayDate();
-    const timestamp = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const timestamp = new Date().toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
     const formattedEntry = `[${timestamp}] ${entry}`;
 
     const existing = this.getDailyLog(today);
@@ -917,17 +1054,25 @@ export class MemoryManager {
     if (existing) {
       // Append to existing log
       const newContent = existing.content + '\n' + formattedEntry;
-      this.db.prepare(`
+      this.db
+        .prepare(
+          `
         UPDATE daily_logs
         SET content = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ'))
         WHERE date = ?
-      `).run(newContent, today);
+      `
+        )
+        .run(newContent, today);
     } else {
       // Create new log for today
-      this.db.prepare(`
+      this.db
+        .prepare(
+          `
         INSERT INTO daily_logs (date, content, updated_at)
         VALUES (?, ?, (strftime('%Y-%m-%dT%H:%M:%fZ')))
-      `).run(today, formattedEntry);
+      `
+        )
+        .run(today, formattedEntry);
     }
 
     return this.getDailyLog(today)!;
@@ -937,12 +1082,16 @@ export class MemoryManager {
    * Get daily logs from the last N calendar days
    */
   getDailyLogsSince(days: number = 3): DailyLog[] {
-    return this.db.prepare(`
+    return this.db
+      .prepare(
+        `
       SELECT id, date, content, updated_at
       FROM daily_logs
       WHERE date >= date('now', ?)
       ORDER BY date DESC
-    `).all(`-${days} days`) as DailyLog[];
+    `
+      )
+      .all(`-${days} days`) as DailyLog[];
   }
 
   /**
@@ -955,7 +1104,8 @@ export class MemoryManager {
     }
 
     const lines: string[] = ['## Recent Daily Logs'];
-    for (const log of logs.reverse()) {  // Show oldest first
+    for (const log of logs.reverse()) {
+      // Show oldest first
       const dateLabel = log.date === this.getTodayDate() ? 'Today' : log.date;
       lines.push(`\n### ${dateLabel}`);
       lines.push(log.content);
@@ -966,7 +1116,12 @@ export class MemoryManager {
 
   // ============ MESSAGE METHODS ============
 
-  saveMessage(role: 'user' | 'assistant' | 'system', content: string, sessionId: string = 'default', metadata?: Record<string, unknown>): number {
+  saveMessage(
+    role: 'user' | 'assistant' | 'system',
+    content: string,
+    sessionId: string = 'default',
+    metadata?: Record<string, unknown>
+  ): number {
     const tokenCount = estimateTokens(content);
     const metadataJson = metadata ? JSON.stringify(metadata) : null;
     const stmt = this.db.prepare(`
@@ -990,7 +1145,7 @@ export class MemoryManager {
       LIMIT ?
     `);
     const rows = stmt.all(sessionId, limit) as Array<Message & { metadata: string | null }>;
-    return rows.reverse().map(row => ({
+    return rows.reverse().map((row) => ({
       ...row,
       metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
     }));
@@ -1015,19 +1170,24 @@ export class MemoryManager {
     sessionId: string = 'default',
     options: SmartContextOptions
   ): Promise<SmartContext> {
-    const { recentMessageLimit, rollingSummaryInterval, semanticRetrievalCount, currentQuery } = options;
+    const { recentMessageLimit, rollingSummaryInterval, semanticRetrievalCount, currentQuery } =
+      options;
 
     // 1. Get total message count
     const totalMessages = this.getMessageCount(sessionId);
 
     // 2. Get recent messages (last N messages)
-    const recentMessagesQuery = this.db.prepare(`
+    const recentMessagesQuery = this.db
+      .prepare(
+        `
       SELECT id, role, content, timestamp, token_count
       FROM messages
       WHERE session_id = ?
       ORDER BY id DESC
       LIMIT ?
-    `).all(sessionId, recentMessageLimit) as Message[];
+    `
+      )
+      .all(sessionId, recentMessageLimit) as Message[];
 
     const recentMessages = recentMessagesQuery.reverse(); // Oldest first
     const oldestRecentId = recentMessages[0]?.id || 0;
@@ -1048,13 +1208,18 @@ export class MemoryManager {
     }
 
     // 4. Get semantically relevant messages (if embeddings available and query provided)
-    let relevantMessages: Array<{ role: string; content: string; timestamp?: string; similarity?: number }> = [];
+    let relevantMessages: Array<{
+      role: string;
+      content: string;
+      timestamp?: string;
+      similarity?: number;
+    }> = [];
     if (semanticRetrievalCount > 0 && currentQuery && this.embeddingsReady) {
       relevantMessages = await this.searchRelevantMessages(
         currentQuery,
         sessionId,
         semanticRetrievalCount,
-        recentMessages.map(m => m.id) // Exclude recent messages
+        recentMessages.map((m) => m.id) // Exclude recent messages
       );
     }
 
@@ -1070,10 +1235,12 @@ export class MemoryManager {
       totalTokens += estimateTokens(msg.content);
     }
 
-    console.log(`[Memory] Smart context: ${recentMessages.length} recent, ${summarizedMessages} summarized, ${relevantMessages.length} relevant (${totalTokens} tokens)`);
+    console.log(
+      `[Memory] Smart context: ${recentMessages.length} recent, ${summarizedMessages} summarized, ${relevantMessages.length} relevant (${totalTokens} tokens)`
+    );
 
     return {
-      recentMessages: recentMessages.map(m => ({
+      recentMessages: recentMessages.map((m) => ({
         role: m.role,
         content: m.content,
         timestamp: m.timestamp,
@@ -1102,42 +1269,54 @@ export class MemoryManager {
     interval: number
   ): Promise<{ summary: string | null; newSummaryCreated: boolean }> {
     // Check for existing rolling summary that covers up to beforeMessageId-1
-    const existingRow = this.db.prepare(`
+    const existingRow = this.db
+      .prepare(
+        `
       SELECT content, end_message_id FROM rolling_summaries
       WHERE session_id = ? AND end_message_id <= ?
       ORDER BY end_message_id DESC
       LIMIT 1
-    `).get(sessionId, beforeMessageId - 1) as { content: string; end_message_id: number } | undefined;
+    `
+      )
+      .get(sessionId, beforeMessageId - 1) as
+      | { content: string; end_message_id: number }
+      | undefined;
 
     const existingSummary = existingRow ? { content: existingRow.content } : undefined;
     const lastSummarizedId = existingRow?.end_message_id || 0;
 
     // Get messages that need summarizing (between last summary and beforeMessageId)
     // Limit to 500 to prevent loading unbounded message history into memory
-    const unsummarizedMessages = this.db.prepare(`
+    const unsummarizedMessages = this.db
+      .prepare(
+        `
       SELECT id, role, content, timestamp
       FROM messages
       WHERE session_id = ? AND id > ? AND id < ?
       ORDER BY id ASC
       LIMIT 500
-    `).all(sessionId, lastSummarizedId, beforeMessageId) as Message[];
+    `
+      )
+      .all(sessionId, lastSummarizedId, beforeMessageId) as Message[];
 
     // Calculate token count for unsummarized messages
     const unsummarizedTokens = unsummarizedMessages.reduce(
-      (sum, m) => sum + estimateTokens(m.content), 0
+      (sum, m) => sum + estimateTokens(m.content),
+      0
     );
 
     // Token threshold for triggering summarization (prevents token blowup from long messages)
     const TOKEN_THRESHOLD = 15000;
 
     // Trigger summarization if either: enough messages OR too many tokens
-    const shouldSummarize = this.summarizer && (
-      unsummarizedMessages.length >= interval ||
-      unsummarizedTokens >= TOKEN_THRESHOLD
-    );
+    const shouldSummarize =
+      this.summarizer &&
+      (unsummarizedMessages.length >= interval || unsummarizedTokens >= TOKEN_THRESHOLD);
 
     if (shouldSummarize && unsummarizedMessages.length > 0) {
-      console.log(`[Memory] Triggering summarization: ${unsummarizedMessages.length} messages, ${unsummarizedTokens} tokens (threshold: ${interval} msgs or ${TOKEN_THRESHOLD} tokens)`);
+      console.log(
+        `[Memory] Triggering summarization: ${unsummarizedMessages.length} messages, ${unsummarizedTokens} tokens (threshold: ${interval} msgs or ${TOKEN_THRESHOLD} tokens)`
+      );
       const newSummary = await this.createRollingSummary(
         unsummarizedMessages,
         sessionId,
@@ -1148,10 +1327,14 @@ export class MemoryManager {
       const startId = unsummarizedMessages[0].id;
       const endId = unsummarizedMessages[unsummarizedMessages.length - 1].id;
 
-      this.db.prepare(`
+      this.db
+        .prepare(
+          `
         INSERT INTO rolling_summaries (session_id, start_message_id, end_message_id, content, token_count)
         VALUES (?, ?, ?, ?, ?)
-      `).run(sessionId, startId, endId, newSummary, estimateTokens(newSummary));
+      `
+        )
+        .run(sessionId, startId, endId, newSummary, estimateTokens(newSummary));
 
       console.log(`[Memory] Created rolling summary for messages ${startId}-${endId}`);
 
@@ -1166,7 +1349,10 @@ export class MemoryManager {
     if (existingSummary?.content) {
       if (unsummarizedMessages.length > 0) {
         const basicSummary = this.createBasicSummary(unsummarizedMessages);
-        return { summary: `${existingSummary.content}\n\n${basicSummary}`, newSummaryCreated: false };
+        return {
+          summary: `${existingSummary.content}\n\n${basicSummary}`,
+          newSummaryCreated: false,
+        };
       }
       return { summary: existingSummary.content, newSummaryCreated: false };
     }
@@ -1194,11 +1380,21 @@ export class MemoryManager {
     try {
       // If there's a previous summary, include it as context
       const messagesWithContext = previousSummary
-        ? [{ id: 0, role: 'system' as const, content: `[Previous summary]\n${previousSummary}`, timestamp: '' }, ...messages]
+        ? [
+            {
+              id: 0,
+              role: 'system' as const,
+              content: `[Previous summary]\n${previousSummary}`,
+              timestamp: '',
+            },
+            ...messages,
+          ]
         : messages;
 
       const summary = await this.summarizer(messagesWithContext);
-      console.log(`[Memory] Created rolling summary for session ${sessionId} (${messages.length} messages, ${estimateTokens(summary)} tokens)`);
+      console.log(
+        `[Memory] Created rolling summary for session ${sessionId} (${messages.length} messages, ${estimateTokens(summary)} tokens)`
+      );
       return summary;
     } catch (error) {
       console.error('[Memory] Rolling summary failed, using basic summary:', error);
@@ -1225,14 +1421,18 @@ export class MemoryManager {
       // Get message embeddings (excluding recent messages)
       const placeholders = excludeIds.length > 0 ? excludeIds.map(() => '?').join(',') : '0';
       const params = excludeIds.length > 0 ? [sessionId, ...excludeIds] : [sessionId];
-      const embeddings = this.db.prepare(`
+      const embeddings = this.db
+        .prepare(
+          `
         SELECT me.message_id, me.embedding, m.role, m.content, m.timestamp
         FROM message_embeddings me
         JOIN messages m ON me.message_id = m.id
         WHERE m.session_id = ? AND m.id NOT IN (${placeholders})
         ORDER BY m.id DESC
         LIMIT 200
-      `).all(...params) as Array<{
+      `
+        )
+        .all(...params) as Array<{
         message_id: number;
         embedding: Buffer;
         role: string;
@@ -1245,7 +1445,7 @@ export class MemoryManager {
       }
 
       // Calculate similarities
-      const scored = embeddings.map(e => ({
+      const scored = embeddings.map((e) => ({
         role: e.role,
         content: e.content,
         timestamp: e.timestamp,
@@ -1254,10 +1454,12 @@ export class MemoryManager {
 
       // Sort by similarity and take top N
       scored.sort((a, b) => b.similarity - a.similarity);
-      const relevant = scored.slice(0, limit).filter(m => m.similarity > 0.3);
+      const relevant = scored.slice(0, limit).filter((m) => m.similarity > 0.3);
 
       if (relevant.length > 0) {
-        console.log(`[Memory] Found ${relevant.length} relevant messages (top similarity: ${relevant[0].similarity.toFixed(3)})`);
+        console.log(
+          `[Memory] Found ${relevant.length} relevant messages (top similarity: ${relevant[0].similarity.toFixed(3)})`
+        );
       }
 
       return relevant;
@@ -1277,19 +1479,27 @@ export class MemoryManager {
     }
 
     try {
-      const message = this.db.prepare(`
+      const message = this.db
+        .prepare(
+          `
         SELECT content FROM messages WHERE id = ?
-      `).get(messageId) as { content: string } | undefined;
+      `
+        )
+        .get(messageId) as { content: string } | undefined;
 
       if (!message) return;
 
       const embedding = await embed(message.content);
       const embeddingBuffer = serializeEmbedding(embedding);
 
-      this.db.prepare(`
+      this.db
+        .prepare(
+          `
         INSERT OR REPLACE INTO message_embeddings (message_id, embedding)
         VALUES (?, ?)
-      `).run(messageId, embeddingBuffer);
+      `
+        )
+        .run(messageId, embeddingBuffer);
     } catch (error) {
       console.error(`[Memory] Failed to embed message ${messageId}:`, error);
     }
@@ -1304,14 +1514,18 @@ export class MemoryManager {
       return 0;
     }
 
-    const unembeddedMessages = this.db.prepare(`
+    const unembeddedMessages = this.db
+      .prepare(
+        `
       SELECT m.id, m.content
       FROM messages m
       LEFT JOIN message_embeddings me ON m.id = me.message_id
       WHERE m.session_id = ? AND me.id IS NULL
       ORDER BY m.id DESC
       LIMIT ?
-    `).all(sessionId, limit) as Array<{ id: number; content: string }>;
+    `
+      )
+      .all(sessionId, limit) as Array<{ id: number; content: string }>;
 
     // Process in sequential batches of 5 to avoid rate limits
     const batchSize = 5;
@@ -1324,10 +1538,14 @@ export class MemoryManager {
             const embedding = await embed(msg.content);
             const embeddingBuffer = serializeEmbedding(embedding);
 
-            this.db.prepare(`
+            this.db
+              .prepare(
+                `
               INSERT OR REPLACE INTO message_embeddings (message_id, embedding)
               VALUES (?, ?)
-            `).run(msg.id, embeddingBuffer);
+            `
+              )
+              .run(msg.id, embeddingBuffer);
 
             embedded++;
           } catch (error) {
@@ -1345,7 +1563,7 @@ export class MemoryManager {
   }
 
   private createBasicSummary(messages: Message[]): string {
-    const userMessages = messages.filter(m => m.role === 'user');
+    const userMessages = messages.filter((m) => m.role === 'user');
     const topics = new Set<string>();
 
     for (const msg of userMessages.slice(-20)) {
@@ -1354,7 +1572,7 @@ export class MemoryManager {
     }
 
     const topicList = Array.from(topics).slice(0, 10);
-    return `Previous conversation (${messages.length} messages) covered:\n${topicList.map(t => `- ${t}...`).join('\n')}`;
+    return `Previous conversation (${messages.length} messages) covered:\n${topicList.map((t) => `- ${t}...`).join('\n')}`;
   }
 
   // ============ FACT METHODS ============
@@ -1363,16 +1581,24 @@ export class MemoryManager {
    * Save a fact to long-term memory (with embedding)
    */
   saveFact(category: string, subject: string, content: string): number {
-    const existing = this.db.prepare(`
+    const existing = this.db
+      .prepare(
+        `
       SELECT id FROM facts WHERE category = ? AND subject = ?
-    `).get(category, subject) as { id: number } | undefined;
+    `
+      )
+      .get(category, subject) as { id: number } | undefined;
 
     let factId: number;
 
     if (existing) {
-      this.db.prepare(`
+      this.db
+        .prepare(
+          `
         UPDATE facts SET content = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ')) WHERE id = ?
-      `).run(content, existing.id);
+      `
+        )
+        .run(content, existing.id);
       factId = existing.id;
     } else {
       const stmt = this.db.prepare(`
@@ -1389,7 +1615,7 @@ export class MemoryManager {
     // Embed the fact asynchronously
     if (hasEmbeddings()) {
       const fact: Fact = { id: factId, category, subject, content, created_at: '', updated_at: '' };
-      this.embedFact(fact).catch(err => {
+      this.embedFact(fact).catch((err) => {
         console.error(`[Memory] Failed to embed fact ${factId}:`, err);
       });
     }
@@ -1481,14 +1707,18 @@ export class MemoryManager {
         const queryEmbedding = await embed(query);
 
         // Limit chunks to prevent loading entire table into memory
-        const chunks = this.db.prepare(`
+        const chunks = this.db
+          .prepare(
+            `
           SELECT c.fact_id, c.embedding, f.id, f.category, f.subject, f.content, f.created_at, f.updated_at
           FROM chunks c
           JOIN facts f ON c.fact_id = f.id
           WHERE c.embedding IS NOT NULL
           ORDER BY c.created_at DESC
           LIMIT 500
-        `).all() as Array<{
+        `
+          )
+          .all() as Array<{
           fact_id: number;
           embedding: Buffer;
           id: number;
@@ -1502,7 +1732,11 @@ export class MemoryManager {
         for (const chunk of chunks) {
           const chunkEmbedding = deserializeEmbedding(chunk.embedding);
           // Validate embedding before computing similarity
-          if (!chunkEmbedding || chunkEmbedding.length === 0 || chunkEmbedding.length !== queryEmbedding.length) {
+          if (
+            !chunkEmbedding ||
+            chunkEmbedding.length === 0 ||
+            chunkEmbedding.length !== queryEmbedding.length
+          ) {
             continue; // Skip invalid embeddings
           }
           const similarity = cosineSimilarity(queryEmbedding, chunkEmbedding);
@@ -1533,7 +1767,9 @@ export class MemoryManager {
       // Escape special FTS5 characters and create search query
       const escapedQuery = query.replace(/['"]/g, '').trim();
       if (escapedQuery) {
-        const ftsResults = this.db.prepare(`
+        const ftsResults = this.db
+          .prepare(
+            `
           SELECT f.id, f.category, f.subject, f.content, f.created_at, f.updated_at,
                  bm25(facts_fts) as rank
           FROM facts_fts
@@ -1541,13 +1777,17 @@ export class MemoryManager {
           WHERE facts_fts MATCH ?
           ORDER BY rank
           LIMIT 20
-        `).all(`"${escapedQuery}" OR ${escapedQuery.split(/\s+/).join(' OR ')}`) as Array<Fact & { rank: number }>;
+        `
+          )
+          .all(`"${escapedQuery}" OR ${escapedQuery.split(/\s+/).join(' OR ')}`) as Array<
+          Fact & { rank: number }
+        >;
 
         // Normalize keyword scores (BM25 returns negative values, lower is better)
-        const maxRank = Math.max(...ftsResults.map(r => Math.abs(r.rank)), 1);
+        const maxRank = Math.max(...ftsResults.map((r) => Math.abs(r.rank)), 1);
 
         for (const ftsResult of ftsResults) {
-          const normalizedScore = 1 - (Math.abs(ftsResult.rank) / maxRank);
+          const normalizedScore = 1 - Math.abs(ftsResult.rank) / maxRank;
           const existing = results.get(ftsResult.id);
 
           if (existing) {
@@ -1578,7 +1818,7 @@ export class MemoryManager {
 
     // 3. Sort by score and filter
     const sortedResults = Array.from(results.values())
-      .filter(r => r.score >= scoreThreshold)
+      .filter((r) => r.score >= scoreThreshold)
       .sort((a, b) => b.score - a.score)
       .slice(0, MAX_SEARCH_RESULTS);
 
@@ -1625,7 +1865,7 @@ export class MemoryManager {
       SELECT DISTINCT category FROM facts ORDER BY category
     `);
     const rows = stmt.all() as { category: string }[];
-    return rows.map(r => r.category);
+    return rows.map((r) => r.category);
   }
 
   // ============ CRON JOB METHODS ============
@@ -1671,7 +1911,7 @@ export class MemoryManager {
       session_id: string | null;
       job_type: string | null;
     }>;
-    return rows.map(r => ({
+    return rows.map((r) => ({
       ...r,
       enabled: r.enabled === 1,
       delete_after_run: r.delete_after_run === 1,
@@ -1709,18 +1949,28 @@ export class MemoryManager {
 
     if (sessionId) {
       // Session-specific stats
-      messages = this.db.prepare('SELECT COUNT(*) as c, SUM(token_count) as t FROM messages WHERE session_id = ?').get(sessionId) as { c: number; t: number };
-      summaries = this.db.prepare('SELECT COUNT(*) as c FROM summaries WHERE session_id = ?').get(sessionId) as { c: number };
+      messages = this.db
+        .prepare('SELECT COUNT(*) as c, SUM(token_count) as t FROM messages WHERE session_id = ?')
+        .get(sessionId) as { c: number; t: number };
+      summaries = this.db
+        .prepare('SELECT COUNT(*) as c FROM summaries WHERE session_id = ?')
+        .get(sessionId) as { c: number };
     } else {
       // Global stats
-      messages = this.db.prepare('SELECT COUNT(*) as c, SUM(token_count) as t FROM messages').get() as { c: number; t: number };
+      messages = this.db
+        .prepare('SELECT COUNT(*) as c, SUM(token_count) as t FROM messages')
+        .get() as { c: number; t: number };
       summaries = this.db.prepare('SELECT COUNT(*) as c FROM summaries').get() as { c: number };
     }
 
     const facts = this.db.prepare('SELECT COUNT(*) as c FROM facts').get() as { c: number };
     const cronJobs = this.db.prepare('SELECT COUNT(*) as c FROM cron_jobs').get() as { c: number };
-    const embeddedFacts = this.db.prepare('SELECT COUNT(DISTINCT fact_id) as c FROM chunks WHERE embedding IS NOT NULL').get() as { c: number };
-    const sessionCount = this.db.prepare('SELECT COUNT(*) as c FROM sessions').get() as { c: number };
+    const embeddedFacts = this.db
+      .prepare('SELECT COUNT(DISTINCT fact_id) as c FROM chunks WHERE embedding IS NOT NULL')
+      .get() as { c: number };
+    const sessionCount = this.db.prepare('SELECT COUNT(*) as c FROM sessions').get() as {
+      c: number;
+    };
 
     return {
       messageCount: messages.c,
@@ -1754,7 +2004,9 @@ export class MemoryManager {
    * Get the SDK session ID for a given app session
    */
   getSdkSessionId(sessionId: string): string | null {
-    const row = this.db.prepare('SELECT sdk_session_id FROM sessions WHERE id = ?').get(sessionId) as { sdk_session_id: string | null } | undefined;
+    const row = this.db
+      .prepare('SELECT sdk_session_id FROM sessions WHERE id = ?')
+      .get(sessionId) as { sdk_session_id: string | null } | undefined;
     return row?.sdk_session_id ?? null;
   }
 
@@ -1762,7 +2014,9 @@ export class MemoryManager {
    * Store the SDK session ID for a given app session
    */
   setSdkSessionId(sessionId: string, sdkSessionId: string): void {
-    this.db.prepare('UPDATE sessions SET sdk_session_id = ? WHERE id = ?').run(sdkSessionId, sessionId);
+    this.db
+      .prepare('UPDATE sessions SET sdk_session_id = ? WHERE id = ?')
+      .run(sdkSessionId, sessionId);
   }
 
   /**
@@ -1794,7 +2048,7 @@ export class MemoryManager {
     };
 
     // Create nodes
-    const nodes: GraphNode[] = facts.map(fact => ({
+    const nodes: GraphNode[] = facts.map((fact) => ({
       id: fact.id,
       subject: fact.subject || fact.content.slice(0, 30),
       category: fact.category,
@@ -1836,13 +2090,17 @@ export class MemoryManager {
     if (hasEmbeddings()) {
       try {
         // Get chunks with embeddings (limited for performance)
-        const chunks = this.db.prepare(`
+        const chunks = this.db
+          .prepare(
+            `
           SELECT c.fact_id, c.embedding
           FROM chunks c
           WHERE c.embedding IS NOT NULL
           ORDER BY c.created_at DESC
           LIMIT ?
-        `).all(MAX_SEMANTIC_COMPARISONS) as Array<{ fact_id: number; embedding: Buffer }>;
+        `
+          )
+          .all(MAX_SEMANTIC_COMPARISONS) as Array<{ fact_id: number; embedding: Buffer }>;
 
         // Build fact ID to embedding map
         const factEmbeddings = new Map<number, number[]>();
@@ -1886,16 +2144,65 @@ export class MemoryManager {
     // Limit facts processed for keyword matching to prevent O(N²M) explosion
     const MAX_KEYWORD_FACTS = 300;
     const COMMON_WORDS = new Set([
-      'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'her', 'was', 'one',
-      'our', 'out', 'has', 'have', 'been', 'this', 'that', 'they', 'from', 'with', 'will',
-      'what', 'when', 'where', 'which', 'their', 'about', 'would', 'there', 'could', 'other',
-      'into', 'than', 'then', 'them', 'these', 'some', 'like', 'just', 'only', 'over', 'such',
-      'make', 'made', 'also', 'most', 'very', 'does', 'being', 'those', 'after', 'before',
+      'the',
+      'and',
+      'for',
+      'are',
+      'but',
+      'not',
+      'you',
+      'all',
+      'can',
+      'her',
+      'was',
+      'one',
+      'our',
+      'out',
+      'has',
+      'have',
+      'been',
+      'this',
+      'that',
+      'they',
+      'from',
+      'with',
+      'will',
+      'what',
+      'when',
+      'where',
+      'which',
+      'their',
+      'about',
+      'would',
+      'there',
+      'could',
+      'other',
+      'into',
+      'than',
+      'then',
+      'them',
+      'these',
+      'some',
+      'like',
+      'just',
+      'only',
+      'over',
+      'such',
+      'make',
+      'made',
+      'also',
+      'most',
+      'very',
+      'does',
+      'being',
+      'those',
+      'after',
+      'before',
     ]);
 
     const extractKeywords = (text: string): Set<string> => {
       const words = text.toLowerCase().match(/\b[a-z]{4,}\b/g) || [];
-      return new Set(words.filter(w => !COMMON_WORDS.has(w)));
+      return new Set(words.filter((w) => !COMMON_WORDS.has(w)));
     };
 
     // Only process limited facts for keyword matching
@@ -1944,16 +2251,24 @@ export class MemoryManager {
    * Set or update a soul aspect
    */
   setSoulAspect(aspect: string, content: string): number {
-    const existing = this.db.prepare(`
+    const existing = this.db
+      .prepare(
+        `
       SELECT id FROM soul WHERE aspect = ?
-    `).get(aspect) as { id: number } | undefined;
+    `
+      )
+      .get(aspect) as { id: number } | undefined;
 
     let aspectId: number;
 
     if (existing) {
-      this.db.prepare(`
+      this.db
+        .prepare(
+          `
         UPDATE soul SET content = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ')) WHERE id = ?
-      `).run(content, existing.id);
+      `
+        )
+        .run(content, existing.id);
       aspectId = existing.id;
     } else {
       const stmt = this.db.prepare(`
@@ -1974,11 +2289,15 @@ export class MemoryManager {
    * Get a specific soul aspect
    */
   getSoulAspect(aspect: string): SoulAspect | null {
-    const row = this.db.prepare(`
+    const row = this.db
+      .prepare(
+        `
       SELECT id, aspect, content, created_at, updated_at
       FROM soul
       WHERE aspect = ?
-    `).get(aspect) as SoulAspect | undefined;
+    `
+      )
+      .get(aspect) as SoulAspect | undefined;
 
     return row || null;
   }

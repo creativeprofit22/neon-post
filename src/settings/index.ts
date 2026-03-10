@@ -373,12 +373,13 @@ export const SETTINGS_SCHEMA: SettingDefinition[] = [
     encrypted: false,
     category: 'personalize',
     label: 'Agent Name',
-    description: 'Your agent\'s name',
+    description: "Your agent's name",
     type: 'string',
   },
   {
     key: 'personalize.description',
-    defaultValue: 'You are a personal AI assistant who lives inside Pocket Agent. You help with whatever the user needs, remember everything, and keep things fun along the way.',
+    defaultValue:
+      'You are a personal AI assistant who lives inside Pocket Agent. You help with whatever the user needs, remember everything, and keep things fun along the way.',
     encrypted: false,
     category: 'personalize',
     label: 'Agent Description',
@@ -417,7 +418,7 @@ Talk like texting a close friend. Chill, casual, real.
     encrypted: false,
     category: 'personalize',
     label: 'Goals',
-    description: 'What you\'re working toward',
+    description: "What you're working toward",
     type: 'textarea',
   },
   {
@@ -426,7 +427,7 @@ Talk like texting a close friend. Chill, casual, real.
     encrypted: false,
     category: 'personalize',
     label: 'Struggles',
-    description: 'What you\'re dealing with',
+    description: "What you're dealing with",
     type: 'textarea',
   },
   {
@@ -613,7 +614,7 @@ class SettingsManagerClass {
   get(key: string): string {
     if (!this.initialized) {
       console.warn('[Settings] Not initialized, returning default');
-      const def = SETTINGS_SCHEMA.find(s => s.key === key);
+      const def = SETTINGS_SCHEMA.find((s) => s.key === key);
       return def?.defaultValue || '';
     }
 
@@ -640,7 +641,10 @@ class SettingsManagerClass {
         return JSON.parse(value);
       }
       // Fall back to comma-separated
-      return value.split(',').map(s => s.trim()).filter(Boolean);
+      return value
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
     } catch {
       return [];
     }
@@ -656,7 +660,7 @@ class SettingsManagerClass {
     }
 
     // Determine if should be encrypted
-    const def = SETTINGS_SCHEMA.find(s => s.key === key);
+    const def = SETTINGS_SCHEMA.find((s) => s.key === key);
     const shouldEncrypt = encrypted ?? def?.encrypted ?? false;
     const category = def?.category || 'general';
 
@@ -667,14 +671,18 @@ class SettingsManagerClass {
     }
 
     // Update database
-    this.db.prepare(`
+    this.db
+      .prepare(
+        `
       INSERT INTO settings (key, value, encrypted, category, updated_at)
       VALUES (?, ?, ?, ?, datetime('now'))
       ON CONFLICT(key) DO UPDATE SET
         value = excluded.value,
         encrypted = excluded.encrypted,
         updated_at = excluded.updated_at
-    `).run(key, storedValue, shouldEncrypt ? 1 : 0, category);
+    `
+      )
+      .run(key, storedValue, shouldEncrypt ? 1 : 0, category);
 
     // Update cache with unencrypted value
     this.cache.set(key, value);
@@ -712,7 +720,7 @@ class SettingsManagerClass {
   getAllSafe(): Record<string, string> {
     const result: Record<string, string> = {};
     for (const [key, value] of this.cache) {
-      const def = SETTINGS_SCHEMA.find(s => s.key === key);
+      const def = SETTINGS_SCHEMA.find((s) => s.key === key);
       if (def?.encrypted && value) {
         // Send a masked placeholder so the UI knows a value is set
         result[key] = '••••••••';
@@ -741,7 +749,7 @@ class SettingsManagerClass {
    */
   getSchema(category?: string): SettingDefinition[] {
     if (category) {
-      return SETTINGS_SCHEMA.filter(s => s.category === category);
+      return SETTINGS_SCHEMA.filter((s) => s.category === category);
     }
     return SETTINGS_SCHEMA;
   }
@@ -823,9 +831,7 @@ class SettingsManagerClass {
     const description = this.get('personalize.description');
     const personality = this.get('personalize.personality');
 
-    const lines: string[] = [
-      `# ${agentName}`,
-    ];
+    const lines: string[] = [`# ${agentName}`];
 
     if (description) {
       lines.push('');
@@ -941,7 +947,7 @@ class SettingsManagerClass {
       const response = await fetch('https://api.openai.com/v1/models', {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
         },
       });
 
@@ -956,7 +962,9 @@ class SettingsManagerClass {
     }
   }
 
-  async validateTelegramToken(token: string): Promise<{ valid: boolean; error?: string; botInfo?: unknown }> {
+  async validateTelegramToken(
+    token: string
+  ): Promise<{ valid: boolean; error?: string; botInfo?: unknown }> {
     try {
       const response = await fetch(`https://api.telegram.org/bot${token}/getMe`);
       const data = await response.json();
@@ -981,7 +989,7 @@ class SettingsManagerClass {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
@@ -1009,7 +1017,7 @@ class SettingsManagerClass {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
@@ -1069,9 +1077,9 @@ class SettingsManagerClass {
     }
 
     const reverseMapping: Record<string, string> = {
-      'OPENAI_API_KEY': 'openai.apiKey',
-      'ANTHROPIC_API_KEY': 'anthropic.apiKey',
-      'MOONSHOT_API_KEY': 'moonshot.apiKey',
+      OPENAI_API_KEY: 'openai.apiKey',
+      ANTHROPIC_API_KEY: 'anthropic.apiKey',
+      MOONSHOT_API_KEY: 'moonshot.apiKey',
     };
 
     const settingKey = reverseMapping[envVarName];
@@ -1088,7 +1096,7 @@ class SettingsManagerClass {
     const result: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(all)) {
-      const def = SETTINGS_SCHEMA.find(s => s.key === key);
+      const def = SETTINGS_SCHEMA.find((s) => s.key === key);
       if (def?.encrypted) {
         result[key] = '***ENCRYPTED***';
       } else {

@@ -162,12 +162,16 @@ function ensureTable(db: Database.Database): void {
 export function getCalendarAddToolDefinition() {
   return {
     name: 'calendar_add',
-    description: 'Add a calendar event with optional reminder. Time formats: "today 3pm", "tomorrow 9am", "in 2 hours", or ISO.',
+    description:
+      'Add a calendar event with optional reminder. Time formats: "today 3pm", "tomorrow 9am", "in 2 hours", or ISO.',
     input_schema: {
       type: 'object' as const,
       properties: {
         title: { type: 'string', description: 'Event title' },
-        start_time: { type: 'string', description: 'Start time (e.g., "tomorrow 2pm", "in 1 hour")' },
+        start_time: {
+          type: 'string',
+          description: 'Start time (e.g., "tomorrow 2pm", "in 1 hour")',
+        },
         end_time: { type: 'string', description: 'Optional end time' },
         location: { type: 'string', description: 'Optional location' },
         description: { type: 'string', description: 'Optional description' },
@@ -209,10 +213,23 @@ export async function handleCalendarAddTool(input: unknown): Promise<string> {
 
   const sessionId = getCurrentSessionId();
 
-  const result = db.prepare(`
+  const result = db
+    .prepare(
+      `
     INSERT INTO calendar_events (title, description, start_time, end_time, location, reminder_minutes, channel, session_id)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(params.title, params.description || null, startTime, endTime, params.location || null, reminderMinutes, channel, sessionId);
+  `
+    )
+    .run(
+      params.title,
+      params.description || null,
+      startTime,
+      endTime,
+      params.location || null,
+      reminderMinutes,
+      channel,
+      sessionId
+    );
 
   return JSON.stringify({
     success: true,
@@ -232,7 +249,8 @@ export async function handleCalendarAddTool(input: unknown): Promise<string> {
 export function getCalendarListToolDefinition() {
   return {
     name: 'calendar_list',
-    description: 'List calendar events. Optionally filter by date ("today", "tomorrow", or YYYY-MM-DD).',
+    description:
+      'List calendar events. Optionally filter by date ("today", "tomorrow", or YYYY-MM-DD).',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -286,7 +304,7 @@ export async function handleCalendarListTool(input: unknown): Promise<string> {
   return JSON.stringify({
     success: true,
     count: events.length,
-    events: events.map(e => ({
+    events: events.map((e) => ({
       id: e.id,
       title: e.title,
       start: formatDateTime(e.start_time),
@@ -328,11 +346,15 @@ export async function handleCalendarUpcomingTool(input: unknown): Promise<string
   const now = new Date();
   const later = new Date(now.getTime() + hours * 3600000);
 
-  const events = db.prepare(`
+  const events = db
+    .prepare(
+      `
     SELECT * FROM calendar_events
     WHERE session_id = ? AND start_time >= ? AND start_time <= ?
     ORDER BY start_time ASC
-  `).all(sessionId, now.toISOString(), later.toISOString()) as Array<{
+  `
+    )
+    .all(sessionId, now.toISOString(), later.toISOString()) as Array<{
     id: number;
     title: string;
     start_time: string;
@@ -343,7 +365,7 @@ export async function handleCalendarUpcomingTool(input: unknown): Promise<string
     success: true,
     hours,
     count: events.length,
-    events: events.map(e => ({
+    events: events.map((e) => ({
       id: e.id,
       title: e.title,
       start: formatDateTime(e.start_time),

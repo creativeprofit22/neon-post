@@ -30,10 +30,7 @@ export function markdownToTelegramHtml(text: string): string {
   // Extract and protect inline code (`...`)
   result = result.replace(/`([^`\n]+)`/g, (_, code) => {
     const idx = protectedContent.length;
-    const escapedCode = code
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+    const escapedCode = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     protectedContent.push(`<code>${escapedCode}</code>`);
     return `@@PROTECTED«${idx}»@@`;
   });
@@ -41,19 +38,13 @@ export function markdownToTelegramHtml(text: string): string {
   // Extract and protect links [text](url) - before escaping
   result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, linkText, url) => {
     const idx = protectedContent.length;
-    const escapedText = linkText
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+    const escapedText = linkText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     protectedContent.push(`<a href="${url}">${escapedText}</a>`);
     return `@@PROTECTED«${idx}»@@`;
   });
 
   // Escape HTML in the rest of the text
-  result = result
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  result = result.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
   // Process line by line
   const lines = result.split('\n');
@@ -69,7 +60,10 @@ export function markdownToTelegramHtml(text: string): string {
 
     if (isTableRow && !isTableSeparator) {
       // Collect table row
-      const cells = line.slice(1, -1).split('|').map(c => stripInlineMarkdown(c.trim()));
+      const cells = line
+        .slice(1, -1)
+        .split('|')
+        .map((c) => stripInlineMarkdown(c.trim()));
       tableRows.push(cells);
       continue;
     } else if (isTableSeparator) {
@@ -166,7 +160,7 @@ function formatTable(rows: string[][]): string {
   }
 
   // Format each row with padding
-  const formattedRows = rows.map(row => {
+  const formattedRows = rows.map((row) => {
     const cells = row.map((cell, i) => cell.padEnd(colWidths[i]));
     return cells.join(' │ ');
   });
@@ -180,11 +174,11 @@ function formatTable(rows: string[][]): string {
  */
 function stripInlineMarkdown(text: string): string {
   return text
-    .replace(/\*\*(.+?)\*\*/g, '$1')  // Remove **bold**
-    .replace(/__(.+?)__/g, '$1')       // Remove __bold__
-    .replace(/(?<![*\w])\*([^*\n]+)\*(?![*\w])/g, '$1')  // Remove *italic*
-    .replace(/(?<![_\w])_([^_\n]+)_(?![_\w])/g, '$1')    // Remove _italic_
-    .replace(/~~(.+?)~~/g, '$1');      // Remove ~~strike~~
+    .replace(/\*\*(.+?)\*\*/g, '$1') // Remove **bold**
+    .replace(/__(.+?)__/g, '$1') // Remove __bold__
+    .replace(/(?<![*\w])\*([^*\n]+)\*(?![*\w])/g, '$1') // Remove *italic*
+    .replace(/(?<![_\w])_([^_\n]+)_(?![_\w])/g, '$1') // Remove _italic_
+    .replace(/~~(.+?)~~/g, '$1'); // Remove ~~strike~~
 }
 
 /**

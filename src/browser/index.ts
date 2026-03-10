@@ -252,7 +252,8 @@ For CDP, user must start Chrome with: --remote-debugging-port=9222`,
         },
         selector: {
           type: 'string',
-          description: 'CSS selector for element (for click, type, hover, scroll, download, upload)',
+          description:
+            'CSS selector for element (for click, type, hover, scroll, download, upload)',
         },
         text: {
           type: 'string',

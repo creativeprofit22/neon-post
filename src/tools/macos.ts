@@ -34,7 +34,7 @@ export interface NotifyResult {
  * can sit in notification center indefinitely.
  */
 export function showNotification(input: NotifyInput): Promise<NotifyResult> {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     try {
       if (!Notification.isSupported()) {
         resolve({ success: false, error: 'Notifications not supported on this system' });
@@ -59,7 +59,6 @@ export function showNotification(input: NotifyInput): Promise<NotifyResult> {
       // Resolve immediately - don't wait for user interaction
       // macOS notifications can stay in notification center forever
       resolve({ success: true });
-
     } catch (error) {
       resolve({
         success: false,
@@ -119,4 +118,3 @@ export async function handleNotifyTool(input: unknown): Promise<string> {
   const result = await showNotification(params);
   return JSON.stringify(result);
 }
-

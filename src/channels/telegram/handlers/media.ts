@@ -64,10 +64,7 @@ function getImageExtension(filePath: string): string {
  * Handle incoming photo messages
  * Downloads image to local workspace for agent access via Read tool
  */
-export async function handlePhotoMessage(
-  ctx: Context,
-  deps: MediaHandlerDeps
-): Promise<void> {
+export async function handlePhotoMessage(ctx: Context, deps: MediaHandlerDeps): Promise<void> {
   const chatId = ctx.chat?.id;
   const photo = ctx.message?.photo;
   const caption = ctx.message?.caption || '';
@@ -111,7 +108,9 @@ export async function handlePhotoMessage(
       fs.writeFileSync(localPath, buffer);
 
       const fileSizeKB = (buffer.length / 1024).toFixed(1);
-      console.log(`[Telegram] Saved photo: ${localPath} (${largestPhoto.width}x${largestPhoto.height}, ${fileSizeKB}KB)`);
+      console.log(
+        `[Telegram] Saved photo: ${localPath} (${largestPhoto.width}x${largestPhoto.height}, ${fileSizeKB}KB)`
+      );
 
       // Build prompt for agent - tell it the file path so it can use Read tool
       const prompt = caption
@@ -178,10 +177,7 @@ export async function handlePhotoMessage(
 /**
  * Handle incoming voice messages
  */
-export async function handleVoiceMessage(
-  ctx: Context,
-  deps: MediaHandlerDeps
-): Promise<void> {
+export async function handleVoiceMessage(ctx: Context, deps: MediaHandlerDeps): Promise<void> {
   const chatId = ctx.chat?.id;
   const voice = ctx.message?.voice;
   const caption = ctx.message?.caption || '';
@@ -192,7 +188,7 @@ export async function handleVoiceMessage(
   if (!isTranscriptionAvailable()) {
     await ctx.reply(
       'Voice notes require an OpenAI API key for transcription.\n\n' +
-      'Add your OpenAI key in Settings -> API Keys to enable voice messages.'
+        'Add your OpenAI key in Settings -> API Keys to enable voice messages.'
     );
     return;
   }
@@ -273,9 +269,7 @@ export async function handleVoiceMessage(
         result.transcription.text && result.transcription.text.length > 50
           ? result.transcription.text.substring(0, 50) + '...'
           : result.transcription.text || '';
-      const displayMessage = caption
-        ? `${caption}\n\n${transcriptPreview}`
-        : transcriptPreview;
+      const displayMessage = caption ? `${caption}\n\n${transcriptPreview}` : transcriptPreview;
 
       onMessageCallback({
         userMessage: displayMessage,
@@ -304,10 +298,7 @@ export async function handleVoiceMessage(
 /**
  * Handle incoming audio files (longer recordings, music)
  */
-export async function handleAudioMessage(
-  ctx: Context,
-  deps: MediaHandlerDeps
-): Promise<void> {
+export async function handleAudioMessage(ctx: Context, deps: MediaHandlerDeps): Promise<void> {
   const chatId = ctx.chat?.id;
   const audio = ctx.message?.audio;
   const caption = ctx.message?.caption || '';
@@ -318,7 +309,7 @@ export async function handleAudioMessage(
   if (!isTranscriptionAvailable()) {
     await ctx.reply(
       'Audio transcription requires an OpenAI API key.\n\n' +
-      'Add your OpenAI key in Settings -> API Keys to enable audio transcription.'
+        'Add your OpenAI key in Settings -> API Keys to enable audio transcription.'
     );
     return;
   }

@@ -23,7 +23,7 @@ export function createReactionHandler(
     onReaction: async (data: ReactionData) => {
       console.log(
         `[Telegram] Reaction: ${data.emoji} ${data.isAdded ? 'added' : 'removed'} ` +
-        `on message ${data.messageId} in chat ${data.chatId} by user ${data.userId}`
+          `on message ${data.messageId} in chat ${data.chatId} by user ${data.userId}`
       );
 
       // Handle negative reactions specially (thumbs down)
@@ -37,10 +37,7 @@ export function createReactionHandler(
 /**
  * Register reaction handler on the bot
  */
-export function registerReactionHandler(
-  bot: Bot,
-  handler: ReactionHandler
-): void {
+export function registerReactionHandler(bot: Bot, handler: ReactionHandler): void {
   // Handle message_reaction updates
   bot.on('message_reaction', async (ctx) => {
     const reaction = ctx.messageReaction;
@@ -59,9 +56,7 @@ export function registerReactionHandler(
     // Find added reactions
     for (const r of newReactions) {
       if (r.type === 'emoji' && r.emoji) {
-        const wasInOld = oldReactions.some(
-          old => old.type === 'emoji' && old.emoji === r.emoji
-        );
+        const wasInOld = oldReactions.some((old) => old.type === 'emoji' && old.emoji === r.emoji);
         if (!wasInOld) {
           await handler.onReaction({
             chatId,
@@ -78,7 +73,7 @@ export function registerReactionHandler(
     for (const r of oldReactions) {
       if (r.type === 'emoji' && r.emoji) {
         const isInNew = newReactions.some(
-          newR => newR.type === 'emoji' && newR.emoji === r.emoji
+          (newR) => newR.type === 'emoji' && newR.emoji === r.emoji
         );
         if (!isInNew) {
           await handler.onReaction({
@@ -107,7 +102,9 @@ export async function sendReaction(
     // Use type assertion to handle grammy's strict emoji typing
     // The grammy API expects specific emoji literals, but our ReactionEmoji type covers them
     const reaction = { type: 'emoji' as const, emoji };
-    await api.setMessageReaction(chatId, messageId, [reaction as Parameters<typeof api.setMessageReaction>[2][number]]);
+    await api.setMessageReaction(chatId, messageId, [
+      reaction as Parameters<typeof api.setMessageReaction>[2][number],
+    ]);
     console.log(`[Telegram] Sent reaction ${emoji} to message ${messageId}`);
     return true;
   } catch (error) {

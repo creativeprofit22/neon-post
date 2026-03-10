@@ -66,9 +66,8 @@ describe('Memory Tools', () => {
 
     it('should return a description with usage guidance', () => {
       const definition = getRememberToolDefinition();
-      expect(definition.description).toContain('Save important information');
+      expect(definition.description).toContain('Save a fact to long-term memory');
       expect(definition.description).toContain('proactively');
-      expect(definition.description).toContain('Categories:');
     });
 
     it('should have correct input schema structure', () => {
@@ -89,7 +88,7 @@ describe('Memory Tools', () => {
       const definition = getRememberToolDefinition();
       const subjectProp = definition.input_schema.properties.subject;
       expect(subjectProp.type).toBe('string');
-      expect(subjectProp.description).toContain('identifier');
+      expect(subjectProp.description).toContain('descriptive key');
     });
 
     it('should define content property', () => {
@@ -600,7 +599,7 @@ describe('Memory Tools', () => {
 
       expect(rememberTool).toBeDefined();
       expect(rememberTool!.handler).toBe(handleRememberTool);
-      expect(rememberTool!.description).toContain('Save important information');
+      expect(rememberTool!.description).toContain('Save a fact to long-term memory');
     });
 
     it('should include forget tool with handler', () => {

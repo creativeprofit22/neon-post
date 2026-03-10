@@ -52,7 +52,8 @@ export class ElectronTier {
   private currentUrl: string = '';
   private downloadPath: string = app.getPath('downloads');
   private lastDownload: { path: string; size: number } | null = null;
-  private downloadHandler: ((_event: Electron.Event, item: Electron.DownloadItem) => void) | null = null;
+  private downloadHandler: ((_event: Electron.Event, item: Electron.DownloadItem) => void) | null =
+    null;
 
   /**
    * Initialize hidden browser window
@@ -121,11 +122,7 @@ export class ElectronTier {
     try {
       const webContents = await this.getWebContents();
 
-      await withTimeout(
-        webContents.loadURL(url),
-        BROWSER_OP_TIMEOUT,
-        `loadURL(${url})`
-      );
+      await withTimeout(webContents.loadURL(url), BROWSER_OP_TIMEOUT, `loadURL(${url})`);
       this.currentUrl = url;
 
       // Wait for condition if specified
@@ -133,7 +130,7 @@ export class ElectronTier {
         await this.waitFor(waitFor);
       } else {
         // Default: wait for DOM content loaded (with timeout)
-        await new Promise<void>(resolve => {
+        await new Promise<void>((resolve) => {
           webContents.once('dom-ready', () => resolve());
           // Shorter timeout fallback (3s instead of 5s)
           setTimeout(resolve, 3000);
@@ -145,11 +142,7 @@ export class ElectronTier {
         5000,
         'get title'
       );
-      const text = await withTimeout(
-        this.getVisibleText(),
-        5000,
-        'get visible text'
-      );
+      const text = await withTimeout(this.getVisibleText(), 5000, 'get visible text');
 
       const duration = Date.now() - startTime;
       logBrowser('navigate END', { url, duration: `${duration}ms` });
@@ -193,11 +186,7 @@ export class ElectronTier {
         };
       }
 
-      const image = await withTimeout(
-        webContents.capturePage(),
-        10000,
-        'capturePage'
-      );
+      const image = await withTimeout(webContents.capturePage(), 10000, 'capturePage');
       const base64 = image.toPNG().toString('base64');
 
       const duration = Date.now() - startTime;
@@ -247,7 +236,7 @@ export class ElectronTier {
       }
 
       // Wait a bit for any navigation/updates
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       return {
         success: true,
@@ -429,7 +418,7 @@ export class ElectronTier {
     const webContents = await this.getWebContents();
 
     if (typeof condition === 'number') {
-      await new Promise(resolve => setTimeout(resolve, condition));
+      await new Promise((resolve) => setTimeout(resolve, condition));
       return;
     }
 
@@ -442,7 +431,7 @@ export class ElectronTier {
         `!!document.querySelector(${JSON.stringify(condition)})`
       );
       if (found) return;
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
     throw new Error(`Timeout waiting for selector: ${condition}`);
@@ -573,7 +562,7 @@ export class ElectronTier {
       }
 
       // Wait a bit for hover effects
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       return {
         success: true,
@@ -625,7 +614,7 @@ export class ElectronTier {
       // Wait for download to complete
       const startTime = Date.now();
       while (!this.lastDownload && Date.now() - startTime < timeout) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
 
       if (!this.lastDownload) {
@@ -718,7 +707,7 @@ export class ElectronTier {
       `);
 
       // Wait for upload to process
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       return {
         success: true,

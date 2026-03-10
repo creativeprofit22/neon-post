@@ -16,15 +16,15 @@ export function createAuthMiddleware() {
     // Security: Always enforce allowlist - check current settings on every message
     // (not cached, so changes take effect immediately without restart)
     const currentAllowedUsers = SettingsManager.getArray('telegram.allowedUserIds')
-      .map(id => parseInt(id, 10))
-      .filter(id => !isNaN(id));
+      .map((id) => parseInt(id, 10))
+      .filter((id) => !isNaN(id));
 
     if (currentAllowedUsers.length === 0 || !userId || !currentAllowedUsers.includes(userId)) {
       console.log(`[Telegram] Unauthorized user attempted access: ${userId}`);
       await ctx.reply(
         '[ ] Sorry, you are not authorized to use this bot.\n\n' +
-        'This is a personal AI assistant. If you are the owner, ' +
-        'add your Telegram user ID to the allowlist in Settings.'
+          'This is a personal AI assistant. If you are the owner, ' +
+          'add your Telegram user ID to the allowlist in Settings.'
       );
       return;
     }
@@ -38,6 +38,6 @@ export function createAuthMiddleware() {
  */
 export function getAllowedUsers(): number[] {
   return SettingsManager.getArray('telegram.allowedUserIds')
-    .map(id => parseInt(id, 10))
-    .filter(id => !isNaN(id));
+    .map((id) => parseInt(id, 10))
+    .filter((id) => !isNaN(id));
 }

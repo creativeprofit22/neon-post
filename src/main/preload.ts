@@ -3,39 +3,102 @@ import { contextBridge, ipcRenderer } from 'electron';
 // Expose API to renderer process
 contextBridge.exposeInMainWorld('pocketAgent', {
   // Chat
-  send: (message: string, sessionId?: string) => ipcRenderer.invoke('agent:send', message, sessionId),
+  send: (message: string, sessionId?: string) =>
+    ipcRenderer.invoke('agent:send', message, sessionId),
   stop: (sessionId?: string) => ipcRenderer.invoke('agent:stop', sessionId),
   // Mode
   setMode: (mode: string) => ipcRenderer.invoke('agent:setMode', mode),
   getMode: () => ipcRenderer.invoke('agent:getMode'),
   getSessionMode: (sessionId: string) => ipcRenderer.invoke('agent:getSessionMode', sessionId),
-  setSessionMode: (sessionId: string, mode: string) => ipcRenderer.invoke('agent:setSessionMode', sessionId, mode),
+  setSessionMode: (sessionId: string, mode: string) =>
+    ipcRenderer.invoke('agent:setSessionMode', sessionId, mode),
   onModeChanged: (callback: (mode: string) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, mode: string) => callback(mode);
     ipcRenderer.on('agent:modeChanged', listener);
     return () => ipcRenderer.removeListener('agent:modeChanged', listener);
   },
-  onStatus: (callback: (status: { type: string; toolName?: string; toolInput?: string; message?: string }) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, status: { type: string; toolName?: string; toolInput?: string; message?: string }) => callback(status);
+  onStatus: (
+    callback: (status: {
+      type: string;
+      toolName?: string;
+      toolInput?: string;
+      message?: string;
+    }) => void
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      status: { type: string; toolName?: string; toolInput?: string; message?: string }
+    ) => callback(status);
     ipcRenderer.on('agent:status', listener);
     // Return cleanup function
     return () => ipcRenderer.removeListener('agent:status', listener);
   },
-  saveAttachment: (name: string, dataUrl: string) => ipcRenderer.invoke('attachment:save', name, dataUrl),
+  saveAttachment: (name: string, dataUrl: string) =>
+    ipcRenderer.invoke('attachment:save', name, dataUrl),
   extractText: (filePath: string) => ipcRenderer.invoke('attachment:extract-text', filePath),
   readMedia: (filePath: string) => ipcRenderer.invoke('agent:readMedia', filePath),
-  onSchedulerMessage: (callback: (data: { jobName: string; prompt: string; response: string; sessionId: string }) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, data: { jobName: string; prompt: string; response: string; sessionId: string }) => callback(data);
+  onSchedulerMessage: (
+    callback: (data: {
+      jobName: string;
+      prompt: string;
+      response: string;
+      sessionId: string;
+    }) => void
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      data: { jobName: string; prompt: string; response: string; sessionId: string }
+    ) => callback(data);
     ipcRenderer.on('scheduler:message', listener);
     return () => ipcRenderer.removeListener('scheduler:message', listener);
   },
-  onTelegramMessage: (callback: (data: { userMessage: string; response: string; chatId: number; sessionId: string; hasAttachment?: boolean; attachmentType?: 'photo' | 'voice' | 'audio'; wasCompacted?: boolean; media?: Array<{ type: string; filePath: string; mimeType: string }> }) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, data: { userMessage: string; response: string; chatId: number; sessionId: string; hasAttachment?: boolean; attachmentType?: 'photo' | 'voice' | 'audio'; wasCompacted?: boolean; media?: Array<{ type: string; filePath: string; mimeType: string }> }) => callback(data);
+  onTelegramMessage: (
+    callback: (data: {
+      userMessage: string;
+      response: string;
+      chatId: number;
+      sessionId: string;
+      hasAttachment?: boolean;
+      attachmentType?: 'photo' | 'voice' | 'audio';
+      wasCompacted?: boolean;
+      media?: Array<{ type: string; filePath: string; mimeType: string }>;
+    }) => void
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      data: {
+        userMessage: string;
+        response: string;
+        chatId: number;
+        sessionId: string;
+        hasAttachment?: boolean;
+        attachmentType?: 'photo' | 'voice' | 'audio';
+        wasCompacted?: boolean;
+        media?: Array<{ type: string; filePath: string; mimeType: string }>;
+      }
+    ) => callback(data);
     ipcRenderer.on('telegram:message', listener);
     return () => ipcRenderer.removeListener('telegram:message', listener);
   },
-  onIOSMessage: (callback: (data: { userMessage: string; response: string; sessionId: string; deviceId: string; media?: Array<{ type: string; filePath: string; mimeType: string }> }) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, data: { userMessage: string; response: string; sessionId: string; deviceId: string; media?: Array<{ type: string; filePath: string; mimeType: string }> }) => callback(data);
+  onIOSMessage: (
+    callback: (data: {
+      userMessage: string;
+      response: string;
+      sessionId: string;
+      deviceId: string;
+      media?: Array<{ type: string; filePath: string; mimeType: string }>;
+    }) => void
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      data: {
+        userMessage: string;
+        response: string;
+        sessionId: string;
+        deviceId: string;
+        media?: Array<{ type: string; filePath: string; mimeType: string }>;
+      }
+    ) => callback(data);
     ipcRenderer.on('ios:message', listener);
     return () => ipcRenderer.removeListener('ios:message', listener);
   },
@@ -54,7 +117,8 @@ contextBridge.exposeInMainWorld('pocketAgent', {
     ipcRenderer.on('model:changed', listener);
     return () => ipcRenderer.removeListener('model:changed', listener);
   },
-  getHistory: (limit?: number, sessionId?: string) => ipcRenderer.invoke('agent:history', limit, sessionId),
+  getHistory: (limit?: number, sessionId?: string) =>
+    ipcRenderer.invoke('agent:history', limit, sessionId),
   getStats: (sessionId?: string) => ipcRenderer.invoke('agent:stats', sessionId),
   clearConversation: (sessionId?: string) => ipcRenderer.invoke('agent:clear', sessionId),
 
@@ -99,10 +163,16 @@ contextBridge.exposeInMainWorld('pocketAgent', {
 
   // Cron
   getCronJobs: () => ipcRenderer.invoke('cron:list'),
-  createCronJob: (name: string, schedule: string, prompt: string, channel: string, sessionId: string) =>
-    ipcRenderer.invoke('cron:create', name, schedule, prompt, channel, sessionId),
+  createCronJob: (
+    name: string,
+    schedule: string,
+    prompt: string,
+    channel: string,
+    sessionId: string
+  ) => ipcRenderer.invoke('cron:create', name, schedule, prompt, channel, sessionId),
   deleteCronJob: (name: string) => ipcRenderer.invoke('cron:delete', name),
-  toggleCronJob: (name: string, enabled: boolean) => ipcRenderer.invoke('cron:toggle', name, enabled),
+  toggleCronJob: (name: string, enabled: boolean) =>
+    ipcRenderer.invoke('cron:toggle', name, enabled),
   runCronJob: (name: string) => ipcRenderer.invoke('cron:run', name),
   getCronHistory: (limit?: number) => ipcRenderer.invoke('cron:history', limit),
 
@@ -156,15 +226,26 @@ contextBridge.exposeInMainWorld('pocketAgent', {
   downloadUpdate: () => ipcRenderer.invoke('updater:downloadUpdate'),
   installUpdate: () => ipcRenderer.invoke('updater:installUpdate'),
   getUpdateStatus: () => ipcRenderer.invoke('updater:getStatus'),
-  onUpdateStatus: (callback: (status: { status: string; info?: unknown; progress?: { percent: number }; error?: string }) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, status: { status: string; info?: unknown; progress?: { percent: number }; error?: string }) => callback(status);
+  onUpdateStatus: (
+    callback: (status: {
+      status: string;
+      info?: unknown;
+      progress?: { percent: number };
+      error?: string;
+    }) => void
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      status: { status: string; info?: unknown; progress?: { percent: number }; error?: string }
+    ) => callback(status);
     ipcRenderer.on('updater:status', listener);
     return () => ipcRenderer.removeListener('updater:status', listener);
   },
 
   // Browser control
   detectInstalledBrowsers: () => ipcRenderer.invoke('browser:detectInstalled'),
-  launchBrowser: (browserId: string, port?: number) => ipcRenderer.invoke('browser:launch', browserId, port),
+  launchBrowser: (browserId: string, port?: number) =>
+    ipcRenderer.invoke('browser:launch', browserId, port),
   testBrowserConnection: (cdpUrl?: string) => ipcRenderer.invoke('browser:testConnection', cdpUrl),
 
   // iOS mobile companion
@@ -208,46 +289,146 @@ interface Session {
 declare global {
   interface Window {
     pocketAgent: {
-      send: (message: string, sessionId?: string) => Promise<{ success: boolean; response?: string; error?: string; tokensUsed?: number; suggestedPrompt?: string; media?: Array<{ type: string; filePath: string; mimeType: string }> }>;
+      send: (
+        message: string,
+        sessionId?: string
+      ) => Promise<{
+        success: boolean;
+        response?: string;
+        error?: string;
+        tokensUsed?: number;
+        suggestedPrompt?: string;
+        media?: Array<{ type: string; filePath: string; mimeType: string }>;
+      }>;
       stop: (sessionId?: string) => Promise<{ success: boolean }>;
-      onStatus: (callback: (status: { type: string; toolName?: string; toolInput?: string; message?: string }) => void) => () => void;
+      onStatus: (
+        callback: (status: {
+          type: string;
+          toolName?: string;
+          toolInput?: string;
+          message?: string;
+        }) => void
+      ) => () => void;
       // Mode
       setMode: (mode: string) => Promise<{ success: boolean; error?: string }>;
       getMode: () => Promise<string>;
       getSessionMode: (sessionId: string) => Promise<string>;
-      setSessionMode: (sessionId: string, mode: string) => Promise<{ success: boolean; error?: string }>;
+      setSessionMode: (
+        sessionId: string,
+        mode: string
+      ) => Promise<{ success: boolean; error?: string }>;
       onModeChanged: (callback: (mode: string) => void) => () => void;
       saveAttachment: (name: string, dataUrl: string) => Promise<string>;
       extractText: (filePath: string) => Promise<string>;
       readMedia: (filePath: string) => Promise<string | null>;
-      onSchedulerMessage: (callback: (data: { jobName: string; prompt: string; response: string; sessionId: string }) => void) => () => void;
-      onTelegramMessage: (callback: (data: { userMessage: string; response: string; chatId: number; sessionId: string; hasAttachment?: boolean; attachmentType?: 'photo' | 'voice' | 'audio'; wasCompacted?: boolean; media?: Array<{ type: string; filePath: string; mimeType: string }> }) => void) => () => void;
-      onIOSMessage: (callback: (data: { userMessage: string; response: string; sessionId: string; deviceId: string; media?: Array<{ type: string; filePath: string; mimeType: string }> }) => void) => () => void;
+      onSchedulerMessage: (
+        callback: (data: {
+          jobName: string;
+          prompt: string;
+          response: string;
+          sessionId: string;
+        }) => void
+      ) => () => void;
+      onTelegramMessage: (
+        callback: (data: {
+          userMessage: string;
+          response: string;
+          chatId: number;
+          sessionId: string;
+          hasAttachment?: boolean;
+          attachmentType?: 'photo' | 'voice' | 'audio';
+          wasCompacted?: boolean;
+          media?: Array<{ type: string; filePath: string; mimeType: string }>;
+        }) => void
+      ) => () => void;
+      onIOSMessage: (
+        callback: (data: {
+          userMessage: string;
+          response: string;
+          sessionId: string;
+          deviceId: string;
+          media?: Array<{ type: string; filePath: string; mimeType: string }>;
+        }) => void
+      ) => () => void;
       onSessionsChanged: (callback: () => void) => () => void;
       onSessionCleared: (callback: (sessionId: string) => void) => () => void;
       onModelChanged: (callback: (model: string) => void) => () => void;
-      getHistory: (limit?: number, sessionId?: string) => Promise<Array<{ role: string; content: string; timestamp: string; metadata?: { source?: string; jobName?: string } }>>;
-      getStats: (sessionId?: string) => Promise<{ messageCount: number; factCount: number; estimatedTokens: number; sessionCount?: number; contextTokens?: number; contextWindow?: number } | null>;
+      getHistory: (
+        limit?: number,
+        sessionId?: string
+      ) => Promise<
+        Array<{
+          role: string;
+          content: string;
+          timestamp: string;
+          metadata?: { source?: string; jobName?: string };
+        }>
+      >;
+      getStats: (
+        sessionId?: string
+      ) => Promise<{
+        messageCount: number;
+        factCount: number;
+        estimatedTokens: number;
+        sessionCount?: number;
+        contextTokens?: number;
+        contextWindow?: number;
+      } | null>;
       clearConversation: (sessionId?: string) => Promise<{ success: boolean }>;
       // Sessions
       getSessions: () => Promise<Session[]>;
-      createSession: (name: string) => Promise<{ success: boolean; session?: Session; error?: string }>;
+      createSession: (
+        name: string
+      ) => Promise<{ success: boolean; session?: Session; error?: string }>;
       renameSession: (id: string, name: string) => Promise<{ success: boolean; error?: string }>;
       deleteSession: (id: string) => Promise<{ success: boolean }>;
-      listFacts: () => Promise<Array<{ id: number; category: string; subject: string; content: string }>>;
-      searchFacts: (query: string) => Promise<Array<{ category: string; subject: string; content: string }>>;
+      listFacts: () => Promise<
+        Array<{ id: number; category: string; subject: string; content: string }>
+      >;
+      searchFacts: (
+        query: string
+      ) => Promise<Array<{ category: string; subject: string; content: string }>>;
       getFactCategories: () => Promise<string[]>;
       deleteFact: (id: number) => Promise<{ success: boolean }>;
       getGraphData: () => Promise<{
-        nodes: Array<{ id: number; subject: string; category: string; content: string; group: number }>;
-        links: Array<{ source: number; target: number; type: 'category' | 'semantic' | 'keyword'; strength: number }>;
+        nodes: Array<{
+          id: number;
+          subject: string;
+          category: string;
+          content: string;
+          group: number;
+        }>;
+        links: Array<{
+          source: number;
+          target: number;
+          type: 'category' | 'semantic' | 'keyword';
+          strength: number;
+        }>;
       }>;
       // Soul
-      listSoulAspects: () => Promise<Array<{ id: number; aspect: string; content: string; created_at: string; updated_at: string }>>;
-      getSoulAspect: (aspect: string) => Promise<{ id: number; aspect: string; content: string; created_at: string; updated_at: string } | null>;
+      listSoulAspects: () => Promise<
+        Array<{
+          id: number;
+          aspect: string;
+          content: string;
+          created_at: string;
+          updated_at: string;
+        }>
+      >;
+      getSoulAspect: (
+        aspect: string
+      ) => Promise<{
+        id: number;
+        aspect: string;
+        content: string;
+        created_at: string;
+        updated_at: string;
+      } | null>;
       deleteSoulAspect: (id: number) => Promise<{ success: boolean }>;
       // Daily Logs
-      listDailyLogs: () => Promise<Array<{ id: number; date: string; content: string; updated_at: string }>>;
+      listDailyLogs: () => Promise<
+        Array<{ id: number; date: string; content: string; updated_at: string }>
+      >;
       // App windows
       openFactsGraph: () => Promise<void>;
       openFacts: () => Promise<void>;
@@ -261,18 +442,56 @@ declare global {
       // Customize
       getSystemPrompt: () => Promise<string>;
       // Location and timezone
-      lookupLocation: (query: string) => Promise<Array<{ city: string; country: string; province: string; timezone: string; display: string }>>;
+      lookupLocation: (
+        query: string
+      ) => Promise<
+        Array<{
+          city: string;
+          country: string;
+          province: string;
+          timezone: string;
+          display: string;
+        }>
+      >;
       getTimezones: () => Promise<string[]>;
-      getCronJobs: () => Promise<Array<{ id: number; name: string; schedule_type?: string; schedule: string | null; run_at?: string | null; interval_ms?: number | null; prompt: string; channel: string; enabled: boolean; session_id?: string | null; job_type?: 'routine' | 'reminder' }>>;
-      createCronJob: (name: string, schedule: string, prompt: string, channel: string, sessionId: string) => Promise<{ success: boolean }>;
+      getCronJobs: () => Promise<
+        Array<{
+          id: number;
+          name: string;
+          schedule_type?: string;
+          schedule: string | null;
+          run_at?: string | null;
+          interval_ms?: number | null;
+          prompt: string;
+          channel: string;
+          enabled: boolean;
+          session_id?: string | null;
+          job_type?: 'routine' | 'reminder';
+        }>
+      >;
+      createCronJob: (
+        name: string,
+        schedule: string,
+        prompt: string,
+        channel: string,
+        sessionId: string
+      ) => Promise<{ success: boolean }>;
       deleteCronJob: (name: string) => Promise<{ success: boolean }>;
       toggleCronJob: (name: string, enabled: boolean) => Promise<{ success: boolean }>;
-      runCronJob: (name: string) => Promise<{ jobName: string; response: string; success: boolean; error?: string } | null>;
-      getCronHistory: (limit?: number) => Promise<Array<{ jobName: string; response: string; success: boolean; timestamp: string }>>;
+      runCronJob: (
+        name: string
+      ) => Promise<{ jobName: string; response: string; success: boolean; error?: string } | null>;
+      getCronHistory: (
+        limit?: number
+      ) => Promise<
+        Array<{ jobName: string; response: string; success: boolean; timestamp: string }>
+      >;
       // App info
       getAppVersion: () => Promise<string>;
       // Themes
-      getThemes: () => Promise<Record<string, { id: string; name: string; palette: Record<string, string> | null }>>;
+      getThemes: () => Promise<
+        Record<string, { id: string; name: string; palette: Record<string, string> | null }>
+      >;
       getSkin: () => Promise<string>;
       onSkinChanged: (callback: (skinId: string) => void) => () => void;
       // Chat
@@ -282,14 +501,28 @@ declare global {
       getSetting: (key: string) => Promise<string>;
       setSetting: (key: string, value: string) => Promise<{ success: boolean }>;
       deleteSetting: (key: string) => Promise<{ success: boolean }>;
-      getSettingsSchema: (category?: string) => Promise<Array<{ key: string; defaultValue: string; encrypted: boolean; category: string; label: string; description?: string; type: string }>>;
+      getSettingsSchema: (
+        category?: string
+      ) => Promise<
+        Array<{
+          key: string;
+          defaultValue: string;
+          encrypted: boolean;
+          category: string;
+          label: string;
+          description?: string;
+          type: string;
+        }>
+      >;
       isFirstRun: () => Promise<boolean>;
       initializeKeychain: () => Promise<{ available: boolean; error?: string }>;
       validateAnthropicKey: (key: string) => Promise<{ valid: boolean; error?: string }>;
       validateOpenAIKey: (key: string) => Promise<{ valid: boolean; error?: string }>;
       validateMoonshotKey: (key: string) => Promise<{ valid: boolean; error?: string }>;
       validateGlmKey: (key: string) => Promise<{ valid: boolean; error?: string }>;
-      validateTelegramToken: (token: string) => Promise<{ valid: boolean; error?: string; botInfo?: unknown }>;
+      validateTelegramToken: (
+        token: string
+      ) => Promise<{ valid: boolean; error?: string; botInfo?: unknown }>;
       getAvailableModels: () => Promise<Array<{ id: string; name: string; provider: string }>>;
       restartAgent: () => Promise<{ success: boolean }>;
       openSettings: (tab?: string) => Promise<void>;
@@ -299,24 +532,60 @@ declare global {
       cancelOAuth: () => Promise<{ success: boolean }>;
       isOAuthPending: () => Promise<boolean>;
       // Commands (Workflows)
-      getCommands: (sessionId?: string) => Promise<Array<{ name: string; description: string; filename: string; content: string }>>;
+      getCommands: (
+        sessionId?: string
+      ) => Promise<Array<{ name: string; description: string; filename: string; content: string }>>;
       // Updates
-      checkForUpdates: () => Promise<{ status: string; info?: { version: string }; error?: string }>;
+      checkForUpdates: () => Promise<{
+        status: string;
+        info?: { version: string };
+        error?: string;
+      }>;
       downloadUpdate: () => Promise<{ success: boolean; error?: string }>;
       installUpdate: () => Promise<{ success: boolean; error?: string }>;
-      getUpdateStatus: () => Promise<{ status: string; info?: { version: string }; progress?: { percent: number }; error?: string }>;
-      onUpdateStatus: (callback: (status: { status: string; info?: { version: string }; progress?: { percent: number }; error?: string }) => void) => () => void;
+      getUpdateStatus: () => Promise<{
+        status: string;
+        info?: { version: string };
+        progress?: { percent: number };
+        error?: string;
+      }>;
+      onUpdateStatus: (
+        callback: (status: {
+          status: string;
+          info?: { version: string };
+          progress?: { percent: number };
+          error?: string;
+        }) => void
+      ) => () => void;
       // Browser control
-      detectInstalledBrowsers: () => Promise<Array<{ id: string; name: string; path: string; processName: string; installed: boolean }>>;
-      launchBrowser: (browserId: string, port?: number) => Promise<{ success: boolean; error?: string; alreadyRunning?: boolean }>;
-      testBrowserConnection: (cdpUrl?: string) => Promise<{ connected: boolean; error?: string; browserInfo?: unknown }>;
+      detectInstalledBrowsers: () => Promise<
+        Array<{ id: string; name: string; path: string; processName: string; installed: boolean }>
+      >;
+      launchBrowser: (
+        browserId: string,
+        port?: number
+      ) => Promise<{ success: boolean; error?: string; alreadyRunning?: boolean }>;
+      testBrowserConnection: (
+        cdpUrl?: string
+      ) => Promise<{ connected: boolean; error?: string; browserInfo?: unknown }>;
       // Shell commands
       runCommand: (command: string) => Promise<string>;
       // Platform info
       getPlatform: () => string;
       // Permissions (macOS)
       isMacOS: () => Promise<boolean>;
-      checkPermissions: (types: string[]) => Promise<Array<{ type: string; granted: boolean; canRequest: boolean; label: string; description: string; settingsUrl: string }>>;
+      checkPermissions: (
+        types: string[]
+      ) => Promise<
+        Array<{
+          type: string;
+          granted: boolean;
+          canRequest: boolean;
+          label: string;
+          description: string;
+          settingsUrl: string;
+        }>
+      >;
       openPermissionSettings: (type: string) => Promise<void>;
     };
   }

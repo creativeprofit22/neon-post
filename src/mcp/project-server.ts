@@ -183,9 +183,9 @@ async function handleGetProject(): Promise<string> {
   }
 
   try {
-    const row = db
-      .prepare("SELECT value FROM settings WHERE key = 'active_project'")
-      .get() as { value: string } | undefined;
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'active_project'").get() as
+      | { value: string }
+      | undefined;
 
     if (!row) {
       return JSON.stringify({
@@ -255,13 +255,20 @@ async function handleRequest(request: MCPRequest): Promise<MCPResponse> {
       return { jsonrpc: '2.0', id, result: { tools: TOOLS } };
 
     case 'tools/call': {
-      const { name, arguments: toolArgs } = params as { name: string; arguments: Record<string, unknown> };
+      const { name, arguments: toolArgs } = params as {
+        name: string;
+        arguments: Record<string, unknown>;
+      };
       const result = await handleToolCall(name, toolArgs || {});
       return { jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: result }] } };
     }
 
     default:
-      return { jsonrpc: '2.0', id, error: { code: -32601, message: `Method not found: ${method}` } };
+      return {
+        jsonrpc: '2.0',
+        id,
+        error: { code: -32601, message: `Method not found: ${method}` },
+      };
   }
 }
 

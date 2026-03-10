@@ -1,5 +1,13 @@
 import { MemoryManager, Message, DailyLog } from '../memory';
-import { buildMCPServers, buildSdkMcpServers, setMemoryManager, setSoulMemoryManager, ToolsConfig, validateToolsConfig, getCurrentSessionId } from '../tools';
+import {
+  buildMCPServers,
+  buildSdkMcpServers,
+  setMemoryManager,
+  setSoulMemoryManager,
+  ToolsConfig,
+  validateToolsConfig,
+  getCurrentSessionId,
+} from '../tools';
 import { closeBrowserManager } from '../browser';
 import { SYSTEM_GUIDELINES } from '../config/system-guidelines';
 import { SettingsManager } from '../settings';
@@ -93,22 +101,40 @@ function formatAgentError(error: string): string {
   const e = error.toLowerCase();
 
   // Authentication errors (all providers)
-  if (e.includes('authentication_failed') || e.includes('invalid x-api-key') || e.includes('invalid api key')
-    || e.includes('unauthorized') || e.includes('invalid token') || e.includes('token expired')
-    || e.includes('auth') && e.includes('fail')) {
+  if (
+    e.includes('authentication_failed') ||
+    e.includes('invalid x-api-key') ||
+    e.includes('invalid api key') ||
+    e.includes('unauthorized') ||
+    e.includes('invalid token') ||
+    e.includes('token expired') ||
+    (e.includes('auth') && e.includes('fail'))
+  ) {
     return 'Invalid API key. Please check your key in Settings. [authentication_failed]';
   }
 
   // Billing / quota errors (all providers)
-  if (e.includes('billing_error') || e.includes('insufficient') || e.includes('credit')
-    || e.includes('payment') || e.includes('quota') || e.includes('exceeded')
-    || e.includes('balance')) {
+  if (
+    e.includes('billing_error') ||
+    e.includes('insufficient') ||
+    e.includes('credit') ||
+    e.includes('payment') ||
+    e.includes('quota') ||
+    e.includes('exceeded') ||
+    e.includes('balance')
+  ) {
     return 'Billing issue — your account may have run out of credits. Check your provider dashboard. [billing_error]';
   }
 
   // Rate limiting (all providers — Anthropic 429, Moonshot/GLM rate limits)
-  if (e.includes('rate_limit') || e.includes('too many requests') || e.includes('overloaded')
-    || e.includes('throttl') || e.includes('concurrency') || e.includes('capacity')) {
+  if (
+    e.includes('rate_limit') ||
+    e.includes('too many requests') ||
+    e.includes('overloaded') ||
+    e.includes('throttl') ||
+    e.includes('concurrency') ||
+    e.includes('capacity')
+  ) {
     return 'Rate limited — too many requests. Wait a moment and try again. [rate_limit]';
   }
 
@@ -119,28 +145,56 @@ function formatAgentError(error: string): string {
   if (e.includes('max_output_tokens') || e.includes('max tokens') || e.includes('output limit')) {
     return 'Response exceeded maximum token limit. Try a simpler request. [max_output_tokens]';
   }
-  if (e.includes('context') && (e.includes('too long') || e.includes('exceed') || e.includes('limit'))) {
+  if (
+    e.includes('context') &&
+    (e.includes('too long') || e.includes('exceed') || e.includes('limit'))
+  ) {
     return 'Message too long for model context window. Try a shorter message or start a new session. [context_overflow]';
   }
-  if (e.includes('model') && (e.includes('not found') || e.includes('not available') || e.includes('does not exist') || e.includes('not support'))) {
+  if (
+    e.includes('model') &&
+    (e.includes('not found') ||
+      e.includes('not available') ||
+      e.includes('does not exist') ||
+      e.includes('not support'))
+  ) {
     return `Model not available — ${error}. Check Settings > Model. [model_not_found]`;
   }
 
   // Server errors (all providers)
-  if (e.includes('server_error') || e.includes('internal server') || e.includes('bad gateway')
-    || e.includes('service unavailable') || e.includes('temporarily')) {
-    return reportable('API server error. The provider may be experiencing issues — try again shortly. [server_error]');
+  if (
+    e.includes('server_error') ||
+    e.includes('internal server') ||
+    e.includes('bad gateway') ||
+    e.includes('service unavailable') ||
+    e.includes('temporarily')
+  ) {
+    return reportable(
+      'API server error. The provider may be experiencing issues — try again shortly. [server_error]'
+    );
   }
 
   // Network errors — user-side, no report needed
-  if (e.includes('econnrefused') || e.includes('enotfound') || e.includes('etimedout')
-    || e.includes('econnreset') || e.includes('epipe') || e.includes('fetch failed')
-    || e.includes('network') || e.includes('dns') || e.includes('socket hang up')) {
+  if (
+    e.includes('econnrefused') ||
+    e.includes('enotfound') ||
+    e.includes('etimedout') ||
+    e.includes('econnreset') ||
+    e.includes('epipe') ||
+    e.includes('fetch failed') ||
+    e.includes('network') ||
+    e.includes('dns') ||
+    e.includes('socket hang up')
+  ) {
     return 'Network error — cannot reach the API. Check your internet connection. [network_error]';
   }
 
   // Session errors — include the underlying reason so the developer can debug
-  if (e.includes('session error') || e.includes('session closed') || e.includes('session not alive')) {
+  if (
+    e.includes('session error') ||
+    e.includes('session closed') ||
+    e.includes('session not alive')
+  ) {
     // Extract the underlying error from "Session error: <reason>"
     const reasonMatch = error.match(/Session error:\s*(.+)/i);
     const reason = reasonMatch ? reasonMatch[1] : error;
@@ -163,7 +217,28 @@ function formatAgentError(error: string): string {
 
 // Status event types
 export type AgentStatus = {
-  type: 'thinking' | 'tool_start' | 'tool_end' | 'tool_blocked' | 'responding' | 'done' | 'subagent_start' | 'subagent_update' | 'subagent_end' | 'queued' | 'queue_processing' | 'teammate_start' | 'teammate_idle' | 'teammate_message' | 'task_completed' | 'background_task_start' | 'background_task_output' | 'background_task_end' | 'partial_text' | 'plan_mode_entered' | 'plan_mode_exited';
+  type:
+    | 'thinking'
+    | 'tool_start'
+    | 'tool_end'
+    | 'tool_blocked'
+    | 'responding'
+    | 'done'
+    | 'subagent_start'
+    | 'subagent_update'
+    | 'subagent_end'
+    | 'queued'
+    | 'queue_processing'
+    | 'teammate_start'
+    | 'teammate_idle'
+    | 'teammate_message'
+    | 'task_completed'
+    | 'background_task_start'
+    | 'background_task_output'
+    | 'background_task_end'
+    | 'partial_text'
+    | 'plan_mode_entered'
+    | 'plan_mode_exited';
   sessionId?: string;
   toolName?: string;
   toolInput?: string;
@@ -175,7 +250,7 @@ export type AgentStatus = {
   // Subagent tracking
   agentId?: string;
   agentType?: string;
-  agentCount?: number;  // Number of active subagents
+  agentCount?: number; // Number of active subagents
   // Queue tracking
   queuePosition?: number;
   queuedMessage?: string;
@@ -214,13 +289,23 @@ type TeammateIdleHookCallback = (input: { teammate_name: string; team_name: stri
     hookEventName: 'TeammateIdle';
   };
 }>;
-type TaskCompletedHookCallback = (input: { task_id: string; task_subject: string; task_description?: string; teammate_name?: string; team_name?: string }) => Promise<{
+type TaskCompletedHookCallback = (input: {
+  task_id: string;
+  task_subject: string;
+  task_description?: string;
+  teammate_name?: string;
+  team_name?: string;
+}) => Promise<{
   hookSpecificOutput: {
     hookEventName: 'TaskCompleted';
   };
 }>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type UserPromptSubmitHookCallback = (input: any, toolUseID: string | undefined, options: { signal: AbortSignal }) => Promise<{
+type UserPromptSubmitHookCallback = (
+  input: any,
+  toolUseID: string | undefined,
+  options: { signal: AbortSignal }
+) => Promise<{
   hookSpecificOutput: {
     hookEventName: 'UserPromptSubmit';
     additionalContext?: string;
@@ -228,27 +313,30 @@ type UserPromptSubmitHookCallback = (input: any, toolUseID: string | undefined, 
 }>;
 
 // Thinking config type (replaces deprecated maxThinkingTokens)
-type ThinkingConfig = { type: 'adaptive' } | { type: 'enabled'; budgetTokens: number } | { type: 'disabled' };
+type ThinkingConfig =
+  | { type: 'adaptive' }
+  | { type: 'enabled'; budgetTokens: number }
+  | { type: 'disabled' };
 
 type SDKOptions = {
   model?: string;
   cwd?: string;
   maxTurns?: number;
-  maxThinkingTokens?: number;  // deprecated — kept for non-Anthropic providers
+  maxThinkingTokens?: number; // deprecated — kept for non-Anthropic providers
   thinking?: ThinkingConfig;
   effort?: 'low' | 'medium' | 'high' | 'max';
   abortController?: AbortController;
   tools?: string[] | { type: 'preset'; preset: 'claude_code' };
   allowedTools?: string[];
   persistSession?: boolean;
-  resume?: string;  // SDK session ID to resume
+  resume?: string; // SDK session ID to resume
   systemPrompt?: string | { type: 'preset'; preset: 'claude_code'; append?: string };
   mcpServers?: Record<string, unknown>;
   settingSources?: ('project' | 'user')[];
-  canUseTool?: CanUseToolCallback;  // Pre-tool-use validation callback
+  canUseTool?: CanUseToolCallback; // Pre-tool-use validation callback
   permissionMode?: string;
   allowDangerouslySkipPermissions?: boolean;
-  env?: { [envVar: string]: string | undefined };  // Environment variables for Claude Code process
+  env?: { [envVar: string]: string | undefined }; // Environment variables for Claude Code process
   hooks?: {
     PreToolUse?: Array<{ hooks: PreToolUseHookCallback[] }>;
     UserPromptSubmit?: Array<{ hooks: UserPromptSubmitHookCallback[] }>;
@@ -261,18 +349,21 @@ type SDKOptions = {
 // For Opus 4.6: the CLI always forces adaptive thinking regardless of budget tokens,
 // so the `effort` parameter is the proper way to control thinking depth.
 // For other models: budget tokens are enforced via the `thinking` option.
-const THINKING_CONFIGS: Record<string, { thinking: ThinkingConfig; effort?: 'low' | 'medium' | 'high' }> = {
-  'none':     { thinking: { type: 'disabled' } },
-  'minimal':  { thinking: { type: 'enabled', budgetTokens: 2048 },  effort: 'low' },
-  'normal':   { thinking: { type: 'enabled', budgetTokens: 10000 }, effort: 'medium' },
-  'extended':  { thinking: { type: 'adaptive' },                    effort: 'high' },
+const THINKING_CONFIGS: Record<
+  string,
+  { thinking: ThinkingConfig; effort?: 'low' | 'medium' | 'high' }
+> = {
+  none: { thinking: { type: 'disabled' } },
+  minimal: { thinking: { type: 'enabled', budgetTokens: 2048 }, effort: 'low' },
+  normal: { thinking: { type: 'enabled', budgetTokens: 10000 }, effort: 'medium' },
+  extended: { thinking: { type: 'adaptive' }, effort: 'high' },
 };
 
 // Image content for multimodal messages
 export interface ImageContent {
   type: 'base64';
   mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
-  data: string;  // base64 encoded
+  data: string; // base64 encoded
 }
 
 // Attachment info for tracking attachments in metadata
@@ -298,14 +389,20 @@ interface SDKUserMessage {
 }
 
 // Dynamic SDK loader - prompt can be string or async iterable of messages
-let sdkQuery: ((params: { prompt: string | AsyncIterable<SDKUserMessage>; options?: SDKOptions }) => SDKQuery) | null = null;
+let sdkQuery:
+  | ((params: { prompt: string | AsyncIterable<SDKUserMessage>; options?: SDKOptions }) => SDKQuery)
+  | null = null;
 
 // Use Function to preserve native import() - TypeScript converts import() to require() in CommonJS
-const dynamicImport = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<unknown>;
+const dynamicImport = new Function('specifier', 'return import(specifier)') as (
+  specifier: string
+) => Promise<unknown>;
 
 async function loadSDK(): Promise<typeof sdkQuery> {
   if (!sdkQuery) {
-    const sdk = await dynamicImport('@anthropic-ai/claude-agent-sdk') as { query: typeof sdkQuery };
+    const sdk = (await dynamicImport('@anthropic-ai/claude-agent-sdk')) as {
+      query: typeof sdkQuery;
+    };
     sdkQuery = sdk.query;
   }
   return sdkQuery;
@@ -314,16 +411,16 @@ async function loadSDK(): Promise<typeof sdkQuery> {
 export interface AgentConfig {
   memory: MemoryManager;
   projectRoot?: string;
-  workspace?: string;  // Isolated working directory for agent file operations
-  dataDir?: string;    // App data directory (e.g. ~/Library/Application Support/pocket-agent)
+  workspace?: string; // Isolated working directory for agent file operations
+  dataDir?: string; // App data directory (e.g. ~/Library/Application Support/pocket-agent)
   model?: string;
   tools?: ToolsConfig;
 }
 
 export interface MediaAttachment {
   type: 'image';
-  filePath: string;       // absolute path on disk
-  mimeType: string;       // e.g. 'image/png'
+  filePath: string; // absolute path on disk
+  mimeType: string; // e.g. 'image/png'
 }
 
 export interface ProcessResult {
@@ -344,7 +441,7 @@ class AgentManagerClass extends EventEmitter {
   private static instance: AgentManagerClass | null = null;
   private memory: MemoryManager | null = null;
   private projectRoot: string = process.cwd();
-  private workspace: string = process.cwd();  // Isolated working directory for agent
+  private workspace: string = process.cwd(); // Isolated working directory for agent
   private model: string = 'claude-opus-4-6';
   private mode: 'general' | 'coder' = 'coder';
   private chatEngine: ChatEngine | null = null;
@@ -353,26 +450,38 @@ class AgentManagerClass extends EventEmitter {
   private abortControllersBySession: Map<string, AbortController> = new Map();
   private processingBySession: Map<string, boolean> = new Map();
   private lastSuggestedPromptBySession: Map<string, string | undefined> = new Map();
-  private messageQueueBySession: Map<string, Array<{ message: string; channel: string; images?: ImageContent[]; attachmentInfo?: AttachmentInfo; resolve: (result: ProcessResult) => void; reject: (error: Error) => void }>> = new Map();
+  private messageQueueBySession: Map<
+    string,
+    Array<{
+      message: string;
+      channel: string;
+      images?: ImageContent[];
+      attachmentInfo?: AttachmentInfo;
+      resolve: (result: ProcessResult) => void;
+      reject: (error: Error) => void;
+    }>
+  > = new Map();
   private sdkSessionIdBySession: Map<string, string> = new Map();
   private persistentSessions: Map<string, PersistentSDKSession> = new Map();
-  private contextUsageBySession: Map<string, { contextTokens: number; contextWindow: number }> = new Map();
+  private contextUsageBySession: Map<string, { contextTokens: number; contextWindow: number }> =
+    new Map();
   private pendingMediaBySession: Map<string, MediaAttachment[]> = new Map();
   private stoppedByUserSession: Set<string> = new Set();
-  private sdkToolTimers: Map<string, { timer: ReturnType<typeof setTimeout>; sessionId: string }> = new Map();
+  private sdkToolTimers: Map<string, { timer: ReturnType<typeof setTimeout>; sessionId: string }> =
+    new Map();
   private pendingProjectSwitch: Set<string> = new Set();
 
   // Per-tool timeouts for SDK built-in tools (MCP tools have their own via wrapToolHandler)
   private static readonly SDK_TOOL_TIMEOUTS: Record<string, number> = {
-    Bash: 120_000,      // 2 min — commands can be long-running
+    Bash: 120_000, // 2 min — commands can be long-running
     Read: 15_000,
     Write: 15_000,
     Edit: 15_000,
     Glob: 15_000,
-    Grep: 30_000,       // large codebases
+    Grep: 30_000, // large codebases
     WebSearch: 30_000,
     WebFetch: 45_000,
-    Task: 300_000,      // 5 min — subagent work
+    Task: 300_000, // 5 min — subagent work
   };
   private static readonly SDK_TOOL_DEFAULT_TIMEOUT = 60_000; // 1 min default
 
@@ -442,7 +551,7 @@ class AgentManagerClass extends EventEmitter {
     }
 
     // Backfill message embeddings asynchronously (for semantic retrieval)
-    this.backfillMessageEmbeddings().catch(e => {
+    this.backfillMessageEmbeddings().catch((e) => {
       console.error('[AgentManager] Embedding backfill failed:', e);
     });
   }
@@ -480,7 +589,7 @@ class AgentManagerClass extends EventEmitter {
     // Update model on all live persistent sessions
     for (const [sid, session] of this.persistentSessions.entries()) {
       if (session.isAlive()) {
-        session.setModel(model).catch(err => {
+        session.setModel(model).catch((err) => {
           console.error(`[AgentManager] Failed to set model on session ${sid}:`, err);
         });
       }
@@ -515,7 +624,13 @@ class AgentManagerClass extends EventEmitter {
     // Route by per-session mode (not global mode)
     const sessionMode = this.memory.getSessionMode(sessionId);
     if (sessionMode === 'general' && this.chatEngine) {
-      const result = await this.chatEngine.processMessage(userMessage, channel, sessionId, images, attachmentInfo);
+      const result = await this.chatEngine.processMessage(
+        userMessage,
+        channel,
+        sessionId,
+        images,
+        attachmentInfo
+      );
       // Store context usage for stats display
       if (result.contextTokens !== undefined || result.contextWindow !== undefined) {
         this.contextUsageBySession.set(sessionId, {
@@ -555,7 +670,9 @@ class AgentManagerClass extends EventEmitter {
       queue.push({ message: userMessage, channel, images, attachmentInfo, resolve, reject });
 
       const queuePosition = queue.length;
-      console.log(`[AgentManager] Message queued at position ${queuePosition} for session ${sessionId}`);
+      console.log(
+        `[AgentManager] Message queued at position ${queuePosition} for session ${sessionId}`
+      );
 
       // Emit queued status
       this.emitStatus({
@@ -576,7 +693,9 @@ class AgentManagerClass extends EventEmitter {
     if (!queue || queue.length === 0) return;
 
     const next = queue.shift()!;
-    console.log(`[AgentManager] Processing queued message for session ${sessionId}, ${queue.length} remaining`);
+    console.log(
+      `[AgentManager] Processing queued message for session ${sessionId}, ${queue.length} remaining`
+    );
 
     // Emit status that we're processing a queued message
     this.emitStatus({
@@ -587,7 +706,13 @@ class AgentManagerClass extends EventEmitter {
     });
 
     try {
-      const result = await this.executeMessage(next.message, next.channel, sessionId, next.images, next.attachmentInfo);
+      const result = await this.executeMessage(
+        next.message,
+        next.channel,
+        sessionId,
+        next.images,
+        next.attachmentInfo
+      );
       next.resolve(result);
     } catch (error) {
       next.reject(error instanceof Error ? error : new Error(String(error)));
@@ -630,19 +755,20 @@ class AgentManagerClass extends EventEmitter {
         this.emitStatus({ type: 'thinking', sessionId, message: '*stretches paws* thinking...' });
 
         // Build content blocks for images
-        const contentBlocks = images && images.length > 0
-          ? [
-              { type: 'text' as const, text: userMessage },
-              ...images.map(img => ({
-                type: 'image' as const,
-                source: {
-                  type: 'base64' as const,
-                  media_type: img.mediaType,
-                  data: img.data,
-                },
-              })),
-            ]
-          : undefined;
+        const contentBlocks =
+          images && images.length > 0
+            ? [
+                { type: 'text' as const, text: userMessage },
+                ...images.map((img) => ({
+                  type: 'image' as const,
+                  source: {
+                    type: 'base64' as const,
+                    media_type: img.mediaType,
+                    data: img.data,
+                  },
+                })),
+              ]
+            : undefined;
 
         turnResult = await existingSession.send(userMessage, contentBlocks);
       } else {
@@ -653,9 +779,10 @@ class AgentManagerClass extends EventEmitter {
         }
 
         // Look up SDK session for resume (in-memory cache first, then DB)
-        let sdkSessionId = this.sdkSessionIdBySession.get(sessionId)
-          || memory.getSdkSessionId(sessionId)
-          || undefined;
+        let sdkSessionId =
+          this.sdkSessionIdBySession.get(sessionId) ||
+          memory.getSdkSessionId(sessionId) ||
+          undefined;
         hadSdkSessionBeforeStart = !!sdkSessionId;
 
         if (sdkSessionId) {
@@ -670,7 +797,14 @@ class AgentManagerClass extends EventEmitter {
         // Build options with dynamic context
         const options = await this.buildPersistentOptions(memory, sessionId, sdkSessionId);
 
-        console.log('[AgentManager] Calling query() with model:', options.model, 'thinking:', JSON.stringify(options.thinking) || 'default', 'effort:', options.effort || 'default');
+        console.log(
+          '[AgentManager] Calling query() with model:',
+          options.model,
+          'thinking:',
+          JSON.stringify(options.thinking) || 'default',
+          'effort:',
+          options.effort || 'default'
+        );
         this.lastPartialTextBySession.delete(sessionId);
         this.emitStatus({ type: 'thinking', sessionId, message: '*stretches paws* thinking...' });
 
@@ -686,19 +820,20 @@ class AgentManagerClass extends EventEmitter {
         this.persistentSessions.set(sessionId, session);
 
         // Build content blocks for images (if any)
-        const firstContentBlocks: ContentBlock[] | undefined = images && images.length > 0
-          ? [
-              { type: 'text' as const, text: userMessage },
-              ...images.map(img => ({
-                type: 'image' as const,
-                source: {
-                  type: 'base64' as const,
-                  media_type: img.mediaType,
-                  data: img.data,
-                },
-              })),
-            ]
-          : undefined;
+        const firstContentBlocks: ContentBlock[] | undefined =
+          images && images.length > 0
+            ? [
+                { type: 'text' as const, text: userMessage },
+                ...images.map((img) => ({
+                  type: 'image' as const,
+                  source: {
+                    type: 'base64' as const,
+                    media_type: img.mediaType,
+                    data: img.data,
+                  },
+                })),
+              ]
+            : undefined;
 
         if (firstContentBlocks) {
           console.log(`[AgentManager] Starting persistent session with ${images!.length} image(s)`);
@@ -755,25 +890,42 @@ class AgentManagerClass extends EventEmitter {
       // is populated mid-call by the 'sdkSessionId' event, so checking it here would always be true.
       const wasResuming = hadSdkSessionBeforeStart;
       if (turnResult.errors && turnResult.errors.length > 0) {
-        console.log(`[AgentManager] Turn errors: ${JSON.stringify(turnResult.errors)}, response length: ${turnResult.response.length}, wasResuming: ${wasResuming}`);
+        console.log(
+          `[AgentManager] Turn errors: ${JSON.stringify(turnResult.errors)}, response length: ${turnResult.response.length}, wasResuming: ${wasResuming}`
+        );
       }
-      const isStaleSession = turnResult.errors?.some(e => e.includes('No conversation found with session ID'));
-      const isInvalidThinking = turnResult.errors?.some(e => e.includes('Invalid signature in thinking block'));
+      const isStaleSession = turnResult.errors?.some((e) =>
+        e.includes('No conversation found with session ID')
+      );
+      const isInvalidThinking = turnResult.errors?.some((e) =>
+        e.includes('Invalid signature in thinking block')
+      );
       // "unknown" errors during resume are typically invalid thinking signatures or corrupted sessions.
       // The SDK may still return error text as "response", so don't require empty response.
-      const isUnknownResumeError = wasResuming && turnResult.errors?.some(e => e === 'unknown');
-      const isSessionCrash = !turnResult.response && turnResult.errors?.some(e =>
-        e.includes('Session error') || e.includes('session closed'));
+      const isUnknownResumeError = wasResuming && turnResult.errors?.some((e) => e === 'unknown');
+      const isSessionCrash =
+        !turnResult.response &&
+        turnResult.errors?.some((e) => e.includes('Session error') || e.includes('session closed'));
       // OAuth token expired mid-session — the subprocess can't refresh it, so we must
       // kill the session, refresh the token, and retry with a new subprocess.
-      const isAuthFailed = turnResult.errors?.some(e => e.includes('authentication_failed'));
-      if (isStaleSession || isInvalidThinking || isUnknownResumeError || isSessionCrash || isAuthFailed) {
+      const isAuthFailed = turnResult.errors?.some((e) => e.includes('authentication_failed'));
+      if (
+        isStaleSession ||
+        isInvalidThinking ||
+        isUnknownResumeError ||
+        isSessionCrash ||
+        isAuthFailed
+      ) {
         const staleId = this.sdkSessionIdBySession.get(sessionId);
-        const reason = isStaleSession ? 'stale SDK session'
-          : isInvalidThinking ? 'invalid thinking signature'
-          : isUnknownResumeError ? 'unknown resume error'
-          : isAuthFailed ? 'OAuth token expired'
-          : 'session crash';
+        const reason = isStaleSession
+          ? 'stale SDK session'
+          : isInvalidThinking
+            ? 'invalid thinking signature'
+            : isUnknownResumeError
+              ? 'unknown resume error'
+              : isAuthFailed
+                ? 'OAuth token expired'
+                : 'session crash';
         console.warn(`[AgentManager] ${reason} detected (${staleId}), retrying...`);
 
         // For auth failures, keep the SDK session ID so we can resume with a fresh token.
@@ -809,19 +961,20 @@ class AgentManagerClass extends EventEmitter {
         this.emitStatus({ type: 'thinking', sessionId, message: 'reconnecting...' });
 
         // Build content blocks for images (if any)
-        const retryContentBlocks = images && images.length > 0
-          ? [
-              { type: 'text' as const, text: userMessage },
-              ...images.map(img => ({
-                type: 'image' as const,
-                source: {
-                  type: 'base64' as const,
-                  media_type: img.mediaType,
-                  data: img.data,
-                },
-              })),
-            ]
-          : undefined;
+        const retryContentBlocks =
+          images && images.length > 0
+            ? [
+                { type: 'text' as const, text: userMessage },
+                ...images.map((img) => ({
+                  type: 'image' as const,
+                  source: {
+                    type: 'base64' as const,
+                    media_type: img.mediaType,
+                    data: img.data,
+                  },
+                })),
+              ]
+            : undefined;
 
         turnResult = await freshSession.start(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -835,8 +988,9 @@ class AgentManagerClass extends EventEmitter {
       // === Process turn result (same for both paths) ===
 
       // If the request was aborted (user pressed stop), bail out cleanly
-      const wasAborted = this.stoppedByUserSession.has(sessionId)
-        || turnResult.errors?.some(e => e.includes('aborted') || e.includes('interrupted'));
+      const wasAborted =
+        this.stoppedByUserSession.has(sessionId) ||
+        turnResult.errors?.some((e) => e.includes('aborted') || e.includes('interrupted'));
       if (wasAborted) {
         this.stoppedByUserSession.delete(sessionId);
         this.emitStatus({ type: 'done', sessionId });
@@ -846,7 +1000,9 @@ class AgentManagerClass extends EventEmitter {
           response: partialResponse,
           tokensUsed: 0,
           wasCompacted: false,
-          suggestedPrompt: partialResponse ? this.lastSuggestedPromptBySession.get(sessionId) : undefined,
+          suggestedPrompt: partialResponse
+            ? this.lastSuggestedPromptBySession.get(sessionId)
+            : undefined,
         };
       }
 
@@ -859,9 +1015,14 @@ class AgentManagerClass extends EventEmitter {
         if (turnResult.planFilePath) {
           try {
             planContent = fs.readFileSync(turnResult.planFilePath, 'utf-8');
-            console.log(`[AgentManager] Read plan from file: ${turnResult.planFilePath} (${planContent.length} chars)`);
+            console.log(
+              `[AgentManager] Read plan from file: ${turnResult.planFilePath} (${planContent.length} chars)`
+            );
           } catch (err) {
-            console.warn(`[AgentManager] Could not read plan file ${turnResult.planFilePath}:`, err);
+            console.warn(
+              `[AgentManager] Could not read plan file ${turnResult.planFilePath}:`,
+              err
+            );
             // Fall back to turnResult.response
           }
         }
@@ -888,7 +1049,10 @@ class AgentManagerClass extends EventEmitter {
           tokensUsed: 0,
           wasCompacted: turnResult.wasCompacted,
           planPending: true,
-          media: (this.pendingMediaBySession.get(sessionId) || []).length > 0 ? this.pendingMediaBySession.get(sessionId) : undefined,
+          media:
+            (this.pendingMediaBySession.get(sessionId) || []).length > 0
+              ? this.pendingMediaBySession.get(sessionId)
+              : undefined,
         };
       }
 
@@ -923,11 +1087,15 @@ class AgentManagerClass extends EventEmitter {
           this.emitStatus({ type: 'thinking', sessionId, message: 'summarizing...' });
 
           try {
-            const summaryResult = await currentSession.send('Briefly summarize what you just did in 1-2 sentences.');
+            const summaryResult = await currentSession.send(
+              'Briefly summarize what you just did in 1-2 sentences.'
+            );
             if (summaryResult.response) {
               response = summaryResult.response;
             } else if (summaryResult.errors && summaryResult.errors.length > 0) {
-              console.error(`[AgentManager] Summary returned errors: ${summaryResult.errors.join('; ')}`);
+              console.error(
+                `[AgentManager] Summary returned errors: ${summaryResult.errors.join('; ')}`
+              );
               throw new Error(formatAgentError(summaryResult.errors[0]));
             } else {
               console.warn('[AgentManager] Summary also returned empty — no errors, no text');
@@ -938,15 +1106,20 @@ class AgentManagerClass extends EventEmitter {
             if (summaryError instanceof Error && summaryError.message.includes('[')) {
               throw summaryError;
             }
-            const errMsg = summaryError instanceof Error ? summaryError.message : String(summaryError);
+            const errMsg =
+              summaryError instanceof Error ? summaryError.message : String(summaryError);
             console.error(`[AgentManager] Summary request failed: ${errMsg}`);
-            throw new Error(formatAgentError(errMsg));
+            throw new Error(formatAgentError(errMsg), { cause: summaryError });
           }
 
           this.emitStatus({ type: 'done', sessionId });
         } else {
           console.warn('[AgentManager] Session not alive for summary — session may have crashed');
-          throw new Error(reportable('Agent session ended unexpectedly. Send another message to start a new session.'));
+          throw new Error(
+            reportable(
+              'Agent session ended unexpectedly. Send another message to start a new session.'
+            )
+          );
         }
       }
 
@@ -955,7 +1128,9 @@ class AgentManagerClass extends EventEmitter {
       const isHeartbeat = response.toUpperCase().includes('HEARTBEAT_OK');
 
       if (isScheduledJob && isHeartbeat) {
-        console.log('[AgentManager] Skipping HEARTBEAT_OK from scheduled job - not saving to memory');
+        console.log(
+          '[AgentManager] Skipping HEARTBEAT_OK from scheduled job - not saving to memory'
+        );
       } else {
         // Clean up scheduled job messages before saving - remove internal LLM instructions
         let messageToSave = userMessage;
@@ -967,7 +1142,9 @@ class AgentManagerClass extends EventEmitter {
         }
 
         // Convert reminder prompts to clean display format (for reminders)
-        const reminderMatch = messageToSave.match(/^\[SCHEDULED REMINDER - DELIVER NOW\]\nThe user previously asked to be reminded about: "(.+?)"\n\nDeliver this reminder/);
+        const reminderMatch = messageToSave.match(
+          /^\[SCHEDULED REMINDER - DELIVER NOW\]\nThe user previously asked to be reminded about: "(.+?)"\n\nDeliver this reminder/
+        );
         if (reminderMatch) {
           messageToSave = `Reminder: ${reminderMatch[1]}`;
         }
@@ -979,7 +1156,8 @@ class AgentManagerClass extends EventEmitter {
         } else if (channel === 'telegram') {
           // Use explicit attachmentInfo if provided, otherwise check for images
           const hasAttachment = attachmentInfo?.hasAttachment ?? (images && images.length > 0);
-          const attachmentType = attachmentInfo?.attachmentType ?? (images && images.length > 0 ? 'photo' : undefined);
+          const attachmentType =
+            attachmentInfo?.attachmentType ?? (images && images.length > 0 ? 'photo' : undefined);
           metadata = { source: 'telegram', hasAttachment, attachmentType };
         } else if (channel === 'ios') {
           metadata = { source: 'ios' };
@@ -988,13 +1166,22 @@ class AgentManagerClass extends EventEmitter {
         const userMsgId = memory.saveMessage('user', messageToSave, sessionId, metadata);
         // Assistant response doesn't need hasAttachment but keep source for consistency
         const assistantMetadata = metadata ? { source: metadata.source } : undefined;
-        const assistantMsgId = memory.saveMessage('assistant', response, sessionId, assistantMetadata);
+        const assistantMsgId = memory.saveMessage(
+          'assistant',
+          response,
+          sessionId,
+          assistantMetadata
+        );
         console.log('[AgentManager] Saved messages to SQLite (session: ' + sessionId + ')');
 
         // Embed messages asynchronously for future semantic retrieval
         // Don't await - let it run in background
-        memory.embedMessage(userMsgId).catch(e => console.error('[AgentManager] Failed to embed user message:', e));
-        memory.embedMessage(assistantMsgId).catch(e => console.error('[AgentManager] Failed to embed assistant message:', e));
+        memory
+          .embedMessage(userMsgId)
+          .catch((e) => console.error('[AgentManager] Failed to embed user message:', e));
+        memory
+          .embedMessage(assistantMsgId)
+          .catch((e) => console.error('[AgentManager] Failed to embed assistant message:', e));
       }
 
       this.extractAndStoreFacts(userMessage);
@@ -1005,7 +1192,9 @@ class AgentManagerClass extends EventEmitter {
         this.pendingProjectSwitch.delete(sessionId);
         const switchedSession = this.persistentSessions.get(sessionId);
         if (switchedSession) {
-          console.log(`[AgentManager] Closing session ${sessionId} after project switch — new cwd takes effect next message`);
+          console.log(
+            `[AgentManager] Closing session ${sessionId} after project switch — new cwd takes effect next message`
+          );
           switchedSession.close();
           this.persistentSessions.delete(sessionId);
           this.sdkSessionIdBySession.delete(sessionId);
@@ -1023,7 +1212,10 @@ class AgentManagerClass extends EventEmitter {
         suggestedPrompt: this.lastSuggestedPromptBySession.get(sessionId),
         contextTokens: contextUsage?.contextTokens,
         contextWindow: contextUsage?.contextWindow,
-        media: (this.pendingMediaBySession.get(sessionId) || []).length > 0 ? this.pendingMediaBySession.get(sessionId) : undefined,
+        media:
+          (this.pendingMediaBySession.get(sessionId) || []).length > 0
+            ? this.pendingMediaBySession.get(sessionId)
+            : undefined,
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -1040,7 +1232,10 @@ class AgentManagerClass extends EventEmitter {
         console.error('[AgentManager] Stack trace:', error.stack);
       }
       // Log full error object for debugging
-      console.error('[AgentManager] Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+      console.error(
+        '[AgentManager] Full error:',
+        JSON.stringify(error, Object.getOwnPropertyNames(error), 2)
+      );
 
       // Save user message and error response so they persist across reloads
       memory.saveMessage('user', userMessage, sessionId);
@@ -1099,8 +1294,8 @@ class AgentManagerClass extends EventEmitter {
     }
 
     // Clear SDK tool timeout timers for the session being stopped
-    const targetSessionId = sessionId
-      || [...this.processingBySession.entries()].find(([, v]) => v)?.[0];
+    const targetSessionId =
+      sessionId || [...this.processingBySession.entries()].find(([, v]) => v)?.[0];
     if (targetSessionId) {
       for (const [id, entry] of this.sdkToolTimers.entries()) {
         if (entry.sessionId === targetSessionId) {
@@ -1118,9 +1313,11 @@ class AgentManagerClass extends EventEmitter {
 
       const session = this.persistentSessions.get(sessionId);
       if (session?.isAlive() && this.processingBySession.get(sessionId)) {
-        console.log(`[AgentManager] Interrupting persistent session ${sessionId} (bg tasks survive)...`);
+        console.log(
+          `[AgentManager] Interrupting persistent session ${sessionId} (bg tasks survive)...`
+        );
         this.stoppedByUserSession.add(sessionId);
-        session.interrupt().catch(err => {
+        session.interrupt().catch((err) => {
           console.error(`[AgentManager] Interrupt failed for ${sessionId}:`, err);
         });
         return true;
@@ -1148,7 +1345,7 @@ class AgentManagerClass extends EventEmitter {
         if (session?.isAlive()) {
           console.log(`[AgentManager] Interrupting persistent session ${sid}...`);
           this.stoppedByUserSession.add(sid);
-          session.interrupt().catch(err => {
+          session.interrupt().catch((err) => {
             console.error(`[AgentManager] Interrupt failed for ${sid}:`, err);
           });
           return true;
@@ -1246,7 +1443,11 @@ class AgentManagerClass extends EventEmitter {
   /**
    * Set up event listeners shared across all persistent session creation sites.
    */
-  private setupSessionListeners(session: PersistentSDKSession, sessionId: string, memory: MemoryManager): void {
+  private setupSessionListeners(
+    session: PersistentSDKSession,
+    sessionId: string,
+    memory: MemoryManager
+  ): void {
     session.on('sdkSessionId', (capturedId: string) => {
       this.sdkSessionIdBySession.set(sessionId, capturedId);
       memory.setSdkSessionId(sessionId, capturedId);
@@ -1311,7 +1512,11 @@ class AgentManagerClass extends EventEmitter {
    * Dynamic context (temporal, facts, soul, daily logs) is injected per-message via
    * the UserPromptSubmit hook's additionalContext, so it's fresh for each turn.
    */
-  private async buildPersistentOptions(memory: MemoryManager, sessionId: string, sdkSessionId?: string): Promise<SDKOptions> {
+  private async buildPersistentOptions(
+    memory: MemoryManager,
+    sessionId: string,
+    sdkSessionId?: string
+  ): Promise<SDKOptions> {
     // Determine session mode — coder mode gets lean context (SDK preset + CLAUDE.md only)
     const sessionMode = memory.getSessionMode(sessionId);
     const isCoder = sessionMode === 'coder';
@@ -1324,7 +1529,9 @@ class AgentManagerClass extends EventEmitter {
 
     // Personalize, guidelines, and profile are only needed for general (personal assistant) mode
     if (isCoder) {
-      console.log(`[AgentManager] Coder mode — skipping identity, user context, guidelines, capabilities (SDK uses workspace CLAUDE.md)`);
+      console.log(
+        `[AgentManager] Coder mode — skipping identity, user context, guidelines, capabilities (SDK uses workspace CLAUDE.md)`
+      );
     }
     if (!isCoder) {
       // 1. Agent Identity: name, description, personality
@@ -1349,13 +1556,19 @@ class AgentManagerClass extends EventEmitter {
     // Look up per-session working directory (falls back to global workspace)
     const sessionWorkingDir = memory.getSessionWorkingDirectory(sessionId);
     const effectiveCwd = sessionWorkingDir || this.workspace;
-    console.log(`[AgentManager] buildPersistentOptions session=${sessionId} mode=${sessionMode} | sessionWorkingDir=${sessionWorkingDir || 'null'} | effectiveCwd=${effectiveCwd}`);
+    console.log(
+      `[AgentManager] buildPersistentOptions session=${sessionId} mode=${sessionMode} | sessionWorkingDir=${sessionWorkingDir || 'null'} | effectiveCwd=${effectiveCwd}`
+    );
 
     // Log prompt summary for the mode
     if (isCoder) {
-      console.log(`[AgentManager] Coder mode prompt — static: ${staticParts.join('').length} chars (SDK reads CLAUDE.md from workspace cwd)`);
+      console.log(
+        `[AgentManager] Coder mode prompt — static: ${staticParts.join('').length} chars (SDK reads CLAUDE.md from workspace cwd)`
+      );
     } else {
-      console.log(`[AgentManager] General mode prompt — static: ${staticParts.join('\n\n').length} chars`);
+      console.log(
+        `[AgentManager] General mode prompt — static: ${staticParts.join('\n\n').length} chars`
+      );
     }
 
     // Get thinking level config — only Anthropic models support thinking/effort.
@@ -1391,85 +1604,121 @@ class AgentManagerClass extends EventEmitter {
         PreToolUse: [buildPreToolUseHook()],
         // Dynamic context injection: fresh facts/soul/temporal for each message
         // Coder mode skips all personal assistant context for lean coding sessions
-        UserPromptSubmit: [{
-          hooks: [async () => {
-            if (isCoder) {
-              return {
-                hookSpecificOutput: {
-                  hookEventName: 'UserPromptSubmit' as const,
-                  additionalContext: '',
-                },
-              };
-            }
+        UserPromptSubmit: [
+          {
+            hooks: [
+              async () => {
+                if (isCoder) {
+                  return {
+                    hookSpecificOutput: {
+                      hookEventName: 'UserPromptSubmit' as const,
+                      additionalContext: '',
+                    },
+                  };
+                }
 
-            const dynamicParts: string[] = [];
+                const dynamicParts: string[] = [];
 
-            // Temporal context (current time)
-            const recentMsgs = memory.getRecentMessages(1, sessionId);
-            const lastUserMsg = recentMsgs.find(m => m.role === 'user');
-            const temporalContext = this.buildTemporalContext(lastUserMsg?.timestamp);
-            dynamicParts.push(temporalContext);
+                // Temporal context (current time)
+                const recentMsgs = memory.getRecentMessages(1, sessionId);
+                const lastUserMsg = recentMsgs.find((m) => m.role === 'user');
+                const temporalContext = this.buildTemporalContext(lastUserMsg?.timestamp);
+                dynamicParts.push(temporalContext);
 
-            // Facts context
-            const factsContext = memory.getFactsForContext();
-            if (factsContext) {
-              dynamicParts.push(factsContext);
-            }
+                // Facts context
+                const factsContext = memory.getFactsForContext();
+                if (factsContext) {
+                  dynamicParts.push(factsContext);
+                }
 
-            // Soul context
-            const soulContext = memory.getSoulContext();
-            if (soulContext) {
-              dynamicParts.push(soulContext);
-            }
+                // Soul context
+                const soulContext = memory.getSoulContext();
+                if (soulContext) {
+                  dynamicParts.push(soulContext);
+                }
 
-            // Daily logs
-            const dailyLogsContext = memory.getDailyLogsContext(3);
-            if (dailyLogsContext) {
-              dynamicParts.push(dailyLogsContext);
-            }
+                // Daily logs
+                const dailyLogsContext = memory.getDailyLogsContext(3);
+                if (dailyLogsContext) {
+                  dynamicParts.push(dailyLogsContext);
+                }
 
-            return {
-              hookSpecificOutput: {
-                hookEventName: 'UserPromptSubmit' as const,
-                additionalContext: dynamicParts.join('\n\n'),
+                return {
+                  hookSpecificOutput: {
+                    hookEventName: 'UserPromptSubmit' as const,
+                    additionalContext: dynamicParts.join('\n\n'),
+                  },
+                };
               },
-            };
-          }],
-        }],
-        TeammateIdle: [{
-          hooks: [async (input: { teammate_name: string; team_name: string }) => {
-            this.emitStatus({
-              type: 'teammate_idle',
-              teammateName: input.teammate_name,
-              teamName: input.team_name,
-              message: `${input.teammate_name} is idle`,
-            });
-            return { hookSpecificOutput: { hookEventName: 'TeammateIdle' as const } };
-          }],
-        }],
-        TaskCompleted: [{
-          hooks: [async (input: { task_id: string; task_subject: string; task_description?: string; teammate_name?: string; team_name?: string }) => {
-            this.emitStatus({
-              type: 'task_completed',
-              taskId: input.task_id,
-              taskSubject: input.task_subject,
-              teammateName: input.teammate_name,
-              teamName: input.team_name,
-              message: `task done: ${input.task_subject}`,
-            });
-            return { hookSpecificOutput: { hookEventName: 'TaskCompleted' as const } };
-          }],
-        }],
+            ],
+          },
+        ],
+        TeammateIdle: [
+          {
+            hooks: [
+              async (input: { teammate_name: string; team_name: string }) => {
+                this.emitStatus({
+                  type: 'teammate_idle',
+                  teammateName: input.teammate_name,
+                  teamName: input.team_name,
+                  message: `${input.teammate_name} is idle`,
+                });
+                return { hookSpecificOutput: { hookEventName: 'TeammateIdle' as const } };
+              },
+            ],
+          },
+        ],
+        TaskCompleted: [
+          {
+            hooks: [
+              async (input: {
+                task_id: string;
+                task_subject: string;
+                task_description?: string;
+                teammate_name?: string;
+                team_name?: string;
+              }) => {
+                this.emitStatus({
+                  type: 'task_completed',
+                  taskId: input.task_id,
+                  taskSubject: input.task_subject,
+                  teammateName: input.teammate_name,
+                  teamName: input.team_name,
+                  message: `task done: ${input.task_subject}`,
+                });
+                return { hookSpecificOutput: { hookEventName: 'TaskCompleted' as const } };
+              },
+            ],
+          },
+        ],
       },
       allowedTools: [
         // Built-in SDK tools
-        'Read', 'Write', 'Edit', 'Bash', 'Glob', 'Grep', 'WebSearch', 'WebFetch',
+        'Read',
+        'Write',
+        'Edit',
+        'Bash',
+        'Glob',
+        'Grep',
+        'WebSearch',
+        'WebFetch',
         // Plan mode tools
-        'EnterPlanMode', 'ExitPlanMode', 'AskUserQuestion',
+        'EnterPlanMode',
+        'ExitPlanMode',
+        'AskUserQuestion',
         // Agent Teams tools
-        'TeammateTool', 'TeamCreate', 'SendMessage', 'TaskCreate', 'TaskGet', 'TaskUpdate', 'TaskList',
+        'TeammateTool',
+        'TeamCreate',
+        'SendMessage',
+        'TaskCreate',
+        'TaskGet',
+        'TaskUpdate',
+        'TaskList',
         // Background task tools (persist across turns with persistent sessions)
-        'TaskOutput', 'TaskStop', 'BashOutput', 'KillBash',
+        'TaskOutput',
+        'TaskStop',
+        'BashOutput',
+        'KillBash',
         // Custom MCP tools - browser & system
         'mcp__pocket-agent__browser',
         'mcp__pocket-agent__notify',
@@ -1478,39 +1727,39 @@ class AgentManagerClass extends EventEmitter {
         'mcp__pocket-agent__get_project',
         'mcp__pocket-agent__clear_project',
         // Coder-only tools
-        ...(isCoder ? [
-          'mcp__grep__searchGitHub',
-        ] : []),
+        ...(isCoder ? ['mcp__grep__searchGitHub'] : []),
         // Personal assistant tools — only in general mode
-        ...(isCoder ? [] : [
-          // Memory
-          'mcp__pocket-agent__remember',
-          'mcp__pocket-agent__forget',
-          'mcp__pocket-agent__list_facts',
-          'mcp__pocket-agent__memory_search',
-          'mcp__pocket-agent__daily_log',
-          // Soul
-          'mcp__pocket-agent__soul_set',
-          'mcp__pocket-agent__soul_get',
-          'mcp__pocket-agent__soul_list',
-          'mcp__pocket-agent__soul_delete',
-          // Scheduler
-          'mcp__pocket-agent__schedule_task',
-          'mcp__pocket-agent__create_reminder',
-          'mcp__pocket-agent__list_scheduled_tasks',
-          'mcp__pocket-agent__delete_scheduled_task',
-          // Calendar
-          'mcp__pocket-agent__calendar_add',
-          'mcp__pocket-agent__calendar_list',
-          'mcp__pocket-agent__calendar_upcoming',
-          'mcp__pocket-agent__calendar_delete',
-          // Tasks
-          'mcp__pocket-agent__task_add',
-          'mcp__pocket-agent__task_list',
-          'mcp__pocket-agent__task_complete',
-          'mcp__pocket-agent__task_delete',
-          'mcp__pocket-agent__task_due',
-        ]),
+        ...(isCoder
+          ? []
+          : [
+              // Memory
+              'mcp__pocket-agent__remember',
+              'mcp__pocket-agent__forget',
+              'mcp__pocket-agent__list_facts',
+              'mcp__pocket-agent__memory_search',
+              'mcp__pocket-agent__daily_log',
+              // Soul
+              'mcp__pocket-agent__soul_set',
+              'mcp__pocket-agent__soul_get',
+              'mcp__pocket-agent__soul_list',
+              'mcp__pocket-agent__soul_delete',
+              // Scheduler
+              'mcp__pocket-agent__schedule_task',
+              'mcp__pocket-agent__create_reminder',
+              'mcp__pocket-agent__list_scheduled_tasks',
+              'mcp__pocket-agent__delete_scheduled_task',
+              // Calendar
+              'mcp__pocket-agent__calendar_add',
+              'mcp__pocket-agent__calendar_list',
+              'mcp__pocket-agent__calendar_upcoming',
+              'mcp__pocket-agent__calendar_delete',
+              // Tasks
+              'mcp__pocket-agent__task_add',
+              'mcp__pocket-agent__task_list',
+              'mcp__pocket-agent__task_complete',
+              'mcp__pocket-agent__task_delete',
+              'mcp__pocket-agent__task_due',
+            ]),
       ],
       persistSession: true,
       ...(sdkSessionId && { resume: sdkSessionId }),
@@ -1549,9 +1798,15 @@ class AgentManagerClass extends EventEmitter {
     return options;
   }
 
-
   private extractFromMessage(message: unknown, current: string, sessionId: string): string {
-    const msg = message as { type?: string; subtype?: string; message?: { content?: unknown }; output?: string; result?: string; errors?: string[] };
+    const msg = message as {
+      type?: string;
+      subtype?: string;
+      message?: { content?: unknown };
+      output?: string;
+      result?: string;
+      errors?: string[];
+    };
     if (msg.type === 'assistant') {
       const content = msg.message?.content;
       if (Array.isArray(content)) {
@@ -1564,7 +1819,9 @@ class AgentManagerClass extends EventEmitter {
         // If no text blocks (tool-only turn), preserve the accumulated response
         if (textBlocks.length === 0) {
           const blockTypes = content.map((b: unknown) => (b as { type?: string })?.type).join(', ');
-          console.log(`[AgentManager] Assistant message with no text blocks (block types: ${blockTypes})`);
+          console.log(
+            `[AgentManager] Assistant message with no text blocks (block types: ${blockTypes})`
+          );
           return current;
         }
         const text = textBlocks.join('\n');
@@ -1574,20 +1831,26 @@ class AgentManagerClass extends EventEmitter {
           this.lastSuggestedPromptBySession.set(getCurrentSessionId(), suggestion);
         }
         if (!cleanedText && text) {
-          console.warn(`[AgentManager] extractSuggestedPrompt stripped entire response (original ${text.length} chars)`);
+          console.warn(
+            `[AgentManager] extractSuggestedPrompt stripped entire response (original ${text.length} chars)`
+          );
         }
         // Accumulate text across multi-message turns (e.g. text → tool → text)
         return current ? current + '\n\n' + cleanedText : cleanedText;
       } else if (content !== undefined) {
         // content exists but isn't an array — unexpected format
-        console.warn(`[AgentManager] Assistant message content is not an array (type: ${typeof content})`);
+        console.warn(
+          `[AgentManager] Assistant message content is not an array (type: ${typeof content})`
+        );
       }
     }
 
     if (msg.type === 'result') {
       // Log error results for diagnostics
       if (msg.subtype && msg.subtype !== 'success') {
-        console.warn(`[AgentManager] Result subtype: ${msg.subtype}, errors: ${msg.errors?.join('; ') || 'none'}`);
+        console.warn(
+          `[AgentManager] Result subtype: ${msg.subtype}, errors: ${msg.errors?.join('; ') || 'none'}`
+        );
       }
       const result = msg.output || msg.result;
       if (result) {
@@ -1628,10 +1891,14 @@ class AgentManagerClass extends EventEmitter {
         }
 
         const mimeType = b.source.media_type || 'image/png';
-        const ext = mimeType.includes('jpeg') || mimeType.includes('jpg') ? '.jpg'
-          : mimeType.includes('gif') ? '.gif'
-          : mimeType.includes('webp') ? '.webp'
-          : '.png';
+        const ext =
+          mimeType.includes('jpeg') || mimeType.includes('jpg')
+            ? '.jpg'
+            : mimeType.includes('gif')
+              ? '.gif'
+              : mimeType.includes('webp')
+                ? '.webp'
+                : '.png';
 
         if (b.source.type === 'base64' && b.source.data) {
           // Base64 image — save directly to disk
@@ -1648,12 +1915,14 @@ class AgentManagerClass extends EventEmitter {
 
           // Fire-and-forget download; image will be available for Telegram sync
           fetch(b.source.url)
-            .then(res => res.ok ? res.arrayBuffer() : Promise.reject(new Error(`HTTP ${res.status}`)))
-            .then(buf => {
+            .then((res) =>
+              res.ok ? res.arrayBuffer() : Promise.reject(new Error(`HTTP ${res.status}`))
+            )
+            .then((buf) => {
               fs.writeFileSync(filePath, Buffer.from(buf));
               console.log(`[AgentManager] Downloaded image: ${filePath}`);
             })
-            .catch(err => console.error('[AgentManager] Failed to download image:', err));
+            .catch((err) => console.error('[AgentManager] Failed to download image:', err));
 
           pendingMedia.push({ type: 'image', filePath, mimeType });
         }
@@ -1687,7 +1956,7 @@ class AgentManagerClass extends EventEmitter {
           if (p.type === 'text' && p.text) {
             const match = p.text.match(/saved to (\/[^\s"]+\/screenshot-\d+\.png)/);
             if (match && fs.existsSync(match[1])) {
-              if (!pendingMedia.some(m => m.filePath === match[1])) {
+              if (!pendingMedia.some((m) => m.filePath === match[1])) {
                 pendingMedia.push({ type: 'image', filePath: match[1], mimeType: 'image/png' });
                 console.log(`[AgentManager] Found screenshot in tool result: ${match[1]}`);
               }
@@ -1697,7 +1966,7 @@ class AgentManagerClass extends EventEmitter {
       } else if (typeof b.content === 'string') {
         const match = b.content.match(/saved to (\/[^\s"]+\/screenshot-\d+\.png)/);
         if (match && fs.existsSync(match[1])) {
-          if (!pendingMedia.some(m => m.filePath === match[1])) {
+          if (!pendingMedia.some((m) => m.filePath === match[1])) {
             pendingMedia.push({ type: 'image', filePath: match[1], mimeType: 'image/png' });
             console.log(`[AgentManager] Found screenshot in tool result: ${match[1]}`);
           }
@@ -1749,7 +2018,8 @@ class AgentManagerClass extends EventEmitter {
     if (suggestion.endsWith('?')) return false;
 
     // Reject if it starts with common question/assistant words
-    const assistantPatterns = /^(what|how|would|do|does|is|are|can|could|shall|should|may|might|let me|i can|i'll|i will|here's|here is)/i;
+    const assistantPatterns =
+      /^(what|how|would|do|does|is|are|can|could|shall|should|may|might|let me|i can|i'll|i will|here's|here is)/i;
     if (assistantPatterns.test(suggestion)) return false;
 
     // Reject if it's too long (likely not a simple user command)
@@ -1764,12 +2034,20 @@ class AgentManagerClass extends EventEmitter {
   }
 
   // Track active subagents per session
-  private activeSubagentsBySession: Map<string, Map<string, { type: string; description: string }>> = new Map();
+  private activeSubagentsBySession: Map<
+    string,
+    Map<string, { type: string; description: string }>
+  > = new Map();
   private lastPartialTextBySession: Map<string, string> = new Map();
   // Track background tasks per session
-  private backgroundTasksBySession: Map<string, Map<string, { type: string; description: string; toolUseId: string }>> = new Map();
+  private backgroundTasksBySession: Map<
+    string,
+    Map<string, { type: string; description: string; toolUseId: string }>
+  > = new Map();
 
-  private getActiveSubagents(sessionId: string): Map<string, { type: string; description: string }> {
+  private getActiveSubagents(
+    sessionId: string
+  ): Map<string, { type: string; description: string }> {
     let map = this.activeSubagentsBySession.get(sessionId);
     if (!map) {
       map = new Map();
@@ -1778,7 +2056,9 @@ class AgentManagerClass extends EventEmitter {
     return map;
   }
 
-  private getBackgroundTasks(sessionId: string): Map<string, { type: string; description: string; toolUseId: string }> {
+  private getBackgroundTasks(
+    sessionId: string
+  ): Map<string, { type: string; description: string; toolUseId: string }> {
     let map = this.backgroundTasksBySession.get(sessionId);
     if (!map) {
       map = new Map();
@@ -1827,13 +2107,16 @@ class AgentManagerClass extends EventEmitter {
             // Detect background tasks (Bash or Task with run_in_background)
             if (blockInput?.run_in_background === true) {
               const bgId = `bg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-              const description = (rawName === 'Bash'
-                ? (blockInput.command as string)?.slice(0, 60)
-                : (blockInput.description as string) || (blockInput.prompt as string)?.slice(0, 60)
-              ) || rawName;
+              const description =
+                (rawName === 'Bash'
+                  ? (blockInput.command as string)?.slice(0, 60)
+                  : (blockInput.description as string) ||
+                    (blockInput.prompt as string)?.slice(0, 60)) || rawName;
 
               backgroundTasks.set(bgId, { type: rawName, description, toolUseId });
-              console.log(`[AgentManager] Background task started: ${rawName} - ${description} (${backgroundTasks.size} active)`);
+              console.log(
+                `[AgentManager] Background task started: ${rawName} - ${description} (${backgroundTasks.size} active)`
+              );
 
               this.emitStatus({
                 type: 'background_task_start',
@@ -1863,7 +2146,9 @@ class AgentManagerClass extends EventEmitter {
               const firstKey = backgroundTasks.keys().next().value;
               if (firstKey) {
                 backgroundTasks.delete(firstKey);
-                console.log(`[AgentManager] Background task removed via ${rawName}: ${firstKey} (${backgroundTasks.size} remaining)`);
+                console.log(
+                  `[AgentManager] Background task removed via ${rawName}: ${firstKey} (${backgroundTasks.size} remaining)`
+                );
                 this.emitStatus({
                   type: 'background_task_end',
                   sessionId,
@@ -1876,10 +2161,15 @@ class AgentManagerClass extends EventEmitter {
 
             // Check if this is a Task (subagent) tool
             if (rawName === 'Task') {
-              const input = block.input as { subagent_type?: string; description?: string; prompt?: string };
+              const input = block.input as {
+                subagent_type?: string;
+                description?: string;
+                prompt?: string;
+              };
               const agentId = `agent-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
               const agentType = input.subagent_type || 'general';
-              const description = input.description || input.prompt?.slice(0, 50) || 'working on it';
+              const description =
+                input.description || input.prompt?.slice(0, 50) || 'working on it';
 
               activeSubagents.set(agentId, { type: agentType, description });
 
@@ -1893,7 +2183,11 @@ class AgentManagerClass extends EventEmitter {
                 message: this.getSubagentMessage(agentType),
               });
             } else if (rawName === 'TeammateTool') {
-              const input = block.input as { name?: string; team_name?: string; description?: string };
+              const input = block.input as {
+                name?: string;
+                team_name?: string;
+                description?: string;
+              };
               this.emitStatus({
                 type: 'teammate_start',
                 sessionId,
@@ -1911,7 +2205,10 @@ class AgentManagerClass extends EventEmitter {
                 teammateName: input.to,
                 toolName,
                 toolInput: input.message?.slice(0, 80) || '',
-                message: input.type === 'broadcast' ? 'broadcasting to the squad' : `messaging ${input.to || 'teammate'}`,
+                message:
+                  input.type === 'broadcast'
+                    ? 'broadcasting to the squad'
+                    : `messaging ${input.to || 'teammate'}`,
               });
             } else if (rawName === 'EnterPlanMode') {
               this.emitStatus({
@@ -1951,10 +2248,13 @@ class AgentManagerClass extends EventEmitter {
             // model, letting it recover gracefully (e.g. retry or respond without the tool).
             // Interrupting kills the entire turn and leaves the user with no response.
             if (!rawName.startsWith('mcp__')) {
-              const timeoutMs = AgentManagerClass.SDK_TOOL_TIMEOUTS[rawName]
-                ?? AgentManagerClass.SDK_TOOL_DEFAULT_TIMEOUT;
+              const timeoutMs =
+                AgentManagerClass.SDK_TOOL_TIMEOUTS[rawName] ??
+                AgentManagerClass.SDK_TOOL_DEFAULT_TIMEOUT;
               const timer = setTimeout(() => {
-                console.warn(`[AgentManager] SDK tool ${rawName} (${toolUseId}) exceeded ${timeoutMs}ms — waiting for SDK to handle`);
+                console.warn(
+                  `[AgentManager] SDK tool ${rawName} (${toolUseId}) exceeded ${timeoutMs}ms — waiting for SDK to handle`
+                );
                 this.sdkToolTimers.delete(toolUseId);
               }, timeoutMs);
               this.sdkToolTimers.set(toolUseId, { timer, sessionId });
@@ -2032,7 +2332,9 @@ class AgentManagerClass extends EventEmitter {
       } else if (msg.subtype === 'compact_boundary') {
         const compactMsg = msg as { compact_metadata?: { trigger: string; pre_tokens: number } };
         const meta = compactMsg.compact_metadata;
-        console.log(`[AgentManager] SDK compaction complete: trigger=${meta?.trigger}, pre_tokens=${meta?.pre_tokens}`);
+        console.log(
+          `[AgentManager] SDK compaction complete: trigger=${meta?.trigger}, pre_tokens=${meta?.pre_tokens}`
+        );
       } else if (msg.subtype === 'task_notification') {
         const taskMsg = msg as { task_id?: string; status?: string; summary?: string };
         const taskStatus = taskMsg.status;
@@ -2041,7 +2343,9 @@ class AgentManagerClass extends EventEmitter {
           const firstKey = backgroundTasks.keys().next().value;
           if (firstKey) {
             backgroundTasks.delete(firstKey);
-            console.log(`[AgentManager] Background task ${taskStatus} (notification): removed ${firstKey} (${backgroundTasks.size} remaining)`);
+            console.log(
+              `[AgentManager] Background task ${taskStatus} (notification): removed ${firstKey} (${backgroundTasks.size} remaining)`
+            );
             this.emitStatus({
               type: 'background_task_end',
               sessionId,
@@ -2050,7 +2354,9 @@ class AgentManagerClass extends EventEmitter {
               message: `background task ${taskStatus}`,
             });
           } else {
-            console.log(`[AgentManager] Background task ${taskStatus} (notification): ${taskMsg.task_id} (not tracked)`);
+            console.log(
+              `[AgentManager] Background task ${taskStatus} (notification): ${taskMsg.task_id} (not tracked)`
+            );
           }
         }
       }
@@ -2059,9 +2365,9 @@ class AgentManagerClass extends EventEmitter {
 
   private getSubagentMessage(agentType: string): string {
     const messages: Record<string, string> = {
-      'Explore': 'sent a curious kitten to explore',
-      'Plan': 'calling in the architect cat',
-      'Bash': 'summoning a terminal tabby',
+      Explore: 'sent a curious kitten to explore',
+      Plan: 'calling in the architect cat',
+      Bash: 'summoning a terminal tabby',
       'general-purpose': 'summoning a helper kitty',
     };
     return messages[agentType] || `summoning ${agentType} cat friend`;
@@ -2107,12 +2413,12 @@ class AgentManagerClass extends EventEmitter {
       task_list: 'checking your tasks',
       task_complete: 'caught it!',
       task_delete: 'batting that away',
-      task_due: 'sniffing what\'s due',
+      task_due: "sniffing what's due",
 
       // Calendar tools
       calendar_add: 'marking territory',
       calendar_list: 'checking the calendar',
-      calendar_upcoming: 'seeing what\'s coming up',
+      calendar_upcoming: "seeing what's coming up",
       calendar_delete: 'scratching that out',
 
       // Agent Teams tools
@@ -2256,10 +2562,7 @@ class AgentManagerClass extends EventEmitter {
       year: 'numeric',
     });
 
-    const lines = [
-      '## Current Time',
-      `It is ${dayName}, ${dateStr} at ${timeStr}.`,
-    ];
+    const lines = ['## Current Time', `It is ${dayName}, ${dateStr} at ${timeStr}.`];
 
     // Add time since last message if available
     if (lastMessageTimestamp) {
@@ -2310,7 +2613,11 @@ class AgentManagerClass extends EventEmitter {
 
   // ============ Public API ============
 
-  getStats(sessionId?: string): (ReturnType<MemoryManager['getStats']> & { contextTokens?: number; contextWindow?: number }) | null {
+  getStats(
+    sessionId?: string
+  ):
+    | (ReturnType<MemoryManager['getStats']> & { contextTokens?: number; contextWindow?: number })
+    | null {
     const stats = this.memory?.getStats(sessionId);
     if (!stats) return null;
     const contextUsage = sessionId ? this.contextUsageBySession.get(sessionId) : undefined;
@@ -2326,7 +2633,9 @@ class AgentManagerClass extends EventEmitter {
     if (sessionId && this.chatEngine) {
       this.chatEngine.clearSession(sessionId);
     }
-    console.log('[AgentManager] Conversation cleared' + (sessionId ? ` (session: ${sessionId})` : ''));
+    console.log(
+      '[AgentManager] Conversation cleared' + (sessionId ? ` (session: ${sessionId})` : '')
+    );
   }
 
   getMemory(): MemoryManager | null {

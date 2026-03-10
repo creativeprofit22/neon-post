@@ -16,10 +16,7 @@ export interface MessageHandlerDeps {
 /**
  * Handle incoming text messages
  */
-export async function handleTextMessage(
-  ctx: Context,
-  deps: MessageHandlerDeps
-): Promise<void> {
+export async function handleTextMessage(ctx: Context, deps: MessageHandlerDeps): Promise<void> {
   const message = ctx.message?.text;
   const chatId = ctx.chat?.id;
   if (!message || !chatId) return;
@@ -30,8 +27,9 @@ export async function handleTextMessage(
   let fullMessage = message;
   if (message.startsWith('/')) {
     const spaceIdx = message.indexOf(' ');
-    const commandName = (spaceIdx !== -1 ? message.substring(1, spaceIdx) : message.substring(1))
-      .replace(/@\w+$/, ''); // Strip @botname suffix
+    const commandName = (
+      spaceIdx !== -1 ? message.substring(1, spaceIdx) : message.substring(1)
+    ).replace(/@\w+$/, ''); // Strip @botname suffix
     const userText = spaceIdx !== -1 ? message.substring(spaceIdx + 1).trim() : '';
     const workflow = findWorkflowCommand(commandName);
 

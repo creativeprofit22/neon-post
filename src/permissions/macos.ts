@@ -33,20 +33,21 @@ export interface PermissionStatus {
 
 // Map permission types to System Settings URLs (macOS Ventura+)
 const SETTINGS_URLS: Record<PermissionType, string> = {
-  'accessibility': 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
-  'screen-recording': 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture',
+  accessibility: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility',
+  'screen-recording':
+    'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture',
   'full-disk-access': 'x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles',
-  'reminders': 'x-apple.systempreferences:com.apple.preference.security?Privacy_Reminders',
-  'contacts': 'x-apple.systempreferences:com.apple.preference.security?Privacy_Contacts',
-  'calendar': 'x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars',
-  'camera': 'x-apple.systempreferences:com.apple.preference.security?Privacy_Camera',
-  'microphone': 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone',
-  'bluetooth': 'x-apple.systempreferences:com.apple.preference.security?Privacy_Bluetooth',
-  'automation': 'x-apple.systempreferences:com.apple.preference.security?Privacy_Automation',
+  reminders: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Reminders',
+  contacts: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Contacts',
+  calendar: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars',
+  camera: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Camera',
+  microphone: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone',
+  bluetooth: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Bluetooth',
+  automation: 'x-apple.systempreferences:com.apple.preference.security?Privacy_Automation',
 };
 
 const PERMISSION_INFO: Record<PermissionType, { label: string; description: string }> = {
-  'accessibility': {
+  accessibility: {
     label: 'Accessibility',
     description: 'Control your computer and other apps',
   },
@@ -58,31 +59,31 @@ const PERMISSION_INFO: Record<PermissionType, { label: string; description: stri
     label: 'Full Disk Access',
     description: 'Access files in protected locations',
   },
-  'reminders': {
+  reminders: {
     label: 'Reminders',
     description: 'Read and create reminders',
   },
-  'contacts': {
+  contacts: {
     label: 'Contacts',
     description: 'Access your contacts',
   },
-  'calendar': {
+  calendar: {
     label: 'Calendar',
     description: 'Access your calendars and events',
   },
-  'camera': {
+  camera: {
     label: 'Camera',
     description: 'Use your camera',
   },
-  'microphone': {
+  microphone: {
     label: 'Microphone',
     description: 'Use your microphone',
   },
-  'bluetooth': {
+  bluetooth: {
     label: 'Bluetooth',
     description: 'Discover and connect to Bluetooth devices',
   },
-  'automation': {
+  automation: {
     label: 'Automation',
     description: 'Control other apps via AppleScript',
   },
@@ -188,10 +189,10 @@ function checkRemindersAccess(): boolean {
 function checkContactsAccess(): boolean {
   try {
     // Try using contacts CLI or AppleScript
-    execSync(
-      'osascript -e \'tell application "Contacts" to count people\' 2>/dev/null',
-      { encoding: 'utf-8', timeout: 5000 }
-    );
+    execSync('osascript -e \'tell application "Contacts" to count people\' 2>/dev/null', {
+      encoding: 'utf-8',
+      timeout: 5000,
+    });
     return true;
   } catch {
     return false;
@@ -203,10 +204,10 @@ function checkContactsAccess(): boolean {
  */
 function checkCalendarAccess(): boolean {
   try {
-    execSync(
-      'osascript -e \'tell application "Calendar" to count calendars\' 2>/dev/null',
-      { encoding: 'utf-8', timeout: 5000 }
-    );
+    execSync('osascript -e \'tell application "Calendar" to count calendars\' 2>/dev/null', {
+      encoding: 'utf-8',
+      timeout: 5000,
+    });
     return true;
   } catch {
     return false;
@@ -258,10 +259,10 @@ export async function requestPermission(type: PermissionType): Promise<boolean> 
 
   switch (type) {
     case 'camera':
-      return (await systemPreferences.askForMediaAccess('camera'));
+      return await systemPreferences.askForMediaAccess('camera');
 
     case 'microphone':
-      return (await systemPreferences.askForMediaAccess('microphone'));
+      return await systemPreferences.askForMediaAccess('microphone');
 
     case 'accessibility':
       // This will show the system prompt
@@ -281,10 +282,10 @@ export async function openPermissionSettings(type: PermissionType): Promise<void
   if (!isMacOS()) {
     // Windows: open the Settings app to the relevant privacy page
     const winSettingsMap: Partial<Record<PermissionType, string>> = {
-      'camera': 'ms-settings:privacy-webcam',
-      'microphone': 'ms-settings:privacy-microphone',
-      'calendar': 'ms-settings:privacy-calendar',
-      'contacts': 'ms-settings:privacy-contacts',
+      camera: 'ms-settings:privacy-webcam',
+      microphone: 'ms-settings:privacy-microphone',
+      calendar: 'ms-settings:privacy-calendar',
+      contacts: 'ms-settings:privacy-contacts',
     };
     const winUrl = winSettingsMap[type];
     if (winUrl) {

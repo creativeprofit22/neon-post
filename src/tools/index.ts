@@ -16,10 +16,7 @@ import { getSoulTools } from './soul-tools';
 import { getSchedulerTools } from './scheduler-tools';
 import { getCalendarTools } from './calendar-tools';
 import { getTaskTools } from './task-tools';
-import {
-  getNotifyToolDefinition,
-  handleNotifyTool,
-} from './macos';
+import { getNotifyToolDefinition, handleNotifyTool } from './macos';
 import { getProjectTools } from './project-tools';
 import { wrapToolHandler, getToolTimeout, logActiveToolsStatus } from './diagnostics';
 
@@ -125,7 +122,9 @@ export async function buildSdkMcpServers(
   ) => Promise<T>;
 
   try {
-    const sdk = await dynamicImport<typeof import('@anthropic-ai/claude-agent-sdk')>('@anthropic-ai/claude-agent-sdk');
+    const sdk = await dynamicImport<typeof import('@anthropic-ai/claude-agent-sdk')>(
+      '@anthropic-ai/claude-agent-sdk'
+    );
     const { createSdkMcpServer, tool } = sdk;
     const zodModule = await dynamicImport<typeof import('zod')>('zod');
     const { z } = zodModule;
@@ -133,8 +132,16 @@ export async function buildSdkMcpServers(
     const tools = [];
 
     // Wrap handlers with diagnostics (timing, logging, timeouts)
-    const wrappedBrowserHandler = wrapToolHandler('browser', handleBrowserTool, getToolTimeout('browser'));
-    const wrappedNotifyHandler = wrapToolHandler('notify', handleNotifyTool, getToolTimeout('notify'));
+    const wrappedBrowserHandler = wrapToolHandler(
+      'browser',
+      handleBrowserTool,
+      getToolTimeout('browser')
+    );
+    const wrappedNotifyHandler = wrapToolHandler(
+      'notify',
+      handleNotifyTool,
+      getToolTimeout('notify')
+    );
 
     // Browser tool (if enabled)
     if (config.browser.enabled) {
@@ -203,18 +210,24 @@ export async function buildSdkMcpServers(
       // Memory tools (with diagnostics wrapper)
       const memoryTools = getMemoryTools();
       for (const memTool of memoryTools) {
-        const wrappedHandler = wrapToolHandler(memTool.name, memTool.handler, getToolTimeout(memTool.name));
+        const wrappedHandler = wrapToolHandler(
+          memTool.name,
+          memTool.handler,
+          getToolTimeout(memTool.name)
+        );
         const sdkTool = tool(
           memTool.name,
           memTool.description,
           // Convert JSON schema to Zod (simplified - assumes string fields)
           Object.fromEntries(
-            Object.entries(memTool.input_schema.properties || {}).map(([key, value]: [string, unknown]) => {
-              const prop = value as { type?: string };
-              if (prop.type === 'string') return [key, z.string().optional()];
-              if (prop.type === 'number') return [key, z.number().optional()];
-              return [key, z.any().optional()];
-            })
+            Object.entries(memTool.input_schema.properties || {}).map(
+              ([key, value]: [string, unknown]) => {
+                const prop = value as { type?: string };
+                if (prop.type === 'string') return [key, z.string().optional()];
+                if (prop.type === 'number') return [key, z.number().optional()];
+                return [key, z.any().optional()];
+              }
+            )
           ),
           async (args) => {
             const result = await wrappedHandler(args);
@@ -227,17 +240,23 @@ export async function buildSdkMcpServers(
       // Soul tools (with diagnostics wrapper)
       const soulTools = getSoulTools();
       for (const soulTool of soulTools) {
-        const wrappedHandler = wrapToolHandler(soulTool.name, soulTool.handler, getToolTimeout(soulTool.name));
+        const wrappedHandler = wrapToolHandler(
+          soulTool.name,
+          soulTool.handler,
+          getToolTimeout(soulTool.name)
+        );
         const sdkTool = tool(
           soulTool.name,
           soulTool.description,
           Object.fromEntries(
-            Object.entries(soulTool.input_schema.properties || {}).map(([key, value]: [string, unknown]) => {
-              const prop = value as { type?: string };
-              if (prop.type === 'string') return [key, z.string().optional()];
-              if (prop.type === 'number') return [key, z.number().optional()];
-              return [key, z.any().optional()];
-            })
+            Object.entries(soulTool.input_schema.properties || {}).map(
+              ([key, value]: [string, unknown]) => {
+                const prop = value as { type?: string };
+                if (prop.type === 'string') return [key, z.string().optional()];
+                if (prop.type === 'number') return [key, z.number().optional()];
+                return [key, z.any().optional()];
+              }
+            )
           ),
           async (args) => {
             const result = await wrappedHandler(args);
@@ -250,18 +269,24 @@ export async function buildSdkMcpServers(
       // Scheduler tools (with diagnostics wrapper)
       const schedulerTools = getSchedulerTools();
       for (const schedTool of schedulerTools) {
-        const wrappedHandler = wrapToolHandler(schedTool.name, schedTool.handler, getToolTimeout(schedTool.name));
+        const wrappedHandler = wrapToolHandler(
+          schedTool.name,
+          schedTool.handler,
+          getToolTimeout(schedTool.name)
+        );
         const sdkTool = tool(
           schedTool.name,
           schedTool.description,
           Object.fromEntries(
-            Object.entries(schedTool.input_schema.properties || {}).map(([key, value]: [string, unknown]) => {
-              const prop = value as { type?: string };
-              if (prop.type === 'string') return [key, z.string().optional()];
-              if (prop.type === 'number') return [key, z.number().optional()];
-              if (prop.type === 'boolean') return [key, z.boolean().optional()];
-              return [key, z.any().optional()];
-            })
+            Object.entries(schedTool.input_schema.properties || {}).map(
+              ([key, value]: [string, unknown]) => {
+                const prop = value as { type?: string };
+                if (prop.type === 'string') return [key, z.string().optional()];
+                if (prop.type === 'number') return [key, z.number().optional()];
+                if (prop.type === 'boolean') return [key, z.boolean().optional()];
+                return [key, z.any().optional()];
+              }
+            )
           ),
           async (args) => {
             const result = await wrappedHandler(args);
@@ -274,17 +299,23 @@ export async function buildSdkMcpServers(
       // Calendar tools (with diagnostics wrapper)
       const calendarTools = getCalendarTools();
       for (const calTool of calendarTools) {
-        const wrappedHandler = wrapToolHandler(calTool.name, calTool.handler, getToolTimeout(calTool.name));
+        const wrappedHandler = wrapToolHandler(
+          calTool.name,
+          calTool.handler,
+          getToolTimeout(calTool.name)
+        );
         const sdkTool = tool(
           calTool.name,
           calTool.description,
           Object.fromEntries(
-            Object.entries(calTool.input_schema.properties || {}).map(([key, value]: [string, unknown]) => {
-              const prop = value as { type?: string };
-              if (prop.type === 'string') return [key, z.string().optional()];
-              if (prop.type === 'number') return [key, z.number().optional()];
-              return [key, z.any().optional()];
-            })
+            Object.entries(calTool.input_schema.properties || {}).map(
+              ([key, value]: [string, unknown]) => {
+                const prop = value as { type?: string };
+                if (prop.type === 'string') return [key, z.string().optional()];
+                if (prop.type === 'number') return [key, z.number().optional()];
+                return [key, z.any().optional()];
+              }
+            )
           ),
           async (args) => {
             const result = await wrappedHandler(args);
@@ -297,17 +328,23 @@ export async function buildSdkMcpServers(
       // Task tools (with diagnostics wrapper)
       const taskTools = getTaskTools();
       for (const taskTool of taskTools) {
-        const wrappedHandler = wrapToolHandler(taskTool.name, taskTool.handler, getToolTimeout(taskTool.name));
+        const wrappedHandler = wrapToolHandler(
+          taskTool.name,
+          taskTool.handler,
+          getToolTimeout(taskTool.name)
+        );
         const sdkTool = tool(
           taskTool.name,
           taskTool.description,
           Object.fromEntries(
-            Object.entries(taskTool.input_schema.properties || {}).map(([key, value]: [string, unknown]) => {
-              const prop = value as { type?: string };
-              if (prop.type === 'string') return [key, z.string().optional()];
-              if (prop.type === 'number') return [key, z.number().optional()];
-              return [key, z.any().optional()];
-            })
+            Object.entries(taskTool.input_schema.properties || {}).map(
+              ([key, value]: [string, unknown]) => {
+                const prop = value as { type?: string };
+                if (prop.type === 'string') return [key, z.string().optional()];
+                if (prop.type === 'number') return [key, z.number().optional()];
+                return [key, z.any().optional()];
+              }
+            )
           ),
           async (args) => {
             const result = await wrappedHandler(args);
@@ -321,17 +358,23 @@ export async function buildSdkMcpServers(
     // Project tools (with diagnostics wrapper)
     const projectTools = getProjectTools();
     for (const projTool of projectTools) {
-      const wrappedHandler = wrapToolHandler(projTool.name, projTool.handler, getToolTimeout(projTool.name));
+      const wrappedHandler = wrapToolHandler(
+        projTool.name,
+        projTool.handler,
+        getToolTimeout(projTool.name)
+      );
       const sdkTool = tool(
         projTool.name,
         projTool.description,
         Object.fromEntries(
-          Object.entries(projTool.input_schema.properties || {}).map(([key, value]: [string, unknown]) => {
-            const prop = value as { type?: string };
-            if (prop.type === 'string') return [key, z.string().optional()];
-            if (prop.type === 'number') return [key, z.number().optional()];
-            return [key, z.any().optional()];
-          })
+          Object.entries(projTool.input_schema.properties || {}).map(
+            ([key, value]: [string, unknown]) => {
+              const prop = value as { type?: string };
+              if (prop.type === 'string') return [key, z.string().optional()];
+              if (prop.type === 'number') return [key, z.number().optional()];
+              return [key, z.any().optional()];
+            }
+          )
         ),
         async (args) => {
           const result = await wrappedHandler(args);

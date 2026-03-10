@@ -7,21 +7,47 @@
  */
 
 import crypto from 'crypto';
+import fs from 'fs';
 import { BaseChannel } from '../index';
 import { iOSWebSocketServer } from './server';
 import { iOSRelayClient } from './relay-client';
 import {
-  iOSMessageCallback, ConnectedDevice, iOSMessageHandler, iOSSessionsHandler, iOSHistoryHandler, iOSStatusForwarder,
-  iOSModelsHandler, iOSModelSwitchHandler, iOSStopHandler, iOSClearHandler,
-  iOSFactsHandler, iOSFactsDeleteHandler, iOSDailyLogsHandler, iOSSoulHandler, iOSSoulDeleteHandler,
-  iOSFactsGraphHandler, iOSCustomizeGetHandler, iOSCustomizeSaveHandler,
-  iOSRoutinesListHandler, iOSRoutinesCreateHandler, iOSRoutinesDeleteHandler, iOSRoutinesToggleHandler, iOSRoutinesRunHandler,
+  iOSMessageCallback,
+  ConnectedDevice,
+  iOSMessageHandler,
+  iOSSessionsHandler,
+  iOSHistoryHandler,
+  iOSStatusForwarder,
+  iOSModelsHandler,
+  iOSModelSwitchHandler,
+  iOSStopHandler,
+  iOSClearHandler,
+  iOSFactsHandler,
+  iOSFactsDeleteHandler,
+  iOSDailyLogsHandler,
+  iOSSoulHandler,
+  iOSSoulDeleteHandler,
+  iOSFactsGraphHandler,
+  iOSCustomizeGetHandler,
+  iOSCustomizeSaveHandler,
+  iOSRoutinesListHandler,
+  iOSRoutinesCreateHandler,
+  iOSRoutinesDeleteHandler,
+  iOSRoutinesToggleHandler,
+  iOSRoutinesRunHandler,
   iOSAppInfoHandler,
   iOSModeGetHandler,
   iOSModeSwitchHandler,
   iOSWorkflowsHandler,
-  iOSCalendarListHandler, iOSCalendarAddHandler, iOSCalendarDeleteHandler, iOSCalendarUpcomingHandler,
-  iOSTasksListHandler, iOSTasksAddHandler, iOSTasksCompleteHandler, iOSTasksDeleteHandler, iOSTasksDueHandler,
+  iOSCalendarListHandler,
+  iOSCalendarAddHandler,
+  iOSCalendarDeleteHandler,
+  iOSCalendarUpcomingHandler,
+  iOSTasksListHandler,
+  iOSTasksAddHandler,
+  iOSTasksCompleteHandler,
+  iOSTasksDeleteHandler,
+  iOSTasksDueHandler,
   iOSChatInfoHandler,
 } from './types';
 import { SettingsManager } from '../../settings';
@@ -36,7 +62,6 @@ export class iOSChannel extends BaseChannel {
   name = 'ios';
   private backend: Backend;
   private mode: 'relay' | 'local';
-  private onMessageCallback: iOSMessageCallback | null = null;
 
   constructor(port?: number) {
     super();
@@ -61,10 +86,6 @@ export class iOSChannel extends BaseChannel {
       this.backend = new iOSWebSocketServer(configuredPort);
       console.log(`[iOS] Using local mode (port: ${configuredPort})`);
     }
-  }
-
-  setOnMessageCallback(callback: iOSMessageCallback): void {
-    this.onMessageCallback = callback;
   }
 
   setMessageHandler(handler: iOSMessageHandler): void {
@@ -99,34 +120,90 @@ export class iOSChannel extends BaseChannel {
     this.backend.setClearHandler(handler);
   }
 
-  setFactsHandler(handler: iOSFactsHandler): void { this.backend.setFactsHandler(handler); }
-  setFactsDeleteHandler(handler: iOSFactsDeleteHandler): void { this.backend.setFactsDeleteHandler(handler); }
-  setDailyLogsHandler(handler: iOSDailyLogsHandler): void { this.backend.setDailyLogsHandler(handler); }
-  setSoulHandler(handler: iOSSoulHandler): void { this.backend.setSoulHandler(handler); }
-  setSoulDeleteHandler(handler: iOSSoulDeleteHandler): void { this.backend.setSoulDeleteHandler(handler); }
-  setFactsGraphHandler(handler: iOSFactsGraphHandler): void { this.backend.setFactsGraphHandler(handler); }
-  setCustomizeGetHandler(handler: iOSCustomizeGetHandler): void { this.backend.setCustomizeGetHandler(handler); }
-  setCustomizeSaveHandler(handler: iOSCustomizeSaveHandler): void { this.backend.setCustomizeSaveHandler(handler); }
-  setRoutinesListHandler(handler: iOSRoutinesListHandler): void { this.backend.setRoutinesListHandler(handler); }
-  setRoutinesCreateHandler(handler: iOSRoutinesCreateHandler): void { this.backend.setRoutinesCreateHandler(handler); }
-  setRoutinesDeleteHandler(handler: iOSRoutinesDeleteHandler): void { this.backend.setRoutinesDeleteHandler(handler); }
-  setRoutinesToggleHandler(handler: iOSRoutinesToggleHandler): void { this.backend.setRoutinesToggleHandler(handler); }
-  setRoutinesRunHandler(handler: iOSRoutinesRunHandler): void { this.backend.setRoutinesRunHandler(handler); }
-  setAppInfoHandler(handler: iOSAppInfoHandler): void { this.backend.setAppInfoHandler(handler); }
-  setSkinHandler(handler: (skinId: string) => void): void { this.backend.setSkinHandler(handler); }
-  setModeGetHandler(handler: iOSModeGetHandler): void { this.backend.setModeGetHandler(handler); }
-  setModeSwitchHandler(handler: iOSModeSwitchHandler): void { this.backend.setModeSwitchHandler(handler); }
-  setWorkflowsHandler(handler: iOSWorkflowsHandler): void { this.backend.setWorkflowsHandler(handler); }
-  setCalendarListHandler(handler: iOSCalendarListHandler): void { this.backend.setCalendarListHandler(handler); }
-  setCalendarAddHandler(handler: iOSCalendarAddHandler): void { this.backend.setCalendarAddHandler(handler); }
-  setCalendarDeleteHandler(handler: iOSCalendarDeleteHandler): void { this.backend.setCalendarDeleteHandler(handler); }
-  setCalendarUpcomingHandler(handler: iOSCalendarUpcomingHandler): void { this.backend.setCalendarUpcomingHandler(handler); }
-  setTasksListHandler(handler: iOSTasksListHandler): void { this.backend.setTasksListHandler(handler); }
-  setTasksAddHandler(handler: iOSTasksAddHandler): void { this.backend.setTasksAddHandler(handler); }
-  setTasksCompleteHandler(handler: iOSTasksCompleteHandler): void { this.backend.setTasksCompleteHandler(handler); }
-  setTasksDeleteHandler(handler: iOSTasksDeleteHandler): void { this.backend.setTasksDeleteHandler(handler); }
-  setTasksDueHandler(handler: iOSTasksDueHandler): void { this.backend.setTasksDueHandler(handler); }
-  setChatInfoHandler(handler: iOSChatInfoHandler): void { this.backend.setChatInfoHandler(handler); }
+  setFactsHandler(handler: iOSFactsHandler): void {
+    this.backend.setFactsHandler(handler);
+  }
+  setFactsDeleteHandler(handler: iOSFactsDeleteHandler): void {
+    this.backend.setFactsDeleteHandler(handler);
+  }
+  setDailyLogsHandler(handler: iOSDailyLogsHandler): void {
+    this.backend.setDailyLogsHandler(handler);
+  }
+  setSoulHandler(handler: iOSSoulHandler): void {
+    this.backend.setSoulHandler(handler);
+  }
+  setSoulDeleteHandler(handler: iOSSoulDeleteHandler): void {
+    this.backend.setSoulDeleteHandler(handler);
+  }
+  setFactsGraphHandler(handler: iOSFactsGraphHandler): void {
+    this.backend.setFactsGraphHandler(handler);
+  }
+  setCustomizeGetHandler(handler: iOSCustomizeGetHandler): void {
+    this.backend.setCustomizeGetHandler(handler);
+  }
+  setCustomizeSaveHandler(handler: iOSCustomizeSaveHandler): void {
+    this.backend.setCustomizeSaveHandler(handler);
+  }
+  setRoutinesListHandler(handler: iOSRoutinesListHandler): void {
+    this.backend.setRoutinesListHandler(handler);
+  }
+  setRoutinesCreateHandler(handler: iOSRoutinesCreateHandler): void {
+    this.backend.setRoutinesCreateHandler(handler);
+  }
+  setRoutinesDeleteHandler(handler: iOSRoutinesDeleteHandler): void {
+    this.backend.setRoutinesDeleteHandler(handler);
+  }
+  setRoutinesToggleHandler(handler: iOSRoutinesToggleHandler): void {
+    this.backend.setRoutinesToggleHandler(handler);
+  }
+  setRoutinesRunHandler(handler: iOSRoutinesRunHandler): void {
+    this.backend.setRoutinesRunHandler(handler);
+  }
+  setAppInfoHandler(handler: iOSAppInfoHandler): void {
+    this.backend.setAppInfoHandler(handler);
+  }
+  setSkinHandler(handler: (skinId: string) => void): void {
+    this.backend.setSkinHandler(handler);
+  }
+  setModeGetHandler(handler: iOSModeGetHandler): void {
+    this.backend.setModeGetHandler(handler);
+  }
+  setModeSwitchHandler(handler: iOSModeSwitchHandler): void {
+    this.backend.setModeSwitchHandler(handler);
+  }
+  setWorkflowsHandler(handler: iOSWorkflowsHandler): void {
+    this.backend.setWorkflowsHandler(handler);
+  }
+  setCalendarListHandler(handler: iOSCalendarListHandler): void {
+    this.backend.setCalendarListHandler(handler);
+  }
+  setCalendarAddHandler(handler: iOSCalendarAddHandler): void {
+    this.backend.setCalendarAddHandler(handler);
+  }
+  setCalendarDeleteHandler(handler: iOSCalendarDeleteHandler): void {
+    this.backend.setCalendarDeleteHandler(handler);
+  }
+  setCalendarUpcomingHandler(handler: iOSCalendarUpcomingHandler): void {
+    this.backend.setCalendarUpcomingHandler(handler);
+  }
+  setTasksListHandler(handler: iOSTasksListHandler): void {
+    this.backend.setTasksListHandler(handler);
+  }
+  setTasksAddHandler(handler: iOSTasksAddHandler): void {
+    this.backend.setTasksAddHandler(handler);
+  }
+  setTasksCompleteHandler(handler: iOSTasksCompleteHandler): void {
+    this.backend.setTasksCompleteHandler(handler);
+  }
+  setTasksDeleteHandler(handler: iOSTasksDeleteHandler): void {
+    this.backend.setTasksDeleteHandler(handler);
+  }
+  setTasksDueHandler(handler: iOSTasksDueHandler): void {
+    this.backend.setTasksDueHandler(handler);
+  }
+  setChatInfoHandler(handler: iOSChatInfoHandler): void {
+    this.backend.setChatInfoHandler(handler);
+  }
 
   getPairingCode(): string {
     return this.backend.getActivePairingCode();
@@ -173,17 +250,37 @@ export class iOSChannel extends BaseChannel {
     this.backend.broadcast(message);
   }
 
-  async sendPushNotifications(title: string, body: string, data?: Record<string, string>): Promise<void> {
+  async sendPushNotifications(
+    title: string,
+    body: string,
+    data?: Record<string, string>
+  ): Promise<void> {
     await this.backend.sendPushNotifications(title, body, data);
   }
 
-  syncFromDesktop(userMessage: string, response: string, sessionId: string, media?: Array<{ type: string; filePath: string; mimeType: string }>): void {
+  syncFromDesktop(
+    userMessage: string,
+    response: string,
+    sessionId: string,
+    media?: Array<{ type: string; filePath: string; mimeType: string }>
+  ): void {
+    // Convert file paths to data URIs so iOS can display images
+    const convertedMedia = media?.map((m) => {
+      try {
+        if (!fs.existsSync(m.filePath)) return m;
+        const data = fs.readFileSync(m.filePath);
+        const b64 = data.toString('base64');
+        return { ...m, filePath: `data:${m.mimeType};base64,${b64}` };
+      } catch {
+        return m;
+      }
+    });
     this.backend.broadcast({
       type: 'sync',
       userMessage,
       response,
       sessionId,
-      media,
+      media: convertedMedia,
       timestamp: new Date().toISOString(),
     });
   }

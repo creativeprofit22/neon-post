@@ -57,7 +57,16 @@ Example: { "action": "navigate", "url": "https://example.com" }`,
       properties: {
         action: {
           type: 'string',
-          enum: ['navigate', 'screenshot', 'click', 'type', 'evaluate', 'extract', 'scroll', 'hover'],
+          enum: [
+            'navigate',
+            'screenshot',
+            'click',
+            'type',
+            'evaluate',
+            'extract',
+            'scroll',
+            'hover',
+          ],
         },
         url: { type: 'string' },
         selector: { type: 'string' },
@@ -97,9 +106,10 @@ async function connectBrowser(): Promise<Browser> {
     console.error('[Browser] Connected to Chrome CDP');
     return browser;
   } catch {
-    const hint = process.platform === 'win32'
-      ? `"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --remote-debugging-port=9222`
-      : `/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=9222`;
+    const hint =
+      process.platform === 'win32'
+        ? `"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --remote-debugging-port=9222`
+        : `/Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=9222`;
     throw new Error(`Cannot connect to Chrome. Start Chrome with:\n  ${hint}`);
   }
 }
@@ -153,7 +163,8 @@ async function handleBrowser(args: Record<string, unknown>): Promise<string> {
       case 'type': {
         const selector = args.selector as string;
         const text = args.text as string;
-        if (!selector || text === undefined) return JSON.stringify({ error: 'selector and text required' });
+        if (!selector || text === undefined)
+          return JSON.stringify({ error: 'selector and text required' });
         await p.waitForSelector(selector, { timeout: 5000 });
         await p.type(selector, text);
         return JSON.stringify({ success: true, typed: text.slice(0, 50) });
@@ -241,14 +252,16 @@ async function handleNotify(args: Record<string, unknown>): Promise<string> {
       const safeTitle = escapePowerShell(title);
       const safeBody = escapePowerShell(body);
       const ps = spawn('powershell.exe', [
-        '-NoProfile', '-NonInteractive', '-Command',
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
         `[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; ` +
-        `$xml = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); ` +
-        `$text = $xml.GetElementsByTagName('text'); ` +
-        `$text[0].AppendChild($xml.CreateTextNode('${safeTitle}')) | Out-Null; ` +
-        `$text[1].AppendChild($xml.CreateTextNode('${safeBody}')) | Out-Null; ` +
-        `$toast = [Windows.UI.Notifications.ToastNotification]::new($xml); ` +
-        `[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Pocket Agent').Show($toast)`,
+          `$xml = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); ` +
+          `$text = $xml.GetElementsByTagName('text'); ` +
+          `$text[0].AppendChild($xml.CreateTextNode('${safeTitle}')) | Out-Null; ` +
+          `$text[1].AppendChild($xml.CreateTextNode('${safeBody}')) | Out-Null; ` +
+          `$toast = [Windows.UI.Notifications.ToastNotification]::new($xml); ` +
+          `[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Pocket Agent').Show($toast)`,
       ]);
       return await new Promise<string>((resolve) => {
         ps.on('close', (code) => {
@@ -268,15 +281,29 @@ async function handleNotify(args: Record<string, unknown>): Promise<string> {
     };
 
     const result = await new Promise<string>((resolve) => {
-      const child = spawn('terminal-notifier', ['-title', title, '-message', body, '-sound', 'default']);
+      const child = spawn('terminal-notifier', [
+        '-title',
+        title,
+        '-message',
+        body,
+        '-sound',
+        'default',
+      ]);
       child.on('error', () => {
         const safeBody = escapeAppleScript(body);
         const safeTitle = escapeAppleScript(title);
-        const osa = spawn('osascript', ['-e', `display notification "${safeBody}" with title "${safeTitle}"`]);
+        const osa = spawn('osascript', [
+          '-e',
+          `display notification "${safeBody}" with title "${safeTitle}"`,
+        ]);
         osa.on('close', () => resolve(JSON.stringify({ success: true, method: 'osascript' })));
-        osa.on('error', () => resolve(JSON.stringify({ error: 'No notification method available' })));
+        osa.on('error', () =>
+          resolve(JSON.stringify({ error: 'No notification method available' }))
+        );
       });
-      child.on('close', () => resolve(JSON.stringify({ success: true, method: 'terminal-notifier' })));
+      child.on('close', () =>
+        resolve(JSON.stringify({ success: true, method: 'terminal-notifier' }))
+      );
     });
     return result;
   } catch (error) {
@@ -318,13 +345,20 @@ async function handleRequest(request: MCPRequest): Promise<MCPResponse> {
       return { jsonrpc: '2.0', id, result: { tools: TOOLS } };
 
     case 'tools/call': {
-      const { name, arguments: args } = params as { name: string; arguments: Record<string, unknown> };
+      const { name, arguments: args } = params as {
+        name: string;
+        arguments: Record<string, unknown>;
+      };
       const result = await handleToolCall(name, args || {});
       return { jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: result }] } };
     }
 
     default:
-      return { jsonrpc: '2.0', id, error: { code: -32601, message: `Method not found: ${method}` } };
+      return {
+        jsonrpc: '2.0',
+        id,
+        error: { code: -32601, message: `Method not found: ${method}` },
+      };
   }
 }
 

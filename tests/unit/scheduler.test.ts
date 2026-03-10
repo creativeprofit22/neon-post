@@ -81,6 +81,8 @@ function createMockMemoryManager(): MemoryManager & { _jobs: Map<string, CronJob
       return jobs.delete(name);
     }),
     getRecentMessages: vi.fn(() => []),
+    getSession: vi.fn((id: string) => ({ id, name: id, mode: 'general' })),
+    getSessions: vi.fn(() => [{ id: 'default', name: 'default', mode: 'general' }]),
     close: vi.fn(),
   } as unknown as MemoryManager & { _jobs: Map<string, CronJob> };
 }

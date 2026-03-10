@@ -19,13 +19,15 @@ export function setSoulMemoryManager(memory: MemoryManager): void {
 export function getSoulSetToolDefinition() {
   return {
     name: 'soul_set',
-    description: 'Record what you learn about working with this user. Not facts about them, but about your dynamic together: communication corrections, frustrations, boundaries, working style.',
+    description:
+      'Record what you learn about working with this user. Not facts about them, but about your dynamic together: communication corrections, frustrations, boundaries, working style.',
     input_schema: {
       type: 'object' as const,
       properties: {
         aspect: {
           type: 'string',
-          description: 'Name of the aspect (e.g., "communication_style", "boundaries", "relationship")',
+          description:
+            'Name of the aspect (e.g., "communication_style", "boundaries", "relationship")',
         },
         content: {
           type: 'string',
@@ -152,7 +154,7 @@ export async function handleSoulListTool(): Promise<string> {
   return JSON.stringify({
     success: true,
     count: aspects.length,
-    aspects: aspects.map(a => ({
+    aspects: aspects.map((a) => ({
       id: a.id,
       aspect: a.aspect,
       content: a.content,

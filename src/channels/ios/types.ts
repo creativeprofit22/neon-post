@@ -5,16 +5,46 @@
 // === Messages from iOS → Desktop ===
 
 export interface ClientMessage {
-  type: 'message' | 'pair' | 'ping' | 'stop' | 'push_token' | 'sessions:list' | 'sessions:switch' | 'sessions:history' | 'sessions:clear' | 'workflows:list' | 'models:list' | 'models:switch'
-    | 'facts:list' | 'facts:delete' | 'daily-logs:list' | 'soul:list' | 'soul:delete'
-    | 'facts:graph' | 'customize:get' | 'customize:save'
-    | 'routines:list' | 'routines:create' | 'routines:delete' | 'routines:toggle' | 'routines:run'
+  type:
+    | 'message'
+    | 'pair'
+    | 'ping'
+    | 'stop'
+    | 'auth'
+    | 'push_token'
+    | 'sessions:list'
+    | 'sessions:switch'
+    | 'sessions:history'
+    | 'sessions:clear'
+    | 'workflows:list'
+    | 'models:list'
+    | 'models:switch'
+    | 'facts:list'
+    | 'facts:delete'
+    | 'daily-logs:list'
+    | 'soul:list'
+    | 'soul:delete'
+    | 'facts:graph'
+    | 'customize:get'
+    | 'customize:save'
+    | 'routines:list'
+    | 'routines:create'
+    | 'routines:delete'
+    | 'routines:toggle'
+    | 'routines:run'
     | 'app:info'
     | 'skin:set'
     | 'mode:get'
     | 'mode:switch'
-    | 'calendar:list' | 'calendar:add' | 'calendar:delete' | 'calendar:upcoming'
-    | 'tasks:list' | 'tasks:add' | 'tasks:complete' | 'tasks:delete' | 'tasks:due'
+    | 'calendar:list'
+    | 'calendar:add'
+    | 'calendar:delete'
+    | 'calendar:upcoming'
+    | 'tasks:list'
+    | 'tasks:add'
+    | 'tasks:complete'
+    | 'tasks:delete'
+    | 'tasks:due'
     | 'chat:info';
   id?: string;
 }
@@ -39,7 +69,6 @@ export interface ClientPairMessage extends ClientMessage {
   pairingCode: string;
   deviceName: string;
 }
-
 
 // === Messages from Desktop → iOS ===
 
@@ -88,7 +117,6 @@ export interface ServerSessionsMessage {
   activeSessionId: string;
 }
 
-
 export interface ServerErrorMessage {
   type: 'error';
   message: string;
@@ -123,11 +151,19 @@ export interface ConnectedDevice {
 export type iOSMessageHandler = (
   client: { device: ConnectedDevice },
   message: ClientChatMessage
-) => Promise<{ response: string; tokensUsed?: number; media?: Array<{ type: string; filePath: string; mimeType: string }>; planPending?: boolean }>;
+) => Promise<{
+  response: string;
+  tokensUsed?: number;
+  media?: Array<{ type: string; filePath: string; mimeType: string }>;
+  planPending?: boolean;
+}>;
 
 export type iOSSessionsHandler = () => Array<{ id: string; name: string; updatedAt: string }>;
 
-export type iOSHistoryHandler = (sessionId: string, limit: number) => Array<{
+export type iOSHistoryHandler = (
+  sessionId: string,
+  limit: number
+) => Array<{
   role: string;
   content: string;
   timestamp: string;
@@ -163,17 +199,35 @@ export type iOSClearHandler = (sessionId: string) => void;
 
 // === New feature handler types ===
 
-export type iOSFactsHandler = () => Array<{ id: number; category: string; subject: string; content: string; created_at?: string; updated_at?: string }>;
+export type iOSFactsHandler = () => Array<{
+  id: number;
+  category: string;
+  subject: string;
+  content: string;
+  created_at?: string;
+  updated_at?: string;
+}>;
 
 export type iOSFactsDeleteHandler = (id: number) => boolean;
 
-export type iOSDailyLogsHandler = (days?: number) => Array<{ id: number; date: string; content: string; updated_at?: string }>;
+export type iOSDailyLogsHandler = (
+  days?: number
+) => Array<{ id: number; date: string; content: string; updated_at?: string }>;
 
-export type iOSSoulHandler = () => Array<{ id: number; aspect: string; content: string; created_at?: string; updated_at?: string }>;
+export type iOSSoulHandler = () => Array<{
+  id: number;
+  aspect: string;
+  content: string;
+  created_at?: string;
+  updated_at?: string;
+}>;
 
 export type iOSSoulDeleteHandler = (id: number) => boolean;
 
-export type iOSFactsGraphHandler = () => Promise<{ nodes: Array<{ id: number; subject: string; category: string; content: string; group: number }>; links: Array<{ source: number; target: number; type: string; strength: number }> }>;
+export type iOSFactsGraphHandler = () => Promise<{
+  nodes: Array<{ id: number; subject: string; category: string; content: string; group: number }>;
+  links: Array<{ source: number; target: number; type: string; strength: number }>;
+}>;
 
 export type iOSCustomizeGetHandler = () => {
   agentName: string;
@@ -182,7 +236,13 @@ export type iOSCustomizeGetHandler = () => {
   struggles: string;
   funFacts: string;
   systemGuidelines: string;
-  profile?: { name: string; occupation: string; location: string; timezone: string; birthday: string };
+  profile?: {
+    name: string;
+    occupation: string;
+    location: string;
+    timezone: string;
+    birthday: string;
+  };
 };
 
 export type iOSCustomizeSaveHandler = (data: {
@@ -191,12 +251,39 @@ export type iOSCustomizeSaveHandler = (data: {
   goals?: string;
   struggles?: string;
   funFacts?: string;
-  profile?: { name?: string; occupation?: string; location?: string; timezone?: string; birthday?: string };
+  profile?: {
+    name?: string;
+    occupation?: string;
+    location?: string;
+    timezone?: string;
+    birthday?: string;
+  };
 }) => void;
 
-export type iOSRoutinesListHandler = () => Array<{ id: number; name: string; schedule_type?: string; schedule: string | null; run_at?: string | null; interval_ms?: number | null; prompt: string; channel: string; enabled: boolean; delete_after_run?: boolean; context_messages?: number; next_run_at?: string | null; session_id?: string | null; job_type?: string }>;
+export type iOSRoutinesListHandler = () => Array<{
+  id: number;
+  name: string;
+  schedule_type?: string;
+  schedule: string | null;
+  run_at?: string | null;
+  interval_ms?: number | null;
+  prompt: string;
+  channel: string;
+  enabled: boolean;
+  delete_after_run?: boolean;
+  context_messages?: number;
+  next_run_at?: string | null;
+  session_id?: string | null;
+  job_type?: string;
+}>;
 
-export type iOSRoutinesCreateHandler = (name: string, schedule: string, prompt: string, channel: string, sessionId: string) => Promise<boolean>;
+export type iOSRoutinesCreateHandler = (
+  name: string,
+  schedule: string,
+  prompt: string,
+  channel: string,
+  sessionId: string
+) => Promise<boolean>;
 
 export type iOSRoutinesDeleteHandler = (name: string) => boolean;
 
@@ -208,9 +295,14 @@ export type iOSAppInfoHandler = () => { version: string; name: string };
 
 export type iOSModeGetHandler = (sessionId: string) => { mode: string; locked: boolean };
 
-export type iOSWorkflowsHandler = (sessionId: string) => Array<{ name: string; description: string; content: string }>;
+export type iOSWorkflowsHandler = (
+  sessionId: string
+) => Array<{ name: string; description: string; content: string }>;
 
-export type iOSModeSwitchHandler = (sessionId: string, mode: string) => { mode: string; locked: boolean; error?: string };
+export type iOSModeSwitchHandler = (
+  sessionId: string,
+  mode: string
+) => { mode: string; locked: boolean; error?: string };
 
 // === Calendar & Tasks handler types ===
 
@@ -236,15 +328,28 @@ export interface TaskItem {
 }
 
 export type iOSCalendarListHandler = () => Promise<CalendarEvent[]>;
-export type iOSCalendarAddHandler = (title: string, startTime: string, endTime?: string, location?: string, description?: string, reminderMinutes?: number, allDay?: boolean) => Promise<CalendarEvent | null>;
+export type iOSCalendarAddHandler = (
+  title: string,
+  startTime: string,
+  endTime?: string,
+  location?: string,
+  description?: string,
+  reminderMinutes?: number,
+  allDay?: boolean
+) => Promise<CalendarEvent | null>;
 export type iOSCalendarDeleteHandler = (id: number) => Promise<boolean>;
 export type iOSCalendarUpcomingHandler = (hours?: number) => Promise<CalendarEvent[]>;
 
 export type iOSTasksListHandler = (status?: string) => Promise<TaskItem[]>;
-export type iOSTasksAddHandler = (title: string, dueDate?: string, priority?: string, description?: string, reminderMinutes?: number) => Promise<TaskItem | null>;
+export type iOSTasksAddHandler = (
+  title: string,
+  dueDate?: string,
+  priority?: string,
+  description?: string,
+  reminderMinutes?: number
+) => Promise<TaskItem | null>;
 export type iOSTasksCompleteHandler = (id: number) => Promise<boolean>;
 export type iOSTasksDeleteHandler = (id: number) => Promise<boolean>;
 export type iOSTasksDueHandler = (hours?: number) => Promise<TaskItem[]>;
 
 export type iOSChatInfoHandler = () => { username: string; adminKey: string };
-

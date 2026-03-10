@@ -10,6 +10,7 @@
 
 import WebSocket from 'ws';
 import crypto from 'crypto';
+import fs from 'fs';
 import {
   ClientMessage,
   ClientChatMessage,
@@ -45,8 +46,15 @@ import {
   iOSModeGetHandler,
   iOSModeSwitchHandler,
   iOSWorkflowsHandler,
-  iOSCalendarListHandler, iOSCalendarAddHandler, iOSCalendarDeleteHandler, iOSCalendarUpcomingHandler,
-  iOSTasksListHandler, iOSTasksAddHandler, iOSTasksCompleteHandler, iOSTasksDeleteHandler, iOSTasksDueHandler,
+  iOSCalendarListHandler,
+  iOSCalendarAddHandler,
+  iOSCalendarDeleteHandler,
+  iOSCalendarUpcomingHandler,
+  iOSTasksListHandler,
+  iOSTasksAddHandler,
+  iOSTasksCompleteHandler,
+  iOSTasksDeleteHandler,
+  iOSTasksDueHandler,
   iOSChatInfoHandler,
 } from './types';
 import { loadWorkflowCommands } from '../../config/commands-loader';
@@ -57,6 +65,23 @@ const PAIRING_CODE_EXPIRY_MS = 5 * 60 * 1000;
 const RECONNECT_BASE_DELAY_MS = 3000;
 const RECONNECT_MAX_DELAY_MS = 5 * 60 * 1000; // Cap at 5 minutes
 const PING_INTERVAL_MS = 25000;
+
+/** Convert desktop file paths to data URIs so iOS can display them */
+function convertMediaToDataUris(
+  media?: Array<{ type: string; filePath: string; mimeType: string }>
+): Array<{ type: string; filePath: string; mimeType: string }> | undefined {
+  if (!media || media.length === 0) return media;
+  return media.map((m) => {
+    try {
+      if (!fs.existsSync(m.filePath)) return m;
+      const data = fs.readFileSync(m.filePath);
+      const b64 = data.toString('base64');
+      return { ...m, filePath: `data:${m.mimeType};base64,${b64}` };
+    } catch {
+      return m;
+    }
+  });
+}
 
 interface VirtualClient {
   relayClientId: string;
@@ -77,7 +102,10 @@ export class iOSRelayClient {
   // Virtual clients tracked by relay clientId
   private clients: Map<string, VirtualClient> = new Map();
   // Auth tokens → device info (persistent across reconnects)
-  private authTokens: Map<string, { deviceId: string; deviceName: string; relayClientId?: string; pushToken?: string }> = new Map();
+  private authTokens: Map<
+    string,
+    { deviceId: string; deviceName: string; relayClientId?: string; pushToken?: string }
+  > = new Map();
   // Reverse map: relay client ID → auth token (tracks all IDs per device)
   private relayIdToToken: Map<string, string> = new Map();
   // Pairing codes
@@ -135,9 +163,18 @@ export class iOSRelayClient {
     try {
       const raw = SettingsManager.get('ios.pairedDevices');
       if (!raw) return;
-      const devices: Array<{ token: string; deviceId: string; deviceName: string; pushToken?: string }> = JSON.parse(raw);
+      const devices: Array<{
+        token: string;
+        deviceId: string;
+        deviceName: string;
+        pushToken?: string;
+      }> = JSON.parse(raw);
       for (const d of devices) {
-        this.authTokens.set(d.token, { deviceId: d.deviceId, deviceName: d.deviceName, pushToken: d.pushToken });
+        this.authTokens.set(d.token, {
+          deviceId: d.deviceId,
+          deviceName: d.deviceName,
+          pushToken: d.pushToken,
+        });
       }
       if (devices.length > 0) {
         console.log(`[iOS Relay] Loaded ${devices.length} paired device(s)`);
@@ -189,34 +226,90 @@ export class iOSRelayClient {
     this.onClear = handler;
   }
 
-  setFactsHandler(handler: iOSFactsHandler): void { this.onGetFacts = handler; }
-  setFactsDeleteHandler(handler: iOSFactsDeleteHandler): void { this.onDeleteFact = handler; }
-  setDailyLogsHandler(handler: iOSDailyLogsHandler): void { this.onGetDailyLogs = handler; }
-  setSoulHandler(handler: iOSSoulHandler): void { this.onGetSoul = handler; }
-  setSoulDeleteHandler(handler: iOSSoulDeleteHandler): void { this.onDeleteSoulAspect = handler; }
-  setFactsGraphHandler(handler: iOSFactsGraphHandler): void { this.onGetFactsGraph = handler; }
-  setCustomizeGetHandler(handler: iOSCustomizeGetHandler): void { this.onGetCustomize = handler; }
-  setCustomizeSaveHandler(handler: iOSCustomizeSaveHandler): void { this.onSaveCustomize = handler; }
-  setRoutinesListHandler(handler: iOSRoutinesListHandler): void { this.onGetRoutines = handler; }
-  setRoutinesCreateHandler(handler: iOSRoutinesCreateHandler): void { this.onCreateRoutine = handler; }
-  setRoutinesDeleteHandler(handler: iOSRoutinesDeleteHandler): void { this.onDeleteRoutine = handler; }
-  setRoutinesToggleHandler(handler: iOSRoutinesToggleHandler): void { this.onToggleRoutine = handler; }
-  setRoutinesRunHandler(handler: iOSRoutinesRunHandler): void { this.onRunRoutine = handler; }
-  setAppInfoHandler(handler: iOSAppInfoHandler): void { this.onGetAppInfo = handler; }
-  setSkinHandler(handler: (skinId: string) => void): void { this.onSkinSet = handler; }
-  setModeGetHandler(handler: iOSModeGetHandler): void { this.onGetMode = handler; }
-  setModeSwitchHandler(handler: iOSModeSwitchHandler): void { this.onSwitchMode = handler; }
-  setWorkflowsHandler(handler: iOSWorkflowsHandler): void { this.onGetWorkflows = handler; }
-  setCalendarListHandler(handler: iOSCalendarListHandler): void { this.onCalendarList = handler; }
-  setCalendarAddHandler(handler: iOSCalendarAddHandler): void { this.onCalendarAdd = handler; }
-  setCalendarDeleteHandler(handler: iOSCalendarDeleteHandler): void { this.onCalendarDelete = handler; }
-  setCalendarUpcomingHandler(handler: iOSCalendarUpcomingHandler): void { this.onCalendarUpcoming = handler; }
-  setTasksListHandler(handler: iOSTasksListHandler): void { this.onTasksList = handler; }
-  setTasksAddHandler(handler: iOSTasksAddHandler): void { this.onTasksAdd = handler; }
-  setTasksCompleteHandler(handler: iOSTasksCompleteHandler): void { this.onTasksComplete = handler; }
-  setTasksDeleteHandler(handler: iOSTasksDeleteHandler): void { this.onTasksDelete = handler; }
-  setTasksDueHandler(handler: iOSTasksDueHandler): void { this.onTasksDue = handler; }
-  setChatInfoHandler(handler: iOSChatInfoHandler): void { this.onChatInfo = handler; }
+  setFactsHandler(handler: iOSFactsHandler): void {
+    this.onGetFacts = handler;
+  }
+  setFactsDeleteHandler(handler: iOSFactsDeleteHandler): void {
+    this.onDeleteFact = handler;
+  }
+  setDailyLogsHandler(handler: iOSDailyLogsHandler): void {
+    this.onGetDailyLogs = handler;
+  }
+  setSoulHandler(handler: iOSSoulHandler): void {
+    this.onGetSoul = handler;
+  }
+  setSoulDeleteHandler(handler: iOSSoulDeleteHandler): void {
+    this.onDeleteSoulAspect = handler;
+  }
+  setFactsGraphHandler(handler: iOSFactsGraphHandler): void {
+    this.onGetFactsGraph = handler;
+  }
+  setCustomizeGetHandler(handler: iOSCustomizeGetHandler): void {
+    this.onGetCustomize = handler;
+  }
+  setCustomizeSaveHandler(handler: iOSCustomizeSaveHandler): void {
+    this.onSaveCustomize = handler;
+  }
+  setRoutinesListHandler(handler: iOSRoutinesListHandler): void {
+    this.onGetRoutines = handler;
+  }
+  setRoutinesCreateHandler(handler: iOSRoutinesCreateHandler): void {
+    this.onCreateRoutine = handler;
+  }
+  setRoutinesDeleteHandler(handler: iOSRoutinesDeleteHandler): void {
+    this.onDeleteRoutine = handler;
+  }
+  setRoutinesToggleHandler(handler: iOSRoutinesToggleHandler): void {
+    this.onToggleRoutine = handler;
+  }
+  setRoutinesRunHandler(handler: iOSRoutinesRunHandler): void {
+    this.onRunRoutine = handler;
+  }
+  setAppInfoHandler(handler: iOSAppInfoHandler): void {
+    this.onGetAppInfo = handler;
+  }
+  setSkinHandler(handler: (skinId: string) => void): void {
+    this.onSkinSet = handler;
+  }
+  setModeGetHandler(handler: iOSModeGetHandler): void {
+    this.onGetMode = handler;
+  }
+  setModeSwitchHandler(handler: iOSModeSwitchHandler): void {
+    this.onSwitchMode = handler;
+  }
+  setWorkflowsHandler(handler: iOSWorkflowsHandler): void {
+    this.onGetWorkflows = handler;
+  }
+  setCalendarListHandler(handler: iOSCalendarListHandler): void {
+    this.onCalendarList = handler;
+  }
+  setCalendarAddHandler(handler: iOSCalendarAddHandler): void {
+    this.onCalendarAdd = handler;
+  }
+  setCalendarDeleteHandler(handler: iOSCalendarDeleteHandler): void {
+    this.onCalendarDelete = handler;
+  }
+  setCalendarUpcomingHandler(handler: iOSCalendarUpcomingHandler): void {
+    this.onCalendarUpcoming = handler;
+  }
+  setTasksListHandler(handler: iOSTasksListHandler): void {
+    this.onTasksList = handler;
+  }
+  setTasksAddHandler(handler: iOSTasksAddHandler): void {
+    this.onTasksAdd = handler;
+  }
+  setTasksCompleteHandler(handler: iOSTasksCompleteHandler): void {
+    this.onTasksComplete = handler;
+  }
+  setTasksDeleteHandler(handler: iOSTasksDeleteHandler): void {
+    this.onTasksDelete = handler;
+  }
+  setTasksDueHandler(handler: iOSTasksDueHandler): void {
+    this.onTasksDue = handler;
+  }
+  setChatInfoHandler(handler: iOSChatInfoHandler): void {
+    this.onChatInfo = handler;
+  }
 
   generatePairingCode(): string {
     if (this.activePairingCode) {
@@ -261,7 +354,11 @@ export class iOSRelayClient {
     this.sendRaw(JSON.stringify(message));
   }
 
-  async sendPushNotifications(title: string, body: string, data?: Record<string, string>): Promise<void> {
+  async sendPushNotifications(
+    title: string,
+    body: string,
+    data?: Record<string, string>
+  ): Promise<void> {
     const tokens: string[] = [];
     for (const info of this.authTokens.values()) {
       if (info.pushToken) tokens.push(info.pushToken);
@@ -408,10 +505,12 @@ export class iOSRelayClient {
     if (this.reconnectTimer) return;
     const delay = Math.min(
       RECONNECT_BASE_DELAY_MS * Math.pow(2, this.reconnectAttempts),
-      RECONNECT_MAX_DELAY_MS,
+      RECONNECT_MAX_DELAY_MS
     );
     this.reconnectAttempts++;
-    console.log(`[iOS Relay] Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts})...`);
+    console.log(
+      `[iOS Relay] Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts})...`
+    );
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connect().catch((err) => {
@@ -598,14 +697,16 @@ export class iOSRelayClient {
     this.relayIdToToken.set(relayClientId, authToken);
     this.pendingClients.delete(relayClientId);
 
-    // Send success
-    const result: ServerPairResultMessage = {
+    // Send success (include adminKey during pairing — one-time secure exchange)
+    const chatInfo = this.onChatInfo?.();
+    const pairResult: ServerPairResultMessage & { adminKey?: string } = {
       type: 'pair_result',
       success: true,
       authToken,
       deviceId,
+      ...(chatInfo?.adminKey ? { adminKey: chatInfo.adminKey } : {}),
     };
-    this.sendToRelay(relayClientId, result);
+    this.sendToRelay(relayClientId, pairResult);
 
     console.log(`[iOS Relay] Device paired: ${deviceName} (${deviceId})`);
     this.savePairedDevices();
@@ -640,7 +741,11 @@ export class iOSRelayClient {
           const clearSessionId = (message as { sessionId: string }).sessionId;
           this.onClear?.(clearSessionId);
           // Send back empty history to confirm the clear
-          this.sendToRelay(client.relayClientId, { type: 'history', sessionId: clearSessionId, messages: [] });
+          this.sendToRelay(client.relayClientId, {
+            type: 'history',
+            sessionId: clearSessionId,
+            messages: [],
+          });
         }
         break;
       case 'workflows:list':
@@ -713,28 +818,48 @@ export class iOSRelayClient {
         break;
       }
       case 'facts:graph': {
-        this.onGetFactsGraph?.().then((graph) => {
-          this.sendToRelay(client.relayClientId, { type: 'facts:graph', ...graph });
-        }).catch(() => {
-          this.sendToRelay(client.relayClientId, { type: 'facts:graph', nodes: [], links: [] });
-        });
+        this.onGetFactsGraph?.()
+          .then((graph) => {
+            this.sendToRelay(client.relayClientId, { type: 'facts:graph', ...graph });
+          })
+          .catch(() => {
+            this.sendToRelay(client.relayClientId, { type: 'facts:graph', nodes: [], links: [] });
+          });
         break;
       }
       case 'customize:get': {
-        const customize = this.onGetCustomize?.() || { agentName: 'Frankie', personality: '', goals: '', struggles: '', funFacts: '', systemGuidelines: '' };
+        const customize = this.onGetCustomize?.() || {
+          agentName: 'Frankie',
+          personality: '',
+          goals: '',
+          struggles: '',
+          funFacts: '',
+          systemGuidelines: '',
+        };
         this.sendToRelay(client.relayClientId, { type: 'customize', ...customize });
         break;
       }
       case 'customize:save': {
         const saveData: Record<string, unknown> = {};
-        if ('agentName' in message) saveData.agentName = (message as { agentName: string }).agentName;
-        if ('personality' in message) saveData.personality = (message as { personality: string }).personality;
+        if ('agentName' in message)
+          saveData.agentName = (message as { agentName: string }).agentName;
+        if ('personality' in message)
+          saveData.personality = (message as { personality: string }).personality;
         if ('goals' in message) saveData.goals = (message as { goals: string }).goals;
-        if ('struggles' in message) saveData.struggles = (message as { struggles: string }).struggles;
+        if ('struggles' in message)
+          saveData.struggles = (message as { struggles: string }).struggles;
         if ('funFacts' in message) saveData.funFacts = (message as { funFacts: string }).funFacts;
-        if ('profile' in message) saveData.profile = (message as { profile: Record<string, string> }).profile;
+        if ('profile' in message)
+          saveData.profile = (message as { profile: Record<string, string> }).profile;
         this.onSaveCustomize?.(saveData as Parameters<NonNullable<typeof this.onSaveCustomize>>[0]);
-        const updated = this.onGetCustomize?.() || { agentName: 'Frankie', personality: '', goals: '', struggles: '', funFacts: '', systemGuidelines: '' };
+        const updated = this.onGetCustomize?.() || {
+          agentName: 'Frankie',
+          personality: '',
+          goals: '',
+          struggles: '',
+          funFacts: '',
+          systemGuidelines: '',
+        };
         this.sendToRelay(client.relayClientId, { type: 'customize', ...updated });
         break;
       }
@@ -744,13 +869,30 @@ export class iOSRelayClient {
         break;
       }
       case 'routines:create': {
-        const m = message as unknown as { name: string; schedule: string; prompt: string; channel: string; sessionId: string };
-        this.onCreateRoutine?.(m.name, m.schedule, m.prompt, m.channel || 'default', m.sessionId || 'default').then(() => {
-          const updatedJobs = this.onGetRoutines?.() || [];
-          this.sendToRelay(client.relayClientId, { type: 'routines', jobs: updatedJobs });
-        }).catch(() => {
-          this.sendToRelay(client.relayClientId, { type: 'error', message: 'Failed to create routine' });
-        });
+        const m = message as unknown as {
+          name: string;
+          schedule: string;
+          prompt: string;
+          channel: string;
+          sessionId: string;
+        };
+        this.onCreateRoutine?.(
+          m.name,
+          m.schedule,
+          m.prompt,
+          m.channel || 'default',
+          m.sessionId || 'default'
+        )
+          .then(() => {
+            const updatedJobs = this.onGetRoutines?.() || [];
+            this.sendToRelay(client.relayClientId, { type: 'routines', jobs: updatedJobs });
+          })
+          .catch(() => {
+            this.sendToRelay(client.relayClientId, {
+              type: 'error',
+              message: 'Failed to create routine',
+            });
+          });
         break;
       }
       case 'routines:delete': {
@@ -771,11 +913,22 @@ export class iOSRelayClient {
       case 'routines:run': {
         if ('name' in message) {
           const routineName = (message as { name: string }).name;
-          this.onRunRoutine?.(routineName).then((result) => {
-            this.sendToRelay(client.relayClientId, { type: 'routine:result', name: routineName, ...result });
-          }).catch((err) => {
-            this.sendToRelay(client.relayClientId, { type: 'routine:result', name: routineName, success: false, error: String(err) });
-          });
+          this.onRunRoutine?.(routineName)
+            .then((result) => {
+              this.sendToRelay(client.relayClientId, {
+                type: 'routine:result',
+                name: routineName,
+                ...result,
+              });
+            })
+            .catch((err) => {
+              this.sendToRelay(client.relayClientId, {
+                type: 'routine:result',
+                name: routineName,
+                success: false,
+                error: String(err),
+              });
+            });
         }
         break;
       }
@@ -794,109 +947,165 @@ export class iOSRelayClient {
       case 'mode:get': {
         const sessionId = client.device.sessionId || 'default';
         const modeResult = this.onGetMode?.(sessionId) || { mode: 'coder', locked: false };
-        this.sendToRelay(client.relayClientId, { type: 'mode', mode: modeResult.mode, locked: modeResult.locked });
+        this.sendToRelay(client.relayClientId, {
+          type: 'mode',
+          mode: modeResult.mode,
+          locked: modeResult.locked,
+        });
         break;
       }
       case 'mode:switch': {
         if ('mode' in message) {
           const newMode = (message as { mode: string }).mode;
           const sessionId = client.device.sessionId || 'default';
-          const result = this.onSwitchMode?.(sessionId, newMode) || { mode: newMode, locked: false };
-          this.sendToRelay(client.relayClientId, { type: 'mode', mode: result.mode, locked: result.locked });
+          const result = this.onSwitchMode?.(sessionId, newMode) || {
+            mode: newMode,
+            locked: false,
+          };
+          this.sendToRelay(client.relayClientId, {
+            type: 'mode',
+            mode: result.mode,
+            locked: result.locked,
+          });
         }
         break;
       }
       case 'calendar:list': {
-        this.onCalendarList?.().then((events) => {
-          this.sendToRelay(client.relayClientId, { type: 'calendar', events });
-        }).catch(() => {
-          this.sendToRelay(client.relayClientId, { type: 'calendar', events: [] });
-        });
+        this.onCalendarList?.()
+          .then((events) => {
+            this.sendToRelay(client.relayClientId, { type: 'calendar', events });
+          })
+          .catch(() => {
+            this.sendToRelay(client.relayClientId, { type: 'calendar', events: [] });
+          });
         break;
       }
       case 'calendar:add': {
-        const m = message as unknown as { title: string; startTime: string; endTime?: string; location?: string; description?: string; reminderMinutes?: number; allDay?: boolean };
-        this.onCalendarAdd?.(m.title, m.startTime, m.endTime, m.location, m.description, m.reminderMinutes, m.allDay)?.then(() => {
-          return this.onCalendarList?.() || Promise.resolve([]);
-        }).then((events) => {
-          this.sendToRelay(client.relayClientId, { type: 'calendar', events: events || [] });
-        }).catch(() => {
-          this.sendToRelay(client.relayClientId, { type: 'calendar', events: [] });
-        });
+        const m = message as unknown as {
+          title: string;
+          startTime: string;
+          endTime?: string;
+          location?: string;
+          description?: string;
+          reminderMinutes?: number;
+          allDay?: boolean;
+        };
+        this.onCalendarAdd?.(
+          m.title,
+          m.startTime,
+          m.endTime,
+          m.location,
+          m.description,
+          m.reminderMinutes,
+          m.allDay
+        )
+          ?.then(() => {
+            return this.onCalendarList?.() || Promise.resolve([]);
+          })
+          .then((events) => {
+            this.sendToRelay(client.relayClientId, { type: 'calendar', events: events || [] });
+          })
+          .catch(() => {
+            this.sendToRelay(client.relayClientId, { type: 'calendar', events: [] });
+          });
         break;
       }
       case 'calendar:delete': {
         if ('id' in message) {
-          this.onCalendarDelete?.((message as unknown as { id: number }).id)?.then(() => {
-            return this.onCalendarList?.() || Promise.resolve([]);
-          }).then((events) => {
-            this.sendToRelay(client.relayClientId, { type: 'calendar', events: events || [] });
-          }).catch(() => {
-            this.sendToRelay(client.relayClientId, { type: 'calendar', events: [] });
-          });
+          this.onCalendarDelete?.((message as unknown as { id: number }).id)
+            ?.then(() => {
+              return this.onCalendarList?.() || Promise.resolve([]);
+            })
+            .then((events) => {
+              this.sendToRelay(client.relayClientId, { type: 'calendar', events: events || [] });
+            })
+            .catch(() => {
+              this.sendToRelay(client.relayClientId, { type: 'calendar', events: [] });
+            });
         }
         break;
       }
       case 'calendar:upcoming': {
         const hours = 'hours' in message ? (message as { hours: number }).hours : undefined;
-        this.onCalendarUpcoming?.(hours)?.then((events) => {
-          this.sendToRelay(client.relayClientId, { type: 'calendar', events });
-        }).catch(() => {
-          this.sendToRelay(client.relayClientId, { type: 'calendar', events: [] });
-        });
+        this.onCalendarUpcoming?.(hours)
+          ?.then((events) => {
+            this.sendToRelay(client.relayClientId, { type: 'calendar', events });
+          })
+          .catch(() => {
+            this.sendToRelay(client.relayClientId, { type: 'calendar', events: [] });
+          });
         break;
       }
       case 'tasks:list': {
         const status = 'status' in message ? (message as { status: string }).status : undefined;
-        this.onTasksList?.(status)?.then((tasks) => {
-          this.sendToRelay(client.relayClientId, { type: 'tasks', tasks });
-        }).catch(() => {
-          this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: [] });
-        });
+        this.onTasksList?.(status)
+          ?.then((tasks) => {
+            this.sendToRelay(client.relayClientId, { type: 'tasks', tasks });
+          })
+          .catch(() => {
+            this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: [] });
+          });
         break;
       }
       case 'tasks:add': {
-        const m = message as unknown as { title: string; dueDate?: string; priority?: string; description?: string; reminderMinutes?: number };
-        this.onTasksAdd?.(m.title, m.dueDate, m.priority, m.description, m.reminderMinutes)?.then(() => {
-          return this.onTasksList?.() || Promise.resolve([]);
-        }).then((tasks) => {
-          this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: tasks || [] });
-        }).catch(() => {
-          this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: [] });
-        });
+        const m = message as unknown as {
+          title: string;
+          dueDate?: string;
+          priority?: string;
+          description?: string;
+          reminderMinutes?: number;
+        };
+        this.onTasksAdd?.(m.title, m.dueDate, m.priority, m.description, m.reminderMinutes)
+          ?.then(() => {
+            return this.onTasksList?.() || Promise.resolve([]);
+          })
+          .then((tasks) => {
+            this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: tasks || [] });
+          })
+          .catch(() => {
+            this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: [] });
+          });
         break;
       }
       case 'tasks:complete': {
         if ('id' in message) {
-          this.onTasksComplete?.((message as unknown as { id: number }).id)?.then(() => {
-            return this.onTasksList?.() || Promise.resolve([]);
-          }).then((tasks) => {
-            this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: tasks || [] });
-          }).catch(() => {
-            this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: [] });
-          });
+          this.onTasksComplete?.((message as unknown as { id: number }).id)
+            ?.then(() => {
+              return this.onTasksList?.() || Promise.resolve([]);
+            })
+            .then((tasks) => {
+              this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: tasks || [] });
+            })
+            .catch(() => {
+              this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: [] });
+            });
         }
         break;
       }
       case 'tasks:delete': {
         if ('id' in message) {
-          this.onTasksDelete?.((message as unknown as { id: number }).id)?.then(() => {
-            return this.onTasksList?.() || Promise.resolve([]);
-          }).then((tasks) => {
-            this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: tasks || [] });
-          }).catch(() => {
-            this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: [] });
-          });
+          this.onTasksDelete?.((message as unknown as { id: number }).id)
+            ?.then(() => {
+              return this.onTasksList?.() || Promise.resolve([]);
+            })
+            .then((tasks) => {
+              this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: tasks || [] });
+            })
+            .catch(() => {
+              this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: [] });
+            });
         }
         break;
       }
       case 'tasks:due': {
         const hours = 'hours' in message ? (message as { hours: number }).hours : undefined;
-        this.onTasksDue?.(hours)?.then((tasks) => {
-          this.sendToRelay(client.relayClientId, { type: 'tasks', tasks });
-        }).catch(() => {
-          this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: [] });
-        });
+        this.onTasksDue?.(hours)
+          ?.then((tasks) => {
+            this.sendToRelay(client.relayClientId, { type: 'tasks', tasks });
+          })
+          .catch(() => {
+            this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: [] });
+          });
         break;
       }
       case 'chat:info': {
@@ -911,8 +1120,15 @@ export class iOSRelayClient {
     const sessionId = client.device.sessionId || 'default';
     const workflows = this.onGetWorkflows
       ? this.onGetWorkflows(sessionId)
-      : loadWorkflowCommands().map(c => ({ name: c.name, description: c.description, content: c.content }));
-    console.log(`[iOS Relay] Sending ${workflows.length} workflows to ${client.device.deviceName}:`, workflows.map(w => w.name));
+      : loadWorkflowCommands().map((c) => ({
+          name: c.name,
+          description: c.description,
+          content: c.content,
+        }));
+    console.log(
+      `[iOS Relay] Sending ${workflows.length} workflows to ${client.device.deviceName}:`,
+      workflows.map((w) => w.name)
+    );
     this.sendToRelay(client.relayClientId, { type: 'workflows', workflows });
   }
 
@@ -922,13 +1138,19 @@ export class iOSRelayClient {
   }
 
   private handleSessionsHistory(client: VirtualClient, message: ClientMessage): void {
-    const sessionId = ('sessionId' in message ? (message as { sessionId: string }).sessionId : client.device.sessionId) || 'default';
+    const sessionId =
+      ('sessionId' in message
+        ? (message as { sessionId: string }).sessionId
+        : client.device.sessionId) || 'default';
     const limit = ('limit' in message ? (message as { limit: number }).limit : 100) || 100;
     const messages = this.onGetHistory?.(sessionId, limit) || [];
     this.sendToRelay(client.relayClientId, { type: 'history', sessionId, messages });
   }
 
-  private async handleChatMessage(client: VirtualClient, message: ClientChatMessage): Promise<void> {
+  private async handleChatMessage(
+    client: VirtualClient,
+    message: ClientChatMessage
+  ): Promise<void> {
     if (!this.onMessage) {
       const error: ServerErrorMessage = { type: 'error', message: 'Agent not available' };
       this.sendToRelay(client.relayClientId, error);
@@ -953,7 +1175,7 @@ export class iOSRelayClient {
         text: result.response,
         sessionId: message.sessionId,
         tokensUsed: result.tokensUsed,
-        media: result.media,
+        media: convertMediaToDataUris(result.media),
         timestamp: new Date().toISOString(),
         planPending: result.planPending,
       };

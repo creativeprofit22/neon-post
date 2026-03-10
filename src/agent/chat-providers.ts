@@ -1,49 +1,50 @@
 /**
- * Chat mode provider abstraction
+ * Chat mode provider configuration for @kenkaiiii/gg-ai
  *
- * Creates Anthropic SDK clients for different providers without mutating env vars.
+ * Returns provider/apiKey/baseUrl configs matching gg-ai's StreamOptions shape.
  * Uses the shared MODEL_PROVIDERS mapping from providers.ts.
  */
 
-import Anthropic from '@anthropic-ai/sdk';
+import type { Provider } from '@kenkaiiii/gg-ai';
 import { SettingsManager } from '../settings';
-import { getProviderForModel } from './providers';
+import { getProviderForModel, PROVIDER_CONFIGS } from './providers';
 
 export { getProviderForModel };
 
-/**
- * Create an Anthropic SDK client configured for the given model's provider.
- * No env vars are mutated — all config is passed directly to the constructor.
- */
-export async function createChatClient(model: string): Promise<Anthropic> {
-  const provider = getProviderForModel(model);
+export interface StreamConfig {
+  provider: Provider;
+  apiKey?: string;
+  baseUrl?: string;
+}
 
-  if (provider === 'moonshot') {
+/**
+ * Get gg-ai stream configuration for the given model.
+ * Returns { provider, apiKey, baseUrl } matching StreamOptions fields.
+ */
+export async function getStreamConfig(model: string): Promise<StreamConfig> {
+  const providerType = getProviderForModel(model);
+  const config = PROVIDER_CONFIGS[providerType];
+
+  if (providerType === 'moonshot') {
     const apiKey = SettingsManager.get('moonshot.apiKey');
     if (!apiKey) {
       throw new Error('Moonshot API key not configured. Please add your key in Settings > Keys.');
     }
-    return new Anthropic({
-      apiKey,
-      baseURL: 'https://api.moonshot.ai/anthropic/',
-    });
+    return { provider: 'moonshot', apiKey, baseUrl: config.baseUrl };
   }
 
-  if (provider === 'glm') {
+  if (providerType === 'glm') {
     const apiKey = SettingsManager.get('glm.apiKey');
     if (!apiKey) {
       throw new Error('Z.AI GLM API key not configured. Please add your key in Settings > LLM.');
     }
-    return new Anthropic({
-      apiKey,
-      baseURL: 'https://api.z.ai/api/anthropic/',
-    });
+    return { provider: 'glm', apiKey, baseUrl: config.baseUrl };
   }
 
   // Anthropic provider
   const apiKey = SettingsManager.get('anthropic.apiKey');
   if (apiKey) {
-    return new Anthropic({ apiKey });
+    return { provider: 'anthropic', apiKey };
   }
 
   // Check for OAuth
@@ -52,13 +53,7 @@ export async function createChatClient(model: string): Promise<Anthropic> {
     const { ClaudeOAuth } = await import('../auth/oauth');
     const token = await ClaudeOAuth.getAccessToken();
     if (token) {
-      // OAuth tokens use Authorization: Bearer header, not x-api-key.
-      // The oauth-2025-04-20 beta header is required for OAuth auth on the API.
-      return new Anthropic({
-        apiKey: null,
-        authToken: token,
-        defaultHeaders: { 'anthropic-beta': 'oauth-2025-04-20' },
-      });
+      return { provider: 'anthropic', apiKey: token };
     }
     throw new Error('OAuth session expired. Please re-authenticate in Settings.');
   }

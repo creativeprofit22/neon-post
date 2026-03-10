@@ -49,10 +49,9 @@ async function handleConfirmation(
     await ctx.answerCallbackQuery({ text: 'Confirmed!' });
 
     // Update the message to show it was confirmed
-    await ctx.editMessageText(
-      `Confirmed: ${actionId}\n\nProcessing...`,
-      { reply_markup: undefined }
-    );
+    await ctx.editMessageText(`Confirmed: ${actionId}\n\nProcessing...`, {
+      reply_markup: undefined,
+    });
 
     // Process the action through the agent
     const chatId = ctx.chat?.id;
@@ -78,10 +77,7 @@ async function handleConfirmation(
   } else {
     // Cancelled
     await ctx.answerCallbackQuery({ text: 'Cancelled' });
-    await ctx.editMessageText(
-      `Cancelled: ${actionId}`,
-      { reply_markup: undefined }
-    );
+    await ctx.editMessageText(`Cancelled: ${actionId}`, { reply_markup: undefined });
   }
 }
 
@@ -136,10 +132,7 @@ async function handleLocationAction(
 /**
  * Handle pagination callbacks
  */
-async function handlePagination(
-  ctx: Context,
-  callbackData: CallbackQueryData
-): Promise<void> {
+async function handlePagination(ctx: Context, callbackData: CallbackQueryData): Promise<void> {
   const page = callbackData.page || 0;
 
   // This is a placeholder - actual pagination would depend on
@@ -171,10 +164,10 @@ async function handleReactionCallback(
   if (emoji === '👎') {
     // Thumbs down - offer clarification
     await ctx.reply(
-      'I see you weren\'t satisfied with that response. Would you like me to:\n' +
-      '* Try again with a different approach?\n' +
-      '* Provide more detail?\n' +
-      '* Explain my reasoning?'
+      "I see you weren't satisfied with that response. Would you like me to:\n" +
+        '* Try again with a different approach?\n' +
+        '* Provide more detail?\n' +
+        '* Explain my reasoning?'
     );
   }
 }

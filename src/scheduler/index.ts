@@ -18,7 +18,7 @@ export const HEARTBEAT_OK = 'HEARTBEAT_OK';
 function matchesCronField(spec: string, value: number, min: number, max: number): boolean {
   if (spec === '*') return true;
 
-  return spec.split(',').some(part => {
+  return spec.split(',').some((part) => {
     const [range, stepStr] = part.split('/');
     const step = stepStr ? parseInt(stepStr, 10) : 1;
 
@@ -153,7 +153,9 @@ export class CronScheduler {
    * Create a hash of all jobs to detect any changes (additions, deletions, or modifications)
    */
   private hashJobs(jobs: CronJob[]): string {
-    return jobs.map(j => `${j.id}:${j.name}:${j.enabled}:${j.schedule}:${j.schedule_type}:${j.prompt}`).join('|');
+    return jobs
+      .map((j) => `${j.id}:${j.name}:${j.enabled}:${j.schedule}:${j.schedule_type}:${j.prompt}`)
+      .join('|');
   }
 
   /**
@@ -202,13 +204,17 @@ export class CronScheduler {
       const nowSqlite = this.formatForSqlite(now);
 
       // Check calendar events
-      const events = db.prepare(`
+      const events = db
+        .prepare(
+          `
         SELECT id, title, description, start_time, location, reminder_minutes, channel, session_id
         FROM calendar_events
         WHERE reminded = 0
           AND datetime(replace(start_time, 'Z', ''), '-' || reminder_minutes || ' minutes') <= datetime(?)
           AND datetime(replace(start_time, 'Z', '')) > datetime(?)
-      `).all(nowSqlite, nowSqlite) as CalendarEvent[];
+      `
+        )
+        .all(nowSqlite, nowSqlite) as CalendarEvent[];
 
       for (const event of events) {
         const startTime = new Date(event.start_time);
@@ -233,7 +239,9 @@ export class CronScheduler {
       }
 
       // Check tasks with due dates
-      const tasks = db.prepare(`
+      const tasks = db
+        .prepare(
+          `
         SELECT id, title, description, due_date, priority, reminder_minutes, channel, session_id
         FROM tasks
         WHERE status != 'completed'
@@ -242,7 +250,9 @@ export class CronScheduler {
           AND due_date IS NOT NULL
           AND datetime(replace(due_date, 'Z', ''), '-' || reminder_minutes || ' minutes') <= datetime(?)
           AND datetime(replace(due_date, 'Z', '')) > datetime(?)
-      `).all(nowSqlite, nowSqlite) as Task[];
+      `
+        )
+        .all(nowSqlite, nowSqlite) as Task[];
 
       if (tasks.length > 0) {
         console.log(`[Scheduler] Found ${tasks.length} task(s) due for reminder`);
@@ -300,11 +310,16 @@ export class CronScheduler {
     }
 
     const nowSqlite = this.formatForSqlite(now);
-    const dueJobs = db.prepare(`
+    const dueJobs = db
+      .prepare(
+        `
       SELECT id, name, schedule_type, schedule, run_at, interval_ms, prompt, channel, delete_after_run, context_messages, session_id, job_type
       FROM cron_jobs
       WHERE enabled = 1 AND next_run_at IS NOT NULL AND datetime(replace(next_run_at, 'Z', '')) <= datetime(?)
-    `).all(nowSqlite) as DueJob[];
+      LIMIT 50
+    `
+      )
+      .all(nowSqlite) as DueJob[];
 
     for (const job of dueJobs) {
       const startTime = Date.now();
@@ -322,7 +337,10 @@ export class CronScheduler {
 
           // Save reminder to messages table for persistence and history display
           if (this.memory) {
-            this.memory.saveMessage('assistant', response, sessionId, { source: 'scheduler', jobName: job.name });
+            this.memory.saveMessage('assistant', response, sessionId, {
+              source: 'scheduler',
+              jobName: job.name,
+            });
           }
         } else {
           // Routines: call LLM with context
@@ -330,7 +348,7 @@ export class CronScheduler {
           if (job.context_messages > 0 && this.memory) {
             const history = this.memory.getRecentMessages(job.context_messages, sessionId);
             if (history.length > 0) {
-              const lines = history.map(m => {
+              const lines = history.map((m) => {
                 const role = m.role === 'user' ? 'User' : 'Assistant';
                 const text = m.content.length > 200 ? m.content.slice(0, 200) + '...' : m.content;
                 return `- ${role}: ${text}`;
@@ -341,7 +359,10 @@ export class CronScheduler {
 
           // Only add HEARTBEAT_OK escape for recurring jobs (cron/interval).
           // One-time "at" jobs are intentionally scheduled — always produce output.
-          const heartbeatSuffix = job.schedule_type === 'at' ? '' : '\n\nIf nothing needs attention, reply with only HEARTBEAT_OK.';
+          const heartbeatSuffix =
+            job.schedule_type === 'at'
+              ? ''
+              : '\n\nIf nothing needs attention, reply with only HEARTBEAT_OK.';
           const fullPrompt = job.prompt + contextText + heartbeatSuffix;
 
           if (!AgentManager.isInitialized()) {
@@ -367,7 +388,8 @@ export class CronScheduler {
           console.log(`[Scheduler] Deleted one-time job: ${job.name}`);
         } else {
           // Update state
-          db.prepare(`
+          db.prepare(
+            `
             UPDATE cron_jobs SET
               last_run_at = datetime(?),
               last_status = 'ok',
@@ -376,7 +398,8 @@ export class CronScheduler {
               next_run_at = ?,
               updated_at = datetime('now')
             WHERE id = ?
-          `).run(now.toISOString(), duration, nextRunAt, job.id);
+          `
+          ).run(now.toISOString(), duration, nextRunAt, job.id);
         }
 
         // Route response to the job's session
@@ -391,7 +414,6 @@ export class CronScheduler {
           success: true,
           timestamp: now,
         });
-
       } catch (error) {
         const duration = Date.now() - startTime;
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -400,7 +422,8 @@ export class CronScheduler {
 
         // Update state with error
         const nextRunAt = this.calculateNextRun(job.schedule_type, job.schedule, job.interval_ms);
-        db.prepare(`
+        db.prepare(
+          `
           UPDATE cron_jobs SET
             last_run_at = datetime(?),
             last_status = 'error',
@@ -409,7 +432,8 @@ export class CronScheduler {
             next_run_at = ?,
             updated_at = datetime('now')
           WHERE id = ?
-        `).run(now.toISOString(), errorMsg, duration, nextRunAt, job.id);
+        `
+        ).run(now.toISOString(), errorMsg, duration, nextRunAt, job.id);
 
         this.addToHistory({
           jobName: job.name,
@@ -434,7 +458,11 @@ export class CronScheduler {
   /**
    * Calculate next run time based on schedule type
    */
-  private calculateNextRun(type: string, schedule: string | null, intervalMs: number | null): string | null {
+  private calculateNextRun(
+    type: string,
+    schedule: string | null,
+    intervalMs: number | null
+  ): string | null {
     const now = new Date();
 
     if (type === 'at') {
@@ -489,7 +517,13 @@ export class CronScheduler {
    * Skips notification if response is just HEARTBEAT_OK (nothing to report).
    * Always sends to desktop (to the correct session), and also to Telegram if configured.
    */
-  private async routeJobResponse(jobName: string, prompt: string, response: string, channel: string, sessionId: string = 'default'): Promise<void> {
+  private async routeJobResponse(
+    jobName: string,
+    prompt: string,
+    response: string,
+    channel: string,
+    sessionId: string = 'default'
+  ): Promise<void> {
     // Check for silent acknowledgment - agent has nothing to report
     // Match HEARTBEAT_OK anywhere in response (case-insensitive)
     if (response.toUpperCase().includes(HEARTBEAT_OK)) {
@@ -524,12 +558,21 @@ export class CronScheduler {
    * Send a reminder notification.
    * Always sends to desktop (to the correct session), and also to Telegram if configured.
    */
-  private async sendReminder(type: 'calendar' | 'task', title: string, message: string, channel: string, sessionId: string = 'default'): Promise<void> {
+  private async sendReminder(
+    type: 'calendar' | 'task',
+    title: string,
+    message: string,
+    channel: string,
+    sessionId: string = 'default'
+  ): Promise<void> {
     console.log(`[Scheduler] Sending ${type} reminder: ${title} (session: ${sessionId})`);
 
     // Save reminder to messages table for persistence and history display
     if (this.memory) {
-      this.memory.saveMessage('assistant', message, sessionId, { source: 'scheduler', jobName: `${type}_reminder` });
+      this.memory.saveMessage('assistant', message, sessionId, {
+        source: 'scheduler',
+        jobName: `${type}_reminder`,
+      });
     }
 
     // Always send to desktop (notification + chat to the correct session)
@@ -549,7 +592,10 @@ export class CronScheduler {
     if (this.telegramBot && this.memory) {
       const linkedChatId = this.memory.getChatForSession(sessionId);
       if (linkedChatId) {
-        await this.telegramBot.sendMessage(linkedChatId, `${type === 'calendar' ? '📅' : '✓'} ${message}`);
+        await this.telegramBot.sendMessage(
+          linkedChatId,
+          `${type === 'calendar' ? '📅' : '✓'} ${message}`
+        );
       }
     }
 
@@ -619,7 +665,9 @@ export class CronScheduler {
       }
     }
 
-    console.log(`[Scheduler] Loaded ${dbJobs.length} jobs (${cronJobCount} cron, ${dbJobs.length - cronJobCount} timer-based)`);
+    console.log(
+      `[Scheduler] Loaded ${dbJobs.length} jobs (${cronJobCount} cron, ${dbJobs.length - cronJobCount} timer-based)`
+    );
   }
 
   /**
@@ -692,7 +740,6 @@ export class CronScheduler {
 
       // Route response to channel
       await this.routeResponse(job, result.response);
-
     } catch (error) {
       result.error = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[Scheduler] Job ${job.name} failed:`, result.error);
@@ -748,7 +795,12 @@ export class CronScheduler {
   /**
    * Emit chat message (sends to chat window)
    */
-  private emitChatMessage(jobName: string, prompt: string, response: string, sessionId: string = 'default'): void {
+  private emitChatMessage(
+    jobName: string,
+    prompt: string,
+    response: string,
+    sessionId: string = 'default'
+  ): void {
     if (this.onChatMessage) {
       this.onChatMessage(jobName, prompt, response, sessionId);
     }
@@ -758,24 +810,26 @@ export class CronScheduler {
    * Strip markdown formatting for plain text (notifications)
    */
   private stripMarkdown(text: string): string {
-    return text
-      // Remove headers
-      .replace(/^#{1,6}\s+/gm, '')
-      // Remove bold/italic
-      .replace(/\*\*([^*]+)\*\*/g, '$1')
-      .replace(/\*([^*]+)\*/g, '$1')
-      .replace(/__([^_]+)__/g, '$1')
-      .replace(/_([^_]+)_/g, '$1')
-      // Remove code blocks
-      .replace(/```[\s\S]*?```/g, '[code]')
-      .replace(/`([^`]+)`/g, '$1')
-      // Remove links
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      // Remove bullet points
-      .replace(/^[\s]*[-*+]\s+/gm, '• ')
-      // Remove extra whitespace
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
+    return (
+      text
+        // Remove headers
+        .replace(/^#{1,6}\s+/gm, '')
+        // Remove bold/italic
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/\*([^*]+)\*/g, '$1')
+        .replace(/__([^_]+)__/g, '$1')
+        .replace(/_([^_]+)_/g, '$1')
+        // Remove code blocks
+        .replace(/```[\s\S]*?```/g, '[code]')
+        .replace(/`([^`]+)`/g, '$1')
+        // Remove links
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        // Remove bullet points
+        .replace(/^[\s]*[-*+]\s+/gm, '• ')
+        // Remove extra whitespace
+        .replace(/\n{3,}/g, '\n\n')
+        .trim()
+    );
   }
 
   /**
@@ -788,20 +842,34 @@ export class CronScheduler {
   /**
    * Set chat message handler (for sending to chat window)
    */
-  setChatHandler(handler: (jobName: string, prompt: string, response: string, sessionId: string) => void): void {
+  setChatHandler(
+    handler: (jobName: string, prompt: string, response: string, sessionId: string) => void
+  ): void {
     this.onChatMessage = handler;
   }
 
   /**
    * Set iOS sync handler (for sending scheduled results to iOS devices)
    */
-  setIOSSyncHandler(handler: (jobName: string, prompt: string, response: string, sessionId: string) => void): void {
+  setIOSSyncHandler(
+    handler: (jobName: string, prompt: string, response: string, sessionId: string) => void
+  ): void {
     this.onIOSSync = handler;
   }
 
   private onNotification?: (title: string, body: string) => void;
-  private onChatMessage?: (jobName: string, prompt: string, response: string, sessionId: string) => void;
-  private onIOSSync?: (jobName: string, prompt: string, response: string, sessionId: string) => void;
+  private onChatMessage?: (
+    jobName: string,
+    prompt: string,
+    response: string,
+    sessionId: string
+  ) => void;
+  private onIOSSync?: (
+    jobName: string,
+    prompt: string,
+    response: string,
+    sessionId: string
+  ) => void;
 
   /**
    * Add result to history
@@ -930,7 +998,7 @@ export class CronScheduler {
       if (enabled) {
         // Reload from database to reschedule
         const dbJobs = this.memory.getCronJobs(false);
-        const dbJob = dbJobs.find(j => j.name === name);
+        const dbJob = dbJobs.find((j) => j.name === name);
         if (dbJob) {
           this.scheduleJob({
             id: dbJob.id,

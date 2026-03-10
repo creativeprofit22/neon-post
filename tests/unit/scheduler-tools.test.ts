@@ -99,7 +99,7 @@ describe('Scheduler Tools', () => {
     it('succeeds with "every 30m" interval', async () => {
       const result = await handleCreateRoutineTool({
         name: 'status_check',
-        schedule: '30m',
+        schedule: 'every 30m',
         prompt: 'Check server status',
       });
       const parsed = JSON.parse(result);

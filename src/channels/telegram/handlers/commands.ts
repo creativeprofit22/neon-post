@@ -29,24 +29,25 @@ export function registerCommandHandlers(deps: CommandHandlerDeps): void {
 
     await ctx.reply(
       `Welcome to Pocket Agent!\n\n` +
-      `I'm your personal AI assistant with persistent memory. ` +
-      `I remember our conversations across sessions.\n\n` +
-      `Your user ID: ${userId}\n\n` +
-      `Commands:\n` +
-      `/help - How to use Pocket Agent\n` +
-      `/new - Fresh start (keeps facts & reminders)\n` +
-      `/model - List or switch AI models\n` +
-      `/status - Show agent status\n` +
-      `/facts [query] - Search stored facts\n` +
-      `/workflow - List available workflows` +
-      (isGroup ? `\n/link <session> - Link this group to a session\n/unlink - Unlink this group` : '')
+        `I'm your personal AI assistant with persistent memory. ` +
+        `I remember our conversations across sessions.\n\n` +
+        `Your user ID: ${userId}\n\n` +
+        `Commands:\n` +
+        `/help - How to use Pocket Agent\n` +
+        `/new - Fresh start (keeps facts & reminders)\n` +
+        `/model - List or switch AI models\n` +
+        `/status - Show agent status\n` +
+        `/facts [query] - Search stored facts\n` +
+        `/workflow - List available workflows` +
+        (isGroup
+          ? `\n/link <session> - Link this group to a session\n/unlink - Unlink this group`
+          : '')
     );
   });
 
   // /help command
   bot.command('help', async (ctx) => {
-    const helpText =
-`<b>Pocket Agent</b>
+    const helpText = `<b>Pocket Agent</b>
 
 Your AI assistant with persistent memory. I remember our conversations and learn about you over time.
 
@@ -80,13 +81,13 @@ Workflows are reusable command templates. Use /workflow to see what's available,
 
     await ctx.reply(
       `Agent Status\n` +
-      `--------------------\n` +
-      `Messages: ${stats.messageCount}\n` +
-      `Facts: ${stats.factCount}\n` +
-      `Cron Jobs: ${stats.cronJobCount}\n` +
-      `Summaries: ${stats.summaryCount}\n` +
-      `Est. Tokens: ${stats.estimatedTokens.toLocaleString()}\n` +
-      `Memory: ${memoryMB.toFixed(1)} MB`
+        `--------------------\n` +
+        `Messages: ${stats.messageCount}\n` +
+        `Facts: ${stats.factCount}\n` +
+        `Cron Jobs: ${stats.cronJobCount}\n` +
+        `Summaries: ${stats.summaryCount}\n` +
+        `Est. Tokens: ${stats.estimatedTokens.toLocaleString()}\n` +
+        `Memory: ${memoryMB.toFixed(1)} MB`
     );
   });
 
@@ -96,9 +97,9 @@ Workflows are reusable command templates. Use /workflow to see what's available,
     const userId = ctx.from?.id;
     await ctx.reply(
       `Your IDs for cron job configuration:\n\n` +
-      `Chat ID: ${chatId}\n` +
-      `User ID: ${userId}\n\n` +
-      `Use the Chat ID when scheduling tasks that should message you.`
+        `Chat ID: ${chatId}\n` +
+        `User ID: ${userId}\n\n` +
+        `Use the Chat ID when scheduling tasks that should message you.`
     );
   });
 
@@ -110,7 +111,9 @@ Workflows are reusable command templates. Use /workflow to see what's available,
 
     AgentManager.clearConversation(sessionId);
     AgentManager.clearSdkSessionMapping(sessionId);
-    await ctx.reply('Fresh start! Conversation cleared.\nDon\'t worry - I still remember everything about you.');
+    await ctx.reply(
+      "Fresh start! Conversation cleared.\nDon't worry - I still remember everything about you."
+    );
   });
 
   // /facts command
@@ -121,7 +124,9 @@ Workflows are reusable command templates. Use /workflow to see what's available,
       // List all facts grouped by category
       const facts = AgentManager.getAllFacts();
       if (facts.length === 0) {
-        await ctx.reply('No facts stored yet.\n\nI learn facts when you tell me things about yourself, or when I use the remember tool.');
+        await ctx.reply(
+          'No facts stored yet.\n\nI learn facts when you tell me things about yourself, or when I use the remember tool.'
+        );
         return;
       }
 
@@ -153,7 +158,7 @@ Workflows are reusable command templates. Use /workflow to see what's available,
 
     const response = facts
       .slice(0, 15)
-      .map(f => `[${f.category}] ${f.subject}: ${f.content}`)
+      .map((f) => `[${f.category}] ${f.subject}: ${f.content}`)
       .join('\n');
 
     await ctx.reply(`Found ${facts.length} fact(s):\n\n${response}`);
@@ -164,17 +169,19 @@ Workflows are reusable command templates. Use /workflow to see what's available,
     const commands = loadWorkflowCommands();
 
     if (commands.length === 0) {
-      await ctx.reply('No workflows available.\n\nWorkflows are command files in .claude/commands/');
+      await ctx.reply(
+        'No workflows available.\n\nWorkflows are command files in .claude/commands/'
+      );
       return;
     }
 
     const list = commands
-      .map(c => `/${c.name} - ${c.description || 'No description'}`)
+      .map((c) => `/${c.name} - ${c.description || 'No description'}`)
       .join('\n');
 
     await ctx.reply(
       `<b>Available Workflows</b>\n\n${list}\n\n` +
-      `Run a workflow by typing its command, e.g. /${commands[0].name}`,
+        `Run a workflow by typing its command, e.g. /${commands[0].name}`,
       { parse_mode: 'HTML' }
     );
   });
@@ -218,7 +225,7 @@ Workflows are reusable command templates. Use /workflow to see what's available,
       }
 
       const modelList = availableModels
-        .map(m => {
+        .map((m) => {
           const isCurrent = m.id === currentModel ? ' [x]' : '';
           return `* ${m.name}${isCurrent}`;
         })
@@ -226,23 +233,22 @@ Workflows are reusable command templates. Use /workflow to see what's available,
 
       await ctx.reply(
         `Available models:\n\n${modelList}\n\n` +
-        `Use /model <name> to switch.\n` +
-        `Example: /model sonnet`
+          `Use /model <name> to switch.\n` +
+          `Example: /model sonnet`
       );
       return;
     }
 
     // /model <name> - switch to that model
     const searchTerm = subcommand;
-    const matchedModel = availableModels.find(m =>
-      m.id.toLowerCase().includes(searchTerm) ||
-      m.name.toLowerCase().includes(searchTerm)
+    const matchedModel = availableModels.find(
+      (m) => m.id.toLowerCase().includes(searchTerm) || m.name.toLowerCase().includes(searchTerm)
     );
 
     if (!matchedModel) {
       await ctx.reply(
         `Model "${searchTerm}" not found.\n\n` +
-        `Available: ${availableModels.map(m => m.name).join(', ')}`
+          `Available: ${availableModels.map((m) => m.name).join(', ')}`
       );
       return;
     }
@@ -295,21 +301,23 @@ export function registerSessionHandlers(deps: CommandHandlerDeps): void {
       memory.linkTelegramChat(chatId, session.id, groupName);
       await ctx.reply(
         `Linked to session "${session.name}"\n\n` +
-        `Messages in this group will now sync with the "${session.name}" session in the desktop app.\n\n` +
-        `Note: To see all messages (not just commands), either:\n` +
-        `* Make me an admin in this group, OR\n` +
-        `* Disable Privacy Mode via @BotFather (/setprivacy -> Disable)`
+          `Messages in this group will now sync with the "${session.name}" session in the desktop app.\n\n` +
+          `Note: To see all messages (not just commands), either:\n` +
+          `* Make me an admin in this group, OR\n` +
+          `* Disable Privacy Mode via @BotFather (/setprivacy -> Disable)`
       );
-      console.log(`[Telegram] Linked group "${groupName}" (chatId: ${chatId}) to session "${session.id}"`);
+      console.log(
+        `[Telegram] Linked group "${groupName}" (chatId: ${chatId}) to session "${session.id}"`
+      );
       onSessionLinkCallback?.({ sessionId: session.id, linked: true });
     } else {
       // List available sessions
       const sessions = memory.getSessions();
-      const sessionNames = sessions.map(s => `* ${s.name}`).join('\n');
+      const sessionNames = sessions.map((s) => `* ${s.name}`).join('\n');
       await ctx.reply(
         `No session found with name "${groupName}"\n\n` +
-        `Available sessions:\n${sessionNames}\n\n` +
-        `To link this group, rename it to match one of the session names above, or use /link <session-name>.`
+          `Available sessions:\n${sessionNames}\n\n` +
+          `To link this group, rename it to match one of the session names above, or use /link <session-name>.`
       );
     }
   });
@@ -324,18 +332,17 @@ export function registerSessionHandlers(deps: CommandHandlerDeps): void {
 
     // Only allow linking in groups
     if (chatType !== 'group' && chatType !== 'supergroup') {
-      await ctx.reply('The /link command only works in group chats. Create a group and add me to it first.');
+      await ctx.reply(
+        'The /link command only works in group chats. Create a group and add me to it first.'
+      );
       return;
     }
 
     if (!sessionName) {
       const memory = AgentManager.getMemory();
       const sessions = memory?.getSessions() || [];
-      const sessionNames = sessions.map(s => `* ${s.name}`).join('\n');
-      await ctx.reply(
-        `Usage: /link <session-name>\n\n` +
-        `Available sessions:\n${sessionNames}`
-      );
+      const sessionNames = sessions.map((s) => `* ${s.name}`).join('\n');
+      await ctx.reply(`Usage: /link <session-name>\n\n` + `Available sessions:\n${sessionNames}`);
       return;
     }
 
@@ -348,10 +355,9 @@ export function registerSessionHandlers(deps: CommandHandlerDeps): void {
     const session = memory.getSessionByName(sessionName);
     if (!session) {
       const sessions = memory.getSessions();
-      const sessionNames = sessions.map(s => `* ${s.name}`).join('\n');
+      const sessionNames = sessions.map((s) => `* ${s.name}`).join('\n');
       await ctx.reply(
-        `No session found with name "${sessionName}"\n\n` +
-        `Available sessions:\n${sessionNames}`
+        `No session found with name "${sessionName}"\n\n` + `Available sessions:\n${sessionNames}`
       );
       return;
     }
@@ -360,10 +366,10 @@ export function registerSessionHandlers(deps: CommandHandlerDeps): void {
     memory.linkTelegramChat(chatId, session.id, ctx.chat?.title || undefined);
     await ctx.reply(
       `Linked to session "${session.name}"\n\n` +
-      `Messages in this group will now sync with the "${session.name}" session.\n\n` +
-      `Note: To see all messages (not just commands), either:\n` +
-      `* Make me an admin in this group, OR\n` +
-      `* Disable Privacy Mode via @BotFather (/setprivacy -> Disable)`
+        `Messages in this group will now sync with the "${session.name}" session.\n\n` +
+        `Note: To see all messages (not just commands), either:\n` +
+        `* Make me an admin in this group, OR\n` +
+        `* Disable Privacy Mode via @BotFather (/setprivacy -> Disable)`
     );
     console.log(`[Telegram] Manually linked chat ${chatId} to session "${session.id}"`);
     onSessionLinkCallback?.({ sessionId: session.id, linked: true });

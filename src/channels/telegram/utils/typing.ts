@@ -62,10 +62,7 @@ export function startTyping(ctx: Context): TypingIndicator {
 /**
  * Execute a function with typing indicator
  */
-export async function withTyping<T>(
-  ctx: Context,
-  fn: () => Promise<T>
-): Promise<T> {
+export async function withTyping<T>(ctx: Context, fn: () => Promise<T>): Promise<T> {
   const indicator = startTyping(ctx);
   try {
     return await fn();

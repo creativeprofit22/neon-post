@@ -766,6 +766,30 @@
       border-color: var(--text-muted);
     }
 
+    /* Streaming bubble: smooth entrance + typing cursor */
+    .streaming-bubble {
+      animation: streamFadeIn 0.25s ease-out;
+    }
+
+    .streaming-bubble::after {
+      content: '▍';
+      display: inline;
+      color: var(--text-muted);
+      animation: cursorBlink 0.6s steps(2) infinite;
+      margin-left: 1px;
+      font-weight: 300;
+    }
+
+    @keyframes streamFadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes cursorBlink {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0; }
+    }
+
     .message.system {
       align-self: center;
       background: transparent;
@@ -4170,6 +4194,8 @@
     let statusElBySession = new Map(); // Track status elements per session
     let streamingBubbleBySession = new Map(); // Track live-updating assistant bubble per session
     let streamingTextBySession = new Map(); // Persist accumulated partial text across session switches
+    let streamingRafBySession = new Map(); // Track pending rAF for streaming render throttle
+    let streamingDirtyBySession = new Map(); // Track whether streaming text needs re-render
     let toolCountBySession = new Map(); // Track tool call count per session
     let suggestionBySession = new Map(); // Track ghost suggestions per session
     let inputTextBySession = new Map(); // Track input text per session
@@ -5400,6 +5426,12 @@
           streamingBubbleBySession.delete(sessionId);
         }
         streamingTextBySession.delete(sessionId);
+        // Cancel any pending RAF to avoid stale renders after completion
+        const pendingRaf = streamingRafBySession.get(sessionId);
+        if (pendingRaf) {
+          cancelAnimationFrame(pendingRaf);
+          streamingRafBySession.delete(sessionId);
+        }
 
         // Only update visible UI if still on same session
         if (currentSessionId === sessionId) {
@@ -5915,6 +5947,11 @@
         previewEl.classList.add('hidden');
       }
 
+      // Re-show the status indicator when switching away from streaming text
+      if (status.type !== 'partial_text' && statusEl.style.display === 'none') {
+        statusEl.style.display = '';
+      }
+
       if (status.type === 'thinking') {
         // Don't overwrite blocked state
         if (!statusEl.classList.contains('tool-blocked')) {
@@ -6089,21 +6126,39 @@
             }
             streamingBubbleBySession.set(status.sessionId, bubble);
           }
+          // Hide the status indicator while streaming text is visible to prevent jumpiness
+          if (statusEl) {
+            statusEl.style.display = 'none';
+          }
           // partialReplace: full text from coder mode (replace entirely)
           // otherwise: delta from general mode (accumulate with separator)
           const prev = streamingTextBySession.get(status.sessionId) || '';
           const accumulated = status.partialReplace
             ? status.partialText
-            : (prev ? prev + '\n\n' + status.partialText : status.partialText);
+            : prev + status.partialText;
           streamingTextBySession.set(status.sessionId, accumulated);
-          // Re-render all accumulated text
-          const contentDiv = document.createElement('div');
-          contentDiv.innerHTML = formatContent(accumulated);
-          bubble.innerHTML = '';
-          while (contentDiv.firstChild) {
-            bubble.appendChild(contentDiv.firstChild);
+          // Throttle DOM updates with RAF — skip if a render is already queued
+          if (!streamingRafBySession.has(status.sessionId)) {
+            const rafId = requestAnimationFrame(() => {
+              streamingRafBySession.delete(status.sessionId);
+              const currentBubble = streamingBubbleBySession.get(status.sessionId);
+              if (!currentBubble) return;
+              const text = streamingTextBySession.get(status.sessionId) || '';
+              // Re-render all accumulated text
+              const contentDiv = document.createElement('div');
+              contentDiv.innerHTML = formatContent(text);
+              currentBubble.innerHTML = '';
+              while (contentDiv.firstChild) {
+                currentBubble.appendChild(contentDiv.firstChild);
+              }
+              // Only scroll if user is near the bottom (within 120px)
+              const distFromBottom = messagesDiv.scrollHeight - messagesDiv.scrollTop - messagesDiv.clientHeight;
+              if (distFromBottom < 120) {
+                scrollToBottom();
+              }
+            });
+            streamingRafBySession.set(status.sessionId, rafId);
           }
-          scrollToBottom();
         }
       } else if (status.type === 'responding') {
         actionEl.textContent = 'grooming my response... 🐈';

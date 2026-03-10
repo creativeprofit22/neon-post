@@ -486,7 +486,7 @@ const DANGEROUS_BROWSER_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
 /**
  * Validate a Bash command against dangerous patterns
  */
-function validateBashCommand(command: string): ValidationResult {
+export function validateBashCommand(command: string): ValidationResult {
   const normalizedCommand = command.trim();
 
   for (const { pattern, reason } of DANGEROUS_BASH_PATTERNS) {
@@ -503,9 +503,12 @@ function validateBashCommand(command: string): ValidationResult {
 /**
  * Validate a file path for write operations
  */
-function validateWritePath(filePath: string): ValidationResult {
+export function validateWritePath(filePath: string): ValidationResult {
   // Expand ~ to home directory for pattern matching (cross-platform)
-  const homeDir = process.env.HOME || process.env.USERPROFILE || (process.platform === 'win32' ? 'C:\\Users\\user' : '/home/user');
+  const homeDir =
+    process.env.HOME ||
+    process.env.USERPROFILE ||
+    (process.platform === 'win32' ? 'C:\\Users\\user' : '/home/user');
   const expandedPath = filePath.replace(/^~/, homeDir);
 
   // Normalize to resolve ../ traversal attempts and canonicalize separators
@@ -525,7 +528,7 @@ function validateWritePath(filePath: string): ValidationResult {
 /**
  * Validate a browser URL
  */
-function validateBrowserUrl(url: string): ValidationResult {
+export function validateBrowserUrl(url: string): ValidationResult {
   for (const { pattern, reason } of DANGEROUS_BROWSER_PATTERNS) {
     if (pattern.test(url)) {
       console.warn(`[Safety] BLOCKED browser URL: ${reason}`);
@@ -621,13 +624,15 @@ export function setStatusEmitter(emitter: StatusEmitter): void {
  * See: https://github.com/anthropics/claude-code/issues/4362
  */
 export function buildPreToolUseHook(): {
-  hooks: Array<(input: { tool_name: string; tool_input: unknown }) => Promise<{
-    hookSpecificOutput: {
-      hookEventName: 'PreToolUse';
-      permissionDecision: 'allow' | 'deny';
-      permissionDecisionReason?: string;
-    };
-  }>>;
+  hooks: Array<
+    (input: { tool_name: string; tool_input: unknown }) => Promise<{
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse';
+        permissionDecision: 'allow' | 'deny';
+        permissionDecisionReason?: string;
+      };
+    }>
+  >;
 } {
   return {
     hooks: [

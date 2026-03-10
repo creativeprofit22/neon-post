@@ -1,47 +1,47 @@
 /**
  * Chat Engine — Lightweight agent loop for General mode
  *
- * Uses @anthropic-ai/sdk (Messages API) directly — in-process, minimal system prompt,
- * only relevant tools, full context control. No subprocess, no MCP, no Claude Code preset.
+ * Uses @kenkaiiii/gg-agent Agent class for the agentic loop.
+ * System prompt building, memory persistence, and session management
+ * remain in-process.
  */
 
-import Anthropic from '@anthropic-ai/sdk';
+import { agentLoop } from '@kenkaiiii/gg-agent';
+import type { AgentOptions } from '@kenkaiiii/gg-agent';
+import { stream as ggStream } from '@kenkaiiii/gg-ai';
+import type {
+  ThinkingLevel,
+  Message,
+  TextContent,
+  ImageContent as GGImageContent,
+} from '@kenkaiiii/gg-ai';
 import { MemoryManager } from '../memory';
 import { ToolsConfig, setCurrentSessionId, runWithSessionId } from '../tools';
 import { SettingsManager } from '../settings';
 import { SYSTEM_GUIDELINES } from '../config/system-guidelines';
-import { createChatClient, getProviderForModel } from './chat-providers';
-import { getChatToolDefinitions, getWebSearchTool, ChatToolSet } from './chat-tools';
-import type { AgentStatus, ImageContent, AttachmentInfo, ProcessResult, MediaAttachment } from './index';
+import { getStreamConfig } from './chat-providers';
+import { getChatAgentTools, getServerTools } from './chat-tools';
+import type {
+  AgentStatus,
+  ImageContent,
+  AttachmentInfo,
+  ProcessResult,
+  MediaAttachment,
+} from './index';
 
-// Anthropic API message types
-type MessageParam = Anthropic.Messages.MessageParam;
-type ContentBlockParam = Anthropic.Messages.ContentBlockParam;
-type ToolResultBlockParam = Anthropic.Messages.ToolResultBlockParam;
-type TextBlockParam = Anthropic.Messages.TextBlockParam;
-
-// Thinking config (matches main agent, plus adaptive for 4.6 models)
-type ThinkingConfig =
-  | { type: 'enabled'; budget_tokens: number }
-  | { type: 'disabled' }
-  | { type: 'adaptive' };
-
-const THINKING_CONFIGS: Record<string, { thinking: ThinkingConfig; temperature?: number }> = {
-  'none':     { thinking: { type: 'disabled' } },
-  'minimal':  { thinking: { type: 'enabled', budget_tokens: 2048 } },
-  'normal':   { thinking: { type: 'enabled', budget_tokens: 10000 } },
-  'extended': { thinking: { type: 'enabled', budget_tokens: 30000 } },
-};
+// Conversation history uses gg-ai Message type (user/assistant only)
+type MessageParam = Message;
 
 const MAX_TOOL_ITERATIONS = 20;
-const MAX_CONTEXT_MESSAGES = 80; // Trim when conversation exceeds this
+const MAX_CONTEXT_MESSAGES = 80;
 
-// Tool output truncation limits (safety net — per-tool limits fire first)
-const TOOL_OUTPUT_MAX_CHARS = 30_000;
-const TOOL_OUTPUT_MAX_LINES = 2000;
-
-// Models that support adaptive thinking (skip thinking on simple queries)
-const ADAPTIVE_THINKING_MODELS = new Set(['claude-opus-4-6', 'claude-sonnet-4-6']);
+// Map settings thinking level to gg-ai ThinkingLevel
+const THINKING_LEVEL_MAP: Record<string, ThinkingLevel | undefined> = {
+  none: undefined,
+  minimal: 'low',
+  normal: 'medium',
+  extended: 'high',
+};
 
 interface ChatEngineConfig {
   memory: MemoryManager;
@@ -50,7 +50,7 @@ interface ChatEngineConfig {
 }
 
 /**
- * In-process chat engine using Anthropic Messages API directly.
+ * In-process chat engine using @kenkaiiii/gg-agent Agent class.
  */
 export class ChatEngine {
   private memory: MemoryManager;
@@ -59,14 +59,17 @@ export class ChatEngine {
   private conversationsBySession: Map<string, MessageParam[]> = new Map();
   private abortControllersBySession: Map<string, AbortController> = new Map();
   private processingBySession: Map<string, boolean> = new Map();
-  private messageQueueBySession: Map<string, Array<{
-    message: string;
-    channel: string;
-    images?: ImageContent[];
-    attachmentInfo?: AttachmentInfo;
-    resolve: (result: ProcessResult) => void;
-    reject: (error: Error) => void;
-  }>> = new Map();
+  private messageQueueBySession: Map<
+    string,
+    Array<{
+      message: string;
+      channel: string;
+      images?: ImageContent[];
+      attachmentInfo?: AttachmentInfo;
+      resolve: (result: ProcessResult) => void;
+      reject: (error: Error) => void;
+    }>
+  > = new Map();
   private pendingMedia: MediaAttachment[] = [];
 
   constructor(config: ChatEngineConfig) {
@@ -76,30 +79,38 @@ export class ChatEngine {
 
     // Wire up the summarizer for smart context / compaction
     this.memory.setSummarizer(async (messages) => {
-      const currentModel = SettingsManager.get('agent.model') || 'claude-haiku-4-5-20251001';
-      // Use haiku for summarization (fast + cheap), fall back to current model
       const summaryModel = 'claude-haiku-4-5-20251001';
-      try {
-        const client = await createChatClient(summaryModel);
-        const prompt = messages.map(m => `[${m.role}]: ${m.content}`).join('\n');
-        const result = await client.messages.create({
-          model: summaryModel,
-          max_tokens: 1024,
-          messages: [{ role: 'user', content: `Summarize this conversation concisely, preserving key facts, decisions, and context:\n\n${prompt}` }],
-        });
-        return result.content.length > 0 && result.content[0].type === 'text' ? result.content[0].text : '';
-      } catch (err) {
-        console.error('[ChatEngine] Summarizer failed, falling back to current model:', err);
-        // Fallback to current model if haiku fails
-        const client = await createChatClient(currentModel);
-        const prompt = messages.map(m => `[${m.role}]: ${m.content}`).join('\n');
-        const result = await client.messages.create({
-          model: currentModel,
-          max_tokens: 1024,
-          messages: [{ role: 'user', content: `Summarize this conversation concisely, preserving key facts, decisions, and context:\n\n${prompt}` }],
-        });
-        return result.content.length > 0 && result.content[0].type === 'text' ? result.content[0].text : '';
+      const currentModel = SettingsManager.get('agent.model') || 'claude-haiku-4-5-20251001';
+      const prompt = messages.map((m) => `[${m.role}]: ${m.content}`).join('\n');
+      const query = `Summarize this conversation concisely, preserving key facts, decisions, and context:\n\n${prompt}`;
+
+      for (const model of [summaryModel, currentModel]) {
+        try {
+          const streamCfg = await getStreamConfig(model);
+          const result = ggStream({
+            provider: streamCfg.provider,
+            model,
+            maxTokens: 1024,
+            messages: [{ role: 'user', content: query }],
+            apiKey: streamCfg.apiKey,
+            baseUrl: streamCfg.baseUrl,
+          });
+          const response = await result.response;
+          const textParts = (
+            Array.isArray(response.message.content)
+              ? response.message.content
+              : [{ type: 'text' as const, text: response.message.content }]
+          ).filter((p): p is TextContent => p.type === 'text');
+          return textParts.map((p) => p.text).join('') || '';
+        } catch (err) {
+          if (model === summaryModel) {
+            console.error('[ChatEngine] Summarizer failed, falling back to current model:', err);
+            continue;
+          }
+          throw err;
+        }
       }
+      return '';
     });
     console.log('[ChatEngine] Summarizer wired up');
   }
@@ -114,7 +125,6 @@ export class ChatEngine {
     images?: ImageContent[],
     attachmentInfo?: AttachmentInfo
   ): Promise<ProcessResult> {
-    // Queue if already processing
     if (this.processingBySession.get(sessionId)) {
       return this.queueMessage(userMessage, channel, sessionId, images, attachmentInfo);
     }
@@ -158,7 +168,13 @@ export class ChatEngine {
     });
 
     try {
-      const result = await this.executeMessage(next.message, next.channel, sessionId, next.images, next.attachmentInfo);
+      const result = await this.executeMessage(
+        next.message,
+        next.channel,
+        sessionId,
+        next.images,
+        next.attachmentInfo
+      );
       next.resolve(result);
     } catch (error) {
       next.reject(error instanceof Error ? error : new Error(String(error)));
@@ -166,7 +182,7 @@ export class ChatEngine {
   }
 
   /**
-   * Execute a message against the Anthropic Messages API with tool loop.
+   * Execute a message — sets session context then delegates to inner logic.
    */
   private async executeMessage(
     userMessage: string,
@@ -175,11 +191,15 @@ export class ChatEngine {
     images?: ImageContent[],
     attachmentInfo?: AttachmentInfo
   ): Promise<ProcessResult> {
-    // Set session context so tool handlers (scheduler, calendar, tasks) use the correct session
     setCurrentSessionId(sessionId);
-    return runWithSessionId(sessionId, () => this.executeMessageInner(userMessage, channel, sessionId, images, attachmentInfo));
+    return runWithSessionId(sessionId, () =>
+      this.executeMessageInner(userMessage, channel, sessionId, images, attachmentInfo)
+    );
   }
 
+  /**
+   * Core message processing: build context, create Agent, iterate events, save to memory.
+   */
   private async executeMessageInner(
     userMessage: string,
     channel: string,
@@ -194,229 +214,168 @@ export class ChatEngine {
     this.abortControllersBySession.set(sessionId, abortController);
 
     try {
-      // Get or create conversation history
+      // Load or get conversation history
       if (!this.conversationsBySession.has(sessionId)) {
         await this.loadConversationFromMemory(sessionId);
       }
       const conversation = this.conversationsBySession.get(sessionId)!;
 
-      // Build user message content with inline timestamp so the model always
-      // sees the current time adjacent to the query (not just in the system prompt,
-      // which can be overlooked in long conversations).
+      // Build timestamped user message
       const now = new Date();
       const timeTag = `[${now.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}]`;
       const timestampedMessage = `${timeTag} ${userMessage}`;
       const userContent = this.buildUserContent(timestampedMessage, images);
       conversation.push({ role: 'user', content: userContent });
 
-      // Compact conversation if too long (uses smart context with rolling summaries)
+      // Compact if needed
       const wasCompacted = await this.compactConversation(sessionId, userMessage);
 
-      // Build system prompt — split into static (cacheable) and dynamic (fresh per-turn)
+      // Build system prompt
       const { staticPrompt, dynamicPrompt } = this.buildSystemPrompt(sessionId);
+      const systemPrompt = `${staticPrompt}\n\n${dynamicPrompt}`;
 
-      // Get model
+      // Get model + provider config
       const model = SettingsManager.get('agent.model') || 'claude-opus-4-6';
+      const streamConfig = await getStreamConfig(model);
+      const agentTools = getChatAgentTools(this.toolsConfig);
+      const serverTools = getServerTools(model);
 
-      // Create client
-      const client = await createChatClient(model);
-
-      // Get tools
-      const toolSet = getChatToolDefinitions(this.toolsConfig);
-      const webSearch = getWebSearchTool(model);
-      const allTools = [...toolSet.apiTools];
-      if (webSearch) {
-        allTools.push(webSearch);
-      }
-
-      // Get thinking config
-      const provider = getProviderForModel(model);
-      const isAnthropic = provider === 'anthropic';
+      // Map thinking level
       const thinkingLevel = SettingsManager.get('agent.thinkingLevel') || 'normal';
-      const thinkingEntry = THINKING_CONFIGS[thinkingLevel] || THINKING_CONFIGS['normal'];
+      const thinking =
+        thinkingLevel in THINKING_LEVEL_MAP
+          ? THINKING_LEVEL_MAP[thinkingLevel]
+          : THINKING_LEVEL_MAP['normal'];
+
+      console.log(
+        `[ChatEngine] Session config — model: ${model}, thinking: ${thinkingLevel}→${thinking ?? 'disabled'}, provider: ${streamConfig.provider}`
+      );
 
       this.emitStatus({ type: 'thinking', sessionId, message: '*stretches paws* thinking...' });
 
-      // Prompt caching: static block is cached, dynamic block (time, facts, soul) is never cached.
-      // This prevents stale time from being served from the ~5min ephemeral cache.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const systemParam: any = isAnthropic
-        ? [
-            { type: 'text', text: staticPrompt, cache_control: { type: 'ephemeral' } },
-            { type: 'text', text: dynamicPrompt },
-          ]
-        : `${staticPrompt}\n\n${dynamicPrompt}`;
+      // Build Agent options
+      const agentOptions: AgentOptions = {
+        provider: streamConfig.provider,
+        model,
+        tools: agentTools,
+        serverTools: serverTools.length > 0 ? serverTools : undefined,
+        maxTurns: MAX_TOOL_ITERATIONS,
+        maxTokens: 16384,
+        thinking,
+        apiKey: streamConfig.apiKey,
+        baseUrl: streamConfig.baseUrl,
+        signal: abortController.signal,
+        cacheRetention: streamConfig.provider === 'anthropic' ? 'short' : 'none',
+      };
 
-      // Determine effective thinking mode for logging
-      let effectiveThinking = 'disabled';
-      if (isAnthropic && thinkingEntry.thinking.type !== 'disabled') {
-        effectiveThinking = ADAPTIVE_THINKING_MODELS.has(model) && thinkingEntry.thinking.type === 'enabled'
-          ? 'adaptive'
-          : `budget:${(thinkingEntry.thinking as { budget_tokens: number }).budget_tokens}`;
-      }
-      console.log(`[ChatEngine] Session config — model: ${model}, thinking: ${effectiveThinking}, caching: ${isAnthropic ? 'on' : 'off'}`);
+      // Build the full messages array: system + conversation history (which already includes the new user message)
+      const messages: MessageParam[] = [{ role: 'system', content: systemPrompt }, ...conversation];
 
-      // Agentic tool loop
+      console.log(
+        `[ChatEngine] Sending ${messages.length} messages to agentLoop (${conversation.length} conversation + 1 system)`
+      );
+
+      // Run agentLoop directly with full conversation context
+      const loop = agentLoop(messages, agentOptions);
+
+      // Iterate agent events
       let response = '';
-      let iterations = 0;
       let totalInputTokens = 0;
       let totalOutputTokens = 0;
       let totalCacheRead = 0;
-      let totalCacheCreation = 0;
+      let totalCacheWrite = 0;
 
-      while (iterations < MAX_TOOL_ITERATIONS) {
-        iterations++;
-
-        // Apply cache breakpoints to last user message (Anthropic only)
-        if (isAnthropic) {
-          this.applyCacheBreakpoints(conversation);
-        }
-
-        // Build request params
-        const params: Anthropic.Messages.MessageCreateParams = {
-          model,
-          max_tokens: 16384,
-          system: systemParam,
-          messages: conversation,
-          tools: allTools as Anthropic.Messages.MessageCreateParams['tools'],
-        };
-
-        // Add thinking for Anthropic models
-        if (isAnthropic && thinkingEntry.thinking.type !== 'disabled') {
-          // Use adaptive thinking for 4.6 models (lets model skip thinking on simple queries)
-          if (ADAPTIVE_THINKING_MODELS.has(model) && thinkingEntry.thinking.type === 'enabled') {
-            params.thinking = { type: 'adaptive' };
-          } else {
-            params.thinking = thinkingEntry.thinking;
-          }
-          params.temperature = 1; // Required when thinking is enabled
-        }
-
-        let result: Anthropic.Messages.Message;
-        try {
-          result = await client.messages.create(params, {
-            signal: abortController.signal,
-          });
-        } finally {
-          // Clean up cache markers to keep conversation state clean
-          if (isAnthropic) {
-            this.removeCacheBreakpoints(conversation);
-          }
-        }
-
-        // Log per-turn token usage and cache stats
-        const usage = result.usage;
-        const inputTokens = usage.input_tokens || 0;
-        const outputTokens = usage.output_tokens || 0;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const cacheRead = (usage as any).cache_read_input_tokens || 0;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const cacheCreation = (usage as any).cache_creation_input_tokens || 0;
-
-        totalInputTokens += inputTokens;
-        totalOutputTokens += outputTokens;
-        totalCacheRead += cacheRead;
-        totalCacheCreation += cacheCreation;
-
-        const totalIn = inputTokens + cacheRead + cacheCreation;
-        const cacheHitPct = totalIn > 0 ? Math.round((cacheRead / totalIn) * 100) : 0;
-        console.log(`[ChatEngine] Turn ${iterations} — in: ${inputTokens}, out: ${outputTokens}, cache_read: ${cacheRead}, cache_create: ${cacheCreation}, cache_hit: ${cacheHitPct}%`);
-
-        // Process response content blocks
-        // Cast to generic array since API may return block types not in SDK typings
-        // (e.g. server_tool_use, web_search_tool_result)
-        const assistantContent: ContentBlockParam[] = [];
-        let hasToolUse = false;
-        const toolResults: ToolResultBlockParam[] = [];
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        for (const rawBlock of result.content as any[]) {
-          const blockType = rawBlock.type as string;
-
-          if (blockType === 'thinking' || blockType === 'redacted_thinking') {
-            // Thinking block — skip (not added to conversation)
-            continue;
-          }
-
-          if (blockType === 'text') {
-            response += (response ? '\n\n' : '') + rawBlock.text;
-            assistantContent.push({ type: 'text', text: rawBlock.text } as TextBlockParam);
-
-            // Emit only this turn's text (UI accumulates across events)
+      for await (const event of loop) {
+        switch (event.type) {
+          case 'text_delta':
+            response += event.text;
             this.emitStatus({
               type: 'partial_text',
               sessionId,
-              partialText: rawBlock.text,
+              partialText: event.text,
               message: 'composing...',
             });
-          } else if (blockType === 'tool_use') {
-            hasToolUse = true;
-            assistantContent.push(rawBlock as ContentBlockParam);
+            break;
 
-            const isShell = rawBlock.name === 'shell_command';
+          case 'tool_call_start': {
+            const isShell = event.name === 'shell_command';
             this.emitStatus({
               type: 'tool_start',
               sessionId,
-              toolName: rawBlock.name,
-              toolInput: this.formatToolInput(rawBlock.input),
-              message: isShell ? `running ${this.formatToolInput(rawBlock.input)}...` : `batting at ${rawBlock.name}...`,
+              toolName: event.name,
+              toolInput: this.formatToolInput(event.args),
+              message: isShell
+                ? `running ${this.formatToolInput(event.args)}...`
+                : `batting at ${event.name}...`,
               isPocketCli: isShell,
             });
+            break;
+          }
 
-            // Execute tool
-            const toolResult = await this.executeTool(
-              rawBlock.id,
-              rawBlock.name,
-              rawBlock.input as Record<string, unknown>,
-              toolSet,
-              sessionId
-            );
-
-            toolResults.push(toolResult);
-
+          case 'tool_call_end':
             this.emitStatus({
               type: 'tool_end',
               sessionId,
               message: 'caught it! processing...',
             });
-          } else if (blockType === 'server_tool_use') {
-            // Server-side tool (web_search) — include in assistant content
-            assistantContent.push(rawBlock as ContentBlockParam);
+            break;
+
+          case 'server_tool_call':
             this.emitStatus({
               type: 'tool_start',
               sessionId,
-              toolName: 'web_search',
+              toolName: event.name,
               message: 'prowling the web...',
             });
-          } else if (blockType === 'web_search_tool_result') {
-            // Web search result — stays in assistant content (server-side tool, not a user tool_result)
-            assistantContent.push(rawBlock as ContentBlockParam);
+            break;
+
+          case 'server_tool_result':
             this.emitStatus({
               type: 'tool_end',
               sessionId,
               message: 'found some stuff!',
             });
+            break;
+
+          case 'turn_end': {
+            const u = event.usage;
+            totalInputTokens += u.inputTokens;
+            totalOutputTokens += u.outputTokens;
+            totalCacheRead += u.cacheRead ?? 0;
+            totalCacheWrite += u.cacheWrite ?? 0;
+
+            const turnTotal = u.inputTokens + (u.cacheRead ?? 0) + (u.cacheWrite ?? 0);
+            const hitPct = turnTotal > 0 ? Math.round(((u.cacheRead ?? 0) / turnTotal) * 100) : 0;
+            console.log(
+              `[ChatEngine] Turn ${event.turn} — in: ${u.inputTokens}, out: ${u.outputTokens}, cache_read: ${u.cacheRead ?? 0}, cache_create: ${u.cacheWrite ?? 0}, cache_hit: ${hitPct}%`
+            );
+            break;
           }
+
+          case 'agent_done': {
+            const tu = event.totalUsage;
+            const overallIn = tu.inputTokens + (tu.cacheRead ?? 0) + (tu.cacheWrite ?? 0);
+            const overallHit =
+              overallIn > 0 ? Math.round(((tu.cacheRead ?? 0) / overallIn) * 100) : 0;
+            console.log(
+              `[ChatEngine] Done — ${event.totalTurns} turn(s), ${tu.inputTokens + tu.outputTokens} total tokens (in: ${tu.inputTokens}, out: ${tu.outputTokens}), cache_hit: ${overallHit}%, cache_read: ${tu.cacheRead ?? 0}, cache_create: ${tu.cacheWrite ?? 0}`
+            );
+            break;
+          }
+
+          case 'error':
+            console.error('[ChatEngine] Agent error event:', event.error);
+            break;
+
+          // thinking_delta, tool_call_update — ignored
         }
-
-        // Add assistant message to conversation
-        conversation.push({ role: 'assistant', content: assistantContent });
-
-        // If there were tool uses, add results and continue loop
-        if (hasToolUse || toolResults.length > 0) {
-          conversation.push({ role: 'user', content: toolResults as ContentBlockParam[] });
-          continue;
-        }
-
-        // No tool use — we're done (end_turn)
-        break;
       }
 
-      // Log completion summary
-      const totalTokens = totalInputTokens + totalOutputTokens;
-      const overallTotalIn = totalInputTokens + totalCacheRead + totalCacheCreation;
-      const overallCacheHit = overallTotalIn > 0 ? Math.round((totalCacheRead / overallTotalIn) * 100) : 0;
-      console.log(`[ChatEngine] Done — ${iterations} turn(s), ${totalTokens} total tokens (in: ${totalInputTokens}, out: ${totalOutputTokens}), cache_hit: ${overallCacheHit}%, cache_read: ${totalCacheRead}, cache_create: ${totalCacheCreation}`);
+      // Update in-memory conversation with the final assistant response
+      // (Agent manages its own internal messages, but we track for session persistence)
+      if (response) {
+        conversation.push({ role: 'assistant', content: response });
+      }
 
       this.emitStatus({ type: 'done', sessionId });
 
@@ -424,52 +383,16 @@ export class ChatEngine {
         response = 'Task completed (no details available).';
       }
 
-      // Save to memory (same DB as Coder mode)
-      const isScheduledJob = channel.startsWith('cron:');
-      const isHeartbeat = response.toUpperCase().includes('HEARTBEAT_OK');
-
-      if (!(isScheduledJob && isHeartbeat)) {
-        let messageToSave = userMessage;
-
-        // Strip heartbeat suffix
-        const heartbeatSuffix = '\n\nIf nothing needs attention, reply with only HEARTBEAT_OK.';
-        if (messageToSave.endsWith(heartbeatSuffix)) {
-          messageToSave = messageToSave.slice(0, -heartbeatSuffix.length);
-        }
-
-        // Convert reminder prompts
-        const reminderMatch = messageToSave.match(/^\[SCHEDULED REMINDER - DELIVER NOW\]\nThe user previously asked to be reminded about: "(.+?)"\n\nDeliver this reminder/);
-        if (reminderMatch) {
-          messageToSave = `Reminder: ${reminderMatch[1]}`;
-        }
-
-        // Build metadata
-        let metadata: Record<string, unknown> | undefined;
-        if (channel.startsWith('cron:')) {
-          metadata = { source: 'scheduler', jobName: channel.slice(5) };
-        } else if (channel === 'telegram') {
-          const hasAttachment = attachmentInfo?.hasAttachment ?? (images && images.length > 0);
-          const attachmentType = attachmentInfo?.attachmentType ?? (images && images.length > 0 ? 'photo' : undefined);
-          metadata = { source: 'telegram', hasAttachment, attachmentType };
-        } else if (channel === 'ios') {
-          metadata = { source: 'ios' };
-        }
-
-        const userMsgId = this.memory.saveMessage('user', messageToSave, sessionId, metadata);
-        const assistantMetadata = metadata ? { source: metadata.source } : undefined;
-        const assistantMsgId = this.memory.saveMessage('assistant', response, sessionId, assistantMetadata);
-
-        // Embed asynchronously
-        this.memory.embedMessage(userMsgId).catch(e => console.error('[ChatEngine] Failed to embed user message:', e));
-        this.memory.embedMessage(assistantMsgId).catch(e => console.error('[ChatEngine] Failed to embed assistant message:', e));
-      }
+      // Save to memory
+      const totalTokens = totalInputTokens + totalOutputTokens;
+      this.saveToMemory(userMessage, response, channel, sessionId, images, attachmentInfo);
 
       return {
         response,
-        tokensUsed: totalInputTokens + totalOutputTokens,
+        tokensUsed: totalTokens,
         wasCompacted,
         media: this.pendingMedia.length > 0 ? this.pendingMedia : undefined,
-        contextTokens: totalInputTokens + totalCacheRead + totalCacheCreation,
+        contextTokens: totalInputTokens + totalCacheRead + totalCacheWrite,
         contextWindow: 200000,
       };
     } catch (error) {
@@ -482,13 +405,12 @@ export class ChatEngine {
 
       console.error('[ChatEngine] Query failed:', errorMsg);
 
-      // Save error to memory
       this.memory.saveMessage('user', userMessage, sessionId);
       this.memory.saveMessage('assistant', errorMsg, sessionId, { isError: true });
 
       throw error;
     } finally {
-      this.processingBySession.set(sessionId, false);
+      this.processingBySession.delete(sessionId);
       this.abortControllersBySession.delete(sessionId);
 
       setTimeout(() => {
@@ -500,208 +422,112 @@ export class ChatEngine {
   }
 
   /**
-   * Execute a tool by name and return a tool_result block.
+   * Save user + assistant messages to memory and trigger embedding.
    */
-  private async executeTool(
-    toolUseId: string,
-    toolName: string,
-    input: Record<string, unknown>,
-    toolSet: ChatToolSet,
-    _sessionId: string
-  ): Promise<ToolResultBlockParam> {
-    const handler = toolSet.handlerMap.get(toolName);
-    if (!handler) {
-      return {
-        type: 'tool_result',
-        tool_use_id: toolUseId,
-        content: `Unknown tool: ${toolName}`,
-        is_error: true,
-      };
+  private saveToMemory(
+    userMessage: string,
+    response: string,
+    channel: string,
+    sessionId: string,
+    images?: ImageContent[],
+    attachmentInfo?: AttachmentInfo
+  ): void {
+    const isScheduledJob = channel.startsWith('cron:');
+    const isHeartbeat = response.toUpperCase().includes('HEARTBEAT_OK');
+
+    if (isScheduledJob && isHeartbeat) return;
+
+    let messageToSave = userMessage;
+
+    // Strip heartbeat suffix
+    const heartbeatSuffix = '\n\nIf nothing needs attention, reply with only HEARTBEAT_OK.';
+    if (messageToSave.endsWith(heartbeatSuffix)) {
+      messageToSave = messageToSave.slice(0, -heartbeatSuffix.length);
     }
 
-    try {
-      const rawResult = await handler(input);
-      const result = this.truncateToolOutput(toolName, rawResult);
-      return {
-        type: 'tool_result',
-        tool_use_id: toolUseId,
-        content: result,
-      };
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      return {
-        type: 'tool_result',
-        tool_use_id: toolUseId,
-        content: `Tool error: ${msg}`,
-        is_error: true,
-      };
+    // Convert reminder prompts
+    const reminderMatch = messageToSave.match(
+      /^\[SCHEDULED REMINDER - DELIVER NOW\]\nThe user previously asked to be reminded about: "(.+?)"\n\nDeliver this reminder/
+    );
+    if (reminderMatch) {
+      messageToSave = `Reminder: ${reminderMatch[1]}`;
     }
+
+    // Build metadata
+    let metadata: Record<string, unknown> | undefined;
+    if (channel.startsWith('cron:')) {
+      metadata = { source: 'scheduler', jobName: channel.slice(5) };
+    } else if (channel === 'telegram') {
+      const hasAttachment = attachmentInfo?.hasAttachment ?? (images && images.length > 0);
+      const attachmentType =
+        attachmentInfo?.attachmentType ?? (images && images.length > 0 ? 'photo' : undefined);
+      metadata = { source: 'telegram', hasAttachment, attachmentType };
+    } else if (channel === 'ios') {
+      metadata = { source: 'ios' };
+    }
+
+    const userMsgId = this.memory.saveMessage('user', messageToSave, sessionId, metadata);
+    const assistantMetadata = metadata ? { source: metadata.source } : undefined;
+    const assistantMsgId = this.memory.saveMessage(
+      'assistant',
+      response,
+      sessionId,
+      assistantMetadata
+    );
+
+    // Embed asynchronously
+    this.memory
+      .embedMessage(userMsgId)
+      .catch((e) => console.error('[ChatEngine] Failed to embed user message:', e));
+    this.memory
+      .embedMessage(assistantMsgId)
+      .catch((e) => console.error('[ChatEngine] Failed to embed assistant message:', e));
   }
 
-  /**
-   * Add cache_control breakpoint to the last real user message (skipping tool_result messages).
-   * This makes the conversation prefix cacheable across turns.
-   */
-  private applyCacheBreakpoints(conversation: MessageParam[]): void {
-    // Walk backwards to find the last user message with text content (not tool_result)
-    for (let i = conversation.length - 1; i >= 0; i--) {
-      const msg = conversation[i];
-      if (msg.role !== 'user') continue;
+  // ─── User content building ─────────────────────────────────────
 
-      const content = msg.content;
-
-      // String content — it's a real user message
-      if (typeof content === 'string') {
-        // Convert to array format so we can add cache_control
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (msg as any).content = [{ type: 'text', text: content, cache_control: { type: 'ephemeral' } }];
-        return;
-      }
-
-      // Array content — check if it has text blocks (not just tool_result)
-      if (Array.isArray(content)) {
-        const hasText = content.some((b: ContentBlockParam) => b.type === 'text');
-        if (!hasText) continue; // tool_result-only message, keep looking
-
-        // Add cache_control to the last text block
-        for (let j = content.length - 1; j >= 0; j--) {
-          if (content[j].type === 'text') {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (content[j] as any).cache_control = { type: 'ephemeral' };
-            return;
-          }
-        }
-      }
-    }
-  }
-
-  /**
-   * Remove cache_control markers from conversation after API call.
-   */
-  private removeCacheBreakpoints(conversation: MessageParam[]): void {
-    for (const msg of conversation) {
-      if (msg.role !== 'user') continue;
-
-      const content = msg.content;
-
-      // Check if we converted a string to array format
-      if (Array.isArray(content) && content.length === 1 && content[0].type === 'text') {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const block = content[0] as any;
-        if (block.cache_control) {
-          delete block.cache_control;
-          // Convert back to string format for cleanliness
-          msg.content = block.text;
-          continue;
-        }
-      }
-
-      // Array content — just remove cache_control from text blocks
-      if (Array.isArray(content)) {
-        for (const block of content) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          if ((block as any).cache_control) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            delete (block as any).cache_control;
-          }
-        }
-      }
-    }
-  }
-
-  /**
-   * Truncate tool output to prevent context bloat.
-   * Per-tool limits (web_fetch 10K, shell_command 50K) fire first; this is a safety net.
-   */
-  private truncateToolOutput(toolName: string, output: string): string {
-    let truncated = output;
-    let wasTruncated = false;
-
-    // Line limit
-    const lines = truncated.split('\n');
-    if (lines.length > TOOL_OUTPUT_MAX_LINES) {
-      truncated = lines.slice(0, TOOL_OUTPUT_MAX_LINES).join('\n');
-      wasTruncated = true;
-    }
-
-    // Character limit
-    if (truncated.length > TOOL_OUTPUT_MAX_CHARS) {
-      truncated = truncated.slice(0, TOOL_OUTPUT_MAX_CHARS);
-      wasTruncated = true;
-    }
-
-    if (wasTruncated) {
-      const notice = `\n\n[Output truncated — original was ${output.length.toLocaleString()} chars / ${lines.length.toLocaleString()} lines]`;
-      truncated += notice;
-      console.log(`[ChatEngine] Truncated ${toolName} output: ${output.length} chars / ${lines.length} lines → ${truncated.length} chars`);
-    }
-
-    return truncated;
-  }
-
-  /**
-   * Build user content with optional images.
-   */
   private buildUserContent(
     message: string,
     images?: ImageContent[]
-  ): string | ContentBlockParam[] {
-    if (!images || images.length === 0) {
-      return message;
-    }
+  ): string | (TextContent | GGImageContent)[] {
+    if (!images || images.length === 0) return message;
 
-    const content: ContentBlockParam[] = [
-      { type: 'text', text: message } as TextBlockParam,
-    ];
-
+    const content: (TextContent | GGImageContent)[] = [{ type: 'text', text: message }];
     for (const img of images) {
       content.push({
         type: 'image',
-        source: {
-          type: 'base64',
-          media_type: img.mediaType,
-          data: img.data,
-        },
-      } as ContentBlockParam);
+        mediaType: img.mediaType,
+        data: img.data,
+      });
     }
-
     return content;
   }
 
+  // ─── System prompt building ────────────────────────────────────
+
   /**
    * Build system prompt split into static (cacheable) and dynamic (per-turn) parts.
-   *
-   * Static: identity, instructions, profile, capabilities — rarely change.
-   * Dynamic: temporal, facts, soul, daily logs — change every turn.
-   *
-   * Prompt caching caches the system prompt for ~5 minutes. If temporal context
-   * is inside the cached block, the model sees stale time in long conversations.
-   * Splitting ensures the model always gets fresh dynamic context.
    */
   buildSystemPrompt(sessionId?: string): { staticPrompt: string; dynamicPrompt: string } {
-    // === Static context (cached) ===
-    // Order: Identity → User Context → Guidelines → Capabilities
+    // === Static context ===
     const staticParts: string[] = [];
 
-    // 1. Agent Identity: name, description, personality (who am I)
     const identity = SettingsManager.getFormattedIdentity();
     if (identity) {
       staticParts.push(identity);
       console.log(`[ChatEngine] Identity injected: ${identity.length} chars`);
     }
 
-    // 2. User Context: profile + world (who is my user)
     const userContext = SettingsManager.getFormattedUserContext();
     if (userContext) {
       staticParts.push(userContext);
       console.log(`[ChatEngine] User context injected: ${userContext.length} chars`);
     }
 
-    // 3. System Guidelines: developer-controlled instructions (how to behave)
     staticParts.push(SYSTEM_GUIDELINES);
     console.log(`[ChatEngine] System guidelines injected: ${SYSTEM_GUIDELINES.length} chars`);
 
-    // === Dynamic context (never cached) ===
+    // === Dynamic context ===
     const dynamicParts: string[] = [];
 
     const lastUserMsg = sessionId ? this.getLastUserMessageTimestamp(sessionId) : undefined;
@@ -729,7 +555,9 @@ export class ChatEngine {
 
     const staticPrompt = staticParts.join('\n\n');
     const dynamicPrompt = dynamicParts.join('\n\n');
-    console.log(`[ChatEngine] General mode prompt assembled — static: ${staticPrompt.length} chars, dynamic: ${dynamicPrompt.length} chars, total: ${staticPrompt.length + dynamicPrompt.length} chars`);
+    console.log(
+      `[ChatEngine] General mode prompt assembled — static: ${staticPrompt.length} chars, dynamic: ${dynamicPrompt.length} chars, total: ${staticPrompt.length + dynamicPrompt.length} chars`
+    );
 
     return { staticPrompt, dynamicPrompt };
   }
@@ -737,33 +565,19 @@ export class ChatEngine {
   private getLastUserMessageTimestamp(sessionId: string): string | undefined {
     try {
       const messages = this.memory.getRecentMessages(1, sessionId);
-      if (messages.length > 0) {
-        return messages[0].timestamp;
-      }
+      if (messages.length > 0) return messages[0].timestamp;
     } catch {
-      // Ignore errors
+      /* ignore */
     }
     return undefined;
   }
 
   private parseDbTimestamp(timestamp: string): Date {
-    // If already has timezone indicator, parse directly
-    if (/Z$|[+-]\d{2}:?\d{2}$/.test(timestamp)) {
-      return new Date(timestamp);
-    }
+    if (/Z$|[+-]\d{2}:?\d{2}$/.test(timestamp)) return new Date(timestamp);
 
-    // Check if user has configured a timezone
     const userTimezone = SettingsManager.get('profile.timezone');
-
-    if (userTimezone) {
-      // User has timezone set - treat DB timestamps as UTC
-      const normalized = timestamp.replace(' ', 'T');
-      return new Date(normalized + 'Z');
-    } else {
-      // No timezone configured - use system local time
-      const normalized = timestamp.replace(' ', 'T');
-      return new Date(normalized);
-    }
+    const normalized = timestamp.replace(' ', 'T');
+    return userTimezone ? new Date(normalized + 'Z') : new Date(normalized);
   }
 
   private buildTemporalContext(lastMessageTimestamp?: string): string {
@@ -776,19 +590,14 @@ export class ChatEngine {
       minute: '2-digit',
       hour12: true,
     });
-
     const dateStr = now.toLocaleDateString('en-US', {
       month: 'long',
       day: 'numeric',
       year: 'numeric',
     });
 
-    const lines = [
-      '## Current Time',
-      `It is ${dayName}, ${dateStr} at ${timeStr}.`,
-    ];
+    const lines = ['## Current Time', `It is ${dayName}, ${dateStr} at ${timeStr}.`];
 
-    // Add time since last message if available
     if (lastMessageTimestamp) {
       try {
         const lastDate = this.parseDbTimestamp(lastMessageTimestamp);
@@ -806,7 +615,7 @@ export class ChatEngine {
 
         lines.push(`Last message from user was ${timeSince}.`);
       } catch {
-        // Ignore timestamp parsing errors
+        /* ignore */
       }
     }
 
@@ -815,53 +624,46 @@ export class ChatEngine {
 
   /**
    * Get the developer-controlled prompt (System Guidelines).
-   * This is what the "System Prompt" tab displays in the Personalize UI.
-   * Excludes user-editable content (personalize, profile) and dynamic injections.
    */
   getDeveloperPrompt(): string {
     return SYSTEM_GUIDELINES;
   }
 
+  // ─── Conversation loading & compaction ─────────────────────────
+
   /**
-   * Load conversation history from SQLite into in-memory format.
-   * Uses smart context (rolling summary + recent messages) for longer sessions.
+   * Load conversation history from SQLite.
+   * Uses smart context (rolling summary + recent) for longer sessions.
    */
   async loadConversationFromMemory(sessionId: string): Promise<void> {
     const messageCount = this.memory.getSessionMessageCount(sessionId);
 
-    // For short sessions, just load directly
     if (messageCount <= MAX_CONTEXT_MESSAGES) {
       const messages = this.memory.getRecentMessages(MAX_CONTEXT_MESSAGES, sessionId);
       const conversation: MessageParam[] = [];
-
       for (const msg of messages) {
         if (msg.role === 'user' || msg.role === 'assistant') {
           conversation.push({ role: msg.role, content: msg.content });
         }
       }
-
-      // Clean: ensure starts with user, merge consecutive same-role
       const cleaned = this.cleanConversation(conversation);
       this.conversationsBySession.set(sessionId, cleaned);
       console.log(`[ChatEngine] Loaded ${cleaned.length} messages for session ${sessionId}`);
       return;
     }
 
-    // For longer sessions, use smart context with rolling summaries
     try {
       const smartContext = await this.memory.getSmartContext(sessionId, {
         recentMessageLimit: 40,
         rollingSummaryInterval: 30,
-        semanticRetrievalCount: 0, // no query yet
+        semanticRetrievalCount: 0,
       });
 
       const conversation: MessageParam[] = [];
-
       if (smartContext.rollingSummary) {
         conversation.push({ role: 'user', content: '[System: Previous conversation summary]' });
         conversation.push({ role: 'assistant', content: smartContext.rollingSummary });
       }
-
       for (const msg of smartContext.recentMessages) {
         if (msg.role === 'user' || msg.role === 'assistant') {
           conversation.push({ role: msg.role, content: msg.content });
@@ -870,10 +672,14 @@ export class ChatEngine {
 
       const cleaned = this.cleanConversation(conversation);
       this.conversationsBySession.set(sessionId, cleaned);
-      console.log(`[ChatEngine] Loaded ${cleaned.length} messages with smart context for session ${sessionId} (summary: ${smartContext.rollingSummary ? 'yes' : 'no'})`);
+      console.log(
+        `[ChatEngine] Loaded ${cleaned.length} messages with smart context for session ${sessionId} (summary: ${smartContext.rollingSummary ? 'yes' : 'no'})`
+      );
     } catch (err) {
-      console.error('[ChatEngine] Smart context load failed, falling back to recent messages:', err);
-      // Fallback to simple load
+      console.error(
+        '[ChatEngine] Smart context load failed, falling back to recent messages:',
+        err
+      );
       const messages = this.memory.getRecentMessages(MAX_CONTEXT_MESSAGES, sessionId);
       const conversation: MessageParam[] = [];
       for (const msg of messages) {
@@ -883,20 +689,17 @@ export class ChatEngine {
       }
       const cleaned = this.cleanConversation(conversation);
       this.conversationsBySession.set(sessionId, cleaned);
-      console.log(`[ChatEngine] Fallback loaded ${cleaned.length} messages for session ${sessionId}`);
+      console.log(
+        `[ChatEngine] Fallback loaded ${cleaned.length} messages for session ${sessionId}`
+      );
     }
   }
 
-  /**
-   * Clean conversation: ensure starts with user message, merge consecutive same-role messages.
-   */
   private cleanConversation(conversation: MessageParam[]): MessageParam[] {
-    // Ensure starts with user message
     while (conversation.length > 0 && conversation[0].role !== 'user') {
       conversation.shift();
     }
 
-    // Merge consecutive same-role messages
     const cleaned: MessageParam[] = [];
     for (const msg of conversation) {
       if (cleaned.length > 0 && cleaned[cleaned.length - 1].role === msg.role) {
@@ -908,20 +711,14 @@ export class ChatEngine {
         cleaned.push({ ...msg });
       }
     }
-
     return cleaned;
   }
 
-  /**
-   * Compact conversation using smart context (rolling summary + recent messages).
-   * Replaces naive truncation with summarization-aware compaction.
-   */
   private async compactConversation(sessionId: string, currentQuery: string): Promise<boolean> {
     const conversation = this.conversationsBySession.get(sessionId);
     if (!conversation || conversation.length <= MAX_CONTEXT_MESSAGES) return false;
 
     try {
-      // Use getSmartContext to get rolling summary + recent messages
       const smartContext = await this.memory.getSmartContext(sessionId, {
         recentMessageLimit: 40,
         rollingSummaryInterval: 30,
@@ -929,33 +726,27 @@ export class ChatEngine {
         currentQuery,
       });
 
-      // Rebuild in-memory conversation from smart context
       const newConversation: MessageParam[] = [];
-
-      // Prepend rolling summary as first context
       if (smartContext.rollingSummary) {
         newConversation.push({ role: 'user', content: '[System: Previous conversation summary]' });
         newConversation.push({ role: 'assistant', content: smartContext.rollingSummary });
       }
-
-      // Add recent messages
       for (const msg of smartContext.recentMessages) {
         if (msg.role === 'user' || msg.role === 'assistant') {
           newConversation.push({ role: msg.role, content: msg.content });
         }
       }
-
-      // Ensure starts with user message
       while (newConversation.length > 0 && newConversation[0].role !== 'user') {
         newConversation.shift();
       }
 
       this.conversationsBySession.set(sessionId, newConversation);
-      console.log(`[ChatEngine] Compacted: ${conversation.length} -> ${newConversation.length} messages (summary: ${smartContext.rollingSummary ? 'yes' : 'no'})`);
+      console.log(
+        `[ChatEngine] Compacted: ${conversation.length} -> ${newConversation.length} messages (summary: ${smartContext.rollingSummary ? 'yes' : 'no'})`
+      );
       return true;
     } catch (err) {
       console.error('[ChatEngine] Compaction failed, falling back to naive trim:', err);
-      // Fallback: naive trim
       const trimTo = Math.floor(MAX_CONTEXT_MESSAGES * 0.75);
       const trimmed = conversation.slice(-trimTo);
       while (trimmed.length > 0 && trimmed[0].role !== 'user') {
@@ -966,17 +757,13 @@ export class ChatEngine {
     }
   }
 
-  /**
-   * Stop a running query for a session.
-   */
+  // ─── Session management ────────────────────────────────────────
+
   stopQuery(sessionId?: string): boolean {
     if (sessionId) {
-      // Clear queue
       const queue = this.messageQueueBySession.get(sessionId);
       if (queue) {
-        for (const item of queue) {
-          item.reject(new Error('Queue cleared'));
-        }
+        for (const item of queue) item.reject(new Error('Queue cleared'));
         this.messageQueueBySession.delete(sessionId);
       }
 
@@ -988,7 +775,6 @@ export class ChatEngine {
       return false;
     }
 
-    // Stop any running query
     for (const [sid, isProcessing] of this.processingBySession.entries()) {
       if (isProcessing) {
         const controller = this.abortControllersBySession.get(sid);
@@ -1001,22 +787,14 @@ export class ChatEngine {
     return false;
   }
 
-  /**
-   * Check if a query is processing.
-   */
   isQueryProcessing(sessionId?: string): boolean {
-    if (sessionId) {
-      return this.processingBySession.get(sessionId) || false;
-    }
+    if (sessionId) return this.processingBySession.get(sessionId) || false;
     for (const v of this.processingBySession.values()) {
       if (v) return true;
     }
     return false;
   }
 
-  /**
-   * Clear conversation history for a session.
-   */
   clearSession(sessionId: string): void {
     this.conversationsBySession.delete(sessionId);
   }

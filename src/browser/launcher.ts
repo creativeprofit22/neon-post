@@ -41,8 +41,20 @@ const BROWSER_DEFINITIONS: BrowserDefinition[] = [
     bundleId: 'com.google.Chrome',
     macPath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     winPaths: [
-      path.join(process.env['PROGRAMFILES'] || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe'),
-      path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      path.join(
+        process.env['PROGRAMFILES'] || 'C:\\Program Files',
+        'Google',
+        'Chrome',
+        'Application',
+        'chrome.exe'
+      ),
+      path.join(
+        process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)',
+        'Google',
+        'Chrome',
+        'Application',
+        'chrome.exe'
+      ),
       path.join(process.env['LOCALAPPDATA'] || '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
     ],
   },
@@ -53,8 +65,20 @@ const BROWSER_DEFINITIONS: BrowserDefinition[] = [
     bundleId: 'com.microsoft.edgemac',
     macPath: '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
     winPaths: [
-      path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
-      path.join(process.env['PROGRAMFILES'] || 'C:\\Program Files', 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+      path.join(
+        process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)',
+        'Microsoft',
+        'Edge',
+        'Application',
+        'msedge.exe'
+      ),
+      path.join(
+        process.env['PROGRAMFILES'] || 'C:\\Program Files',
+        'Microsoft',
+        'Edge',
+        'Application',
+        'msedge.exe'
+      ),
     ],
   },
   {
@@ -64,8 +88,20 @@ const BROWSER_DEFINITIONS: BrowserDefinition[] = [
     bundleId: 'com.brave.Browser',
     macPath: '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser',
     winPaths: [
-      path.join(process.env['PROGRAMFILES'] || 'C:\\Program Files', 'BraveSoftware', 'Brave-Browser', 'Application', 'brave.exe'),
-      path.join(process.env['LOCALAPPDATA'] || '', 'BraveSoftware', 'Brave-Browser', 'Application', 'brave.exe'),
+      path.join(
+        process.env['PROGRAMFILES'] || 'C:\\Program Files',
+        'BraveSoftware',
+        'Brave-Browser',
+        'Application',
+        'brave.exe'
+      ),
+      path.join(
+        process.env['LOCALAPPDATA'] || '',
+        'BraveSoftware',
+        'Brave-Browser',
+        'Application',
+        'brave.exe'
+      ),
     ],
   },
   {
@@ -75,7 +111,16 @@ const BROWSER_DEFINITIONS: BrowserDefinition[] = [
     bundleId: 'company.thebrowser.Browser',
     macPath: '/Applications/Arc.app/Contents/MacOS/Arc',
     winPaths: [
-      path.join(process.env['LOCALAPPDATA'] || '', 'Packages', 'TheBrowserCompany.Arc_ttt1ap7aakyb4', 'LocalCache', 'Local', 'Arc', 'Application', 'Arc.exe'),
+      path.join(
+        process.env['LOCALAPPDATA'] || '',
+        'Packages',
+        'TheBrowserCompany.Arc_ttt1ap7aakyb4',
+        'LocalCache',
+        'Local',
+        'Arc',
+        'Application',
+        'Arc.exe'
+      ),
     ],
   },
   {
@@ -85,7 +130,12 @@ const BROWSER_DEFINITIONS: BrowserDefinition[] = [
     bundleId: 'org.chromium.Chromium',
     macPath: '/Applications/Chromium.app/Contents/MacOS/Chromium',
     winPaths: [
-      path.join(process.env['PROGRAMFILES'] || 'C:\\Program Files', 'Chromium', 'Application', 'chrome.exe'),
+      path.join(
+        process.env['PROGRAMFILES'] || 'C:\\Program Files',
+        'Chromium',
+        'Application',
+        'chrome.exe'
+      ),
       path.join(process.env['LOCALAPPDATA'] || '', 'Chromium', 'Application', 'chrome.exe'),
     ],
   },
@@ -135,9 +185,7 @@ export function detectInstalledBrowsers(): BrowserInfo[] {
 export async function isBrowserRunning(browser: BrowserInfo): Promise<boolean> {
   try {
     if (IS_WINDOWS) {
-      const { stdout } = await execAsync(
-        `tasklist /FI "IMAGENAME eq ${browser.processName}" /NH`,
-      );
+      const { stdout } = await execAsync(`tasklist /FI "IMAGENAME eq ${browser.processName}" /NH`);
       return stdout.toLowerCase().includes(browser.processName.toLowerCase());
     } else {
       const { stdout } = await execAsync(`pgrep -x "${browser.processName}"`);
@@ -152,7 +200,7 @@ export async function isBrowserRunning(browser: BrowserInfo): Promise<boolean> {
  * Test CDP connection
  */
 export async function testCdpConnection(
-  cdpUrl: string = 'http://localhost:9222',
+  cdpUrl: string = 'http://localhost:9222'
 ): Promise<{ connected: boolean; error?: string; browserInfo?: unknown }> {
   try {
     const response = await fetch(`${cdpUrl}/json/version`, {
@@ -178,7 +226,7 @@ export async function testCdpConnection(
  */
 export async function launchBrowser(
   browserId: string,
-  port: number = 9222,
+  port: number = 9222
 ): Promise<{ success: boolean; error?: string; alreadyRunning?: boolean }> {
   const def = BROWSER_DEFINITIONS.find((b) => b.id === browserId);
   if (!def) {
@@ -213,9 +261,7 @@ export async function launchBrowser(
     // Disable macOS App Nap before launch (macOS only)
     if (IS_MACOS) {
       try {
-        await execAsync(
-          `defaults write ${def.bundleId} NSAppSleepDisabled -bool YES`,
-        );
+        await execAsync(`defaults write ${def.bundleId} NSAppSleepDisabled -bool YES`);
         console.log(`[Browser] Disabled App Nap for ${def.name}`);
       } catch {
         console.warn(`[Browser] Could not disable App Nap for ${def.name}`);
@@ -237,7 +283,7 @@ export async function launchBrowser(
         detached: !IS_WINDOWS, // detached is not needed on Windows
         stdio: 'ignore',
         windowsHide: true,
-      },
+      }
     );
 
     child.unref();

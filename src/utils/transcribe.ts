@@ -25,7 +25,8 @@ export async function transcribeAudio(
   if (!apiKey) {
     return {
       success: false,
-      error: 'OpenAI API key not configured. Add your OpenAI key in Settings to enable voice notes.',
+      error:
+        'OpenAI API key not configured. Add your OpenAI key in Settings to enable voice notes.',
     };
   }
 
@@ -36,7 +37,10 @@ export async function transcribeAudio(
     // OpenAI accepts: mp3, mp4, mpeg, mpga, m4a, wav, webm, ogg
     const mimeType = getMimeType(format);
     // Convert Buffer to ArrayBuffer for web API compatibility
-    const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
+    const arrayBuffer = buffer.buffer.slice(
+      buffer.byteOffset,
+      buffer.byteOffset + buffer.byteLength
+    ) as ArrayBuffer;
     const file = new File([arrayBuffer], `audio.${format}`, { type: mimeType });
 
     const startTime = Date.now();

@@ -1,6 +1,23 @@
-import { app, Tray, Menu, nativeImage, BrowserWindow, ipcMain, Notification, globalShortcut, shell, screen, powerMonitor, powerSaveBlocker } from 'electron';
+import {
+  app,
+  Tray,
+  Menu,
+  nativeImage,
+  BrowserWindow,
+  ipcMain,
+  Notification,
+  globalShortcut,
+  shell,
+  screen,
+  powerMonitor,
+  powerSaveBlocker,
+} from 'electron';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import fs from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { AgentManager } from '../agent';
@@ -16,8 +33,19 @@ import { SYSTEM_GUIDELINES } from '../config/system-guidelines';
 import { DEFAULT_COMMANDS } from '../config/commands';
 import { loadWorkflowCommands, loadWorkflowCommandsFromDir } from '../config/commands-loader';
 import { closeTaskDb } from '../tools';
-import { handleCalendarListTool, handleCalendarAddTool, handleCalendarDeleteTool, handleCalendarUpcomingTool } from '../tools/calendar-tools';
-import { handleTaskListTool, handleTaskAddTool, handleTaskCompleteTool, handleTaskDeleteTool, handleTaskDueTool } from '../tools/task-tools';
+import {
+  handleCalendarListTool,
+  handleCalendarAddTool,
+  handleCalendarDeleteTool,
+  handleCalendarUpcomingTool,
+} from '../tools/calendar-tools';
+import {
+  handleTaskListTool,
+  handleTaskAddTool,
+  handleTaskCompleteTool,
+  handleTaskDeleteTool,
+  handleTaskDueTool,
+} from '../tools/task-tools';
 import { getBrowserManager } from '../browser';
 import { isMacOS, getPermissionsStatus, openPermissionSettings } from '../permissions';
 import type { PermissionType } from '../permissions';
@@ -125,10 +153,7 @@ function detectWindowsNodePaths(): string[] {
   if (fs.existsSync(fnmDefault)) paths.push(fnmDefault);
 
   // volta: %APPDATA%\Volta\bin or %LOCALAPPDATA%\Volta\bin
-  const voltaPaths = [
-    path.join(appData, 'Volta', 'bin'),
-    path.join(localAppData, 'Volta', 'bin'),
-  ];
+  const voltaPaths = [path.join(appData, 'Volta', 'bin'), path.join(localAppData, 'Volta', 'bin')];
   for (const p of voltaPaths) {
     if (fs.existsSync(p)) paths.push(p);
   }
@@ -166,13 +191,13 @@ if (app.isPackaged) {
   } else {
     // macOS / Linux: node/npm binaries aren't in PATH when launched from Finder
     const fixedPath = [
-      '/opt/homebrew/bin',        // Apple Silicon Homebrew
-      '/usr/local/bin',           // Intel Homebrew / standard location
+      '/opt/homebrew/bin', // Apple Silicon Homebrew
+      '/usr/local/bin', // Intel Homebrew / standard location
       '/usr/bin',
       '/bin',
       '/usr/sbin',
       '/sbin',
-      ...cachedNodeManagerPaths,  // All version managers (nvm, fnm, volta, asdf, etc.)
+      ...cachedNodeManagerPaths, // All version managers (nvm, fnm, volta, asdf, etc.)
       HOME_DIR + '/.local/bin',
     ].join(':');
     process.env.PATH = fixedPath + ':' + (process.env.PATH || '');
@@ -185,18 +210,30 @@ if (app.isPackaged) {
 
 // Month name mapping for birthday parsing
 const MONTHS: Record<string, number> = {
-  january: 1, jan: 1,
-  february: 2, feb: 2,
-  march: 3, mar: 3,
-  april: 4, apr: 4,
+  january: 1,
+  jan: 1,
+  february: 2,
+  feb: 2,
+  march: 3,
+  mar: 3,
+  april: 4,
+  apr: 4,
   may: 5,
-  june: 6, jun: 6,
-  july: 7, jul: 7,
-  august: 8, aug: 8,
-  september: 9, sep: 9, sept: 9,
-  october: 10, oct: 10,
-  november: 11, nov: 11,
-  december: 12, dec: 12,
+  june: 6,
+  jun: 6,
+  july: 7,
+  jul: 7,
+  august: 8,
+  aug: 8,
+  september: 9,
+  sep: 9,
+  sept: 9,
+  october: 10,
+  oct: 10,
+  november: 11,
+  nov: 11,
+  december: 12,
+  dec: 12,
 };
 
 /**
@@ -298,6 +335,8 @@ let factsWindow: BrowserWindow | null = null;
 let soulWindow: BrowserWindow | null = null;
 let dailyLogsWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
+let trayUpdateInterval: ReturnType<typeof setInterval> | null = null;
+let modelChangedHandler: ((model: string) => void) | null = null;
 
 /**
  * Get the agent's isolated workspace directory.
@@ -331,9 +370,11 @@ function createSessionDirectory(sessionName: string): string {
   if (fs.existsSync(coderCommandsSource)) {
     fs.mkdirSync(sessionCommandsDir, { recursive: true });
     // Remove old commands that aren't in the bundled set
-    const bundledFiles = new Set(fs.readdirSync(coderCommandsSource).filter(f => f.endsWith('.md')));
+    const bundledFiles = new Set(
+      fs.readdirSync(coderCommandsSource).filter((f) => f.endsWith('.md'))
+    );
     if (fs.existsSync(sessionCommandsDir)) {
-      for (const file of fs.readdirSync(sessionCommandsDir).filter(f => f.endsWith('.md'))) {
+      for (const file of fs.readdirSync(sessionCommandsDir).filter((f) => f.endsWith('.md'))) {
         if (!bundledFiles.has(file)) {
           fs.unlinkSync(path.join(sessionCommandsDir, file));
         }
@@ -387,7 +428,9 @@ function ensureCoderWorkingDirectory(sessionId: string): void {
     if (session) {
       const workingDirectory = createSessionDirectory(session.name);
       memory.setSessionWorkingDirectory(sessionId, workingDirectory);
-      console.log(`[Sessions] Lazy-created working directory for coder session: ${workingDirectory}`);
+      console.log(
+        `[Sessions] Lazy-created working directory for coder session: ${workingDirectory}`
+      );
     }
   }
 }
@@ -440,16 +483,23 @@ function migratePersonalizeFromIdentity(): void {
     if (profileCustom) {
       SettingsManager.set('personalize.funFacts', profileCustom);
       SettingsManager.delete('profile.custom');
-      console.log(`[Migration] Moved profile.custom → personalize.funFacts: ${profileCustom.length} chars`);
+      console.log(
+        `[Migration] Moved profile.custom → personalize.funFacts: ${profileCustom.length} chars`
+      );
     }
 
     // Migrate old personalize.world (from earlier migration) → personalize.funFacts
     const oldWorld = SettingsManager.get('personalize.world');
     if (oldWorld) {
       const existing = SettingsManager.get('personalize.funFacts');
-      SettingsManager.set('personalize.funFacts', existing ? `${existing}\n\n${oldWorld}` : oldWorld);
+      SettingsManager.set(
+        'personalize.funFacts',
+        existing ? `${existing}\n\n${oldWorld}` : oldWorld
+      );
       SettingsManager.delete('personalize.world');
-      console.log(`[Migration] Moved personalize.world → personalize.funFacts: ${oldWorld.length} chars`);
+      console.log(
+        `[Migration] Moved personalize.world → personalize.funFacts: ${oldWorld.length} chars`
+      );
     }
   } catch (err) {
     console.error('[Migration] Personalize migration failed:', err);
@@ -476,11 +526,10 @@ function ensureAgentWorkspace(): string {
   }
 
   // Check if app version changed (update occurred)
-  let previousVersion: string | null = null;
   let isVersionUpdate = false;
 
   if (fs.existsSync(versionFile)) {
-    previousVersion = fs.readFileSync(versionFile, 'utf-8').trim();
+    const previousVersion = fs.readFileSync(versionFile, 'utf-8').trim();
     if (previousVersion !== currentVersion) {
       isVersionUpdate = true;
       console.log(`[Main] App updated from v${previousVersion} to v${currentVersion}`);
@@ -506,15 +555,21 @@ function ensureAgentWorkspace(): string {
     // Populate default workflow commands
     // If .claude is a symlink from a previous install, replace it with a real directory
     const workspaceClaudeDirForCmds = path.join(workspace, '.claude');
-    if (fs.existsSync(workspaceClaudeDirForCmds) && fs.lstatSync(workspaceClaudeDirForCmds).isSymbolicLink()) {
+    if (
+      fs.existsSync(workspaceClaudeDirForCmds) &&
+      fs.lstatSync(workspaceClaudeDirForCmds).isSymbolicLink()
+    ) {
       // Preserve any user-created commands from the symlink target before replacing
       const symlinkCommandsDir = path.join(workspaceClaudeDirForCmds, 'commands');
       const preservedCommands: Array<{ name: string; content: string }> = [];
       if (fs.existsSync(symlinkCommandsDir)) {
-        const defaultFilenames = new Set(DEFAULT_COMMANDS.map(c => c.filename));
-        for (const file of fs.readdirSync(symlinkCommandsDir).filter(f => f.endsWith('.md'))) {
+        const defaultFilenames = new Set(DEFAULT_COMMANDS.map((c) => c.filename));
+        for (const file of fs.readdirSync(symlinkCommandsDir).filter((f) => f.endsWith('.md'))) {
           if (!defaultFilenames.has(file)) {
-            preservedCommands.push({ name: file, content: fs.readFileSync(path.join(symlinkCommandsDir, file), 'utf-8') });
+            preservedCommands.push({
+              name: file,
+              content: fs.readFileSync(path.join(symlinkCommandsDir, file), 'utf-8'),
+            });
           }
         }
       }
@@ -585,8 +640,18 @@ async function createTray(): Promise<void> {
       icon = nativeImage.createEmpty();
       const traySize = IS_WINDOWS ? 16 : 22;
       const traySize2x = IS_WINDOWS ? 32 : 44;
-      icon.addRepresentation({ scaleFactor: 1, width: traySize, height: traySize, buffer: icon1x.resize({ width: traySize, height: traySize }).toPNG() });
-      icon.addRepresentation({ scaleFactor: 2, width: traySize2x, height: traySize2x, buffer: icon2x.resize({ width: traySize2x, height: traySize2x }).toPNG() });
+      icon.addRepresentation({
+        scaleFactor: 1,
+        width: traySize,
+        height: traySize,
+        buffer: icon1x.resize({ width: traySize, height: traySize }).toPNG(),
+      });
+      icon.addRepresentation({
+        scaleFactor: 2,
+        width: traySize2x,
+        height: traySize2x,
+        buffer: icon2x.resize({ width: traySize2x, height: traySize2x }).toPNG(),
+      });
       if (IS_MACOS) icon.setTemplateImage(true); // macOS menu bar only
     } else if (!icon1x.isEmpty()) {
       icon = icon1x.resize({ width: IS_WINDOWS ? 16 : 22, height: IS_WINDOWS ? 16 : 22 });
@@ -618,7 +683,7 @@ function createDefaultIcon(): Electron.NativeImage {
   const setPixel = (x: number, y: number) => {
     if (x >= 0 && x < size && y >= 0 && y < size) {
       const i = (y * size + x) * 4;
-      canvas[i] = 255;     // R
+      canvas[i] = 255; // R
       canvas[i + 1] = 255; // G
       canvas[i + 2] = 255; // B
       canvas[i + 3] = 255; // A
@@ -645,16 +710,20 @@ function createDefaultIcon(): Electron.NativeImage {
   // Right edge
   fillRect(12, 3, 12, 12);
   // Corners
-  setPixel(4, 3); setPixel(11, 3);
-  setPixel(4, 12); setPixel(11, 12);
+  setPixel(4, 3);
+  setPixel(11, 3);
+  setPixel(4, 12);
+  setPixel(11, 12);
 
   // Antenna
-  setPixel(7, 0); setPixel(8, 0);
-  setPixel(7, 1); setPixel(8, 1);
+  setPixel(7, 0);
+  setPixel(8, 0);
+  setPixel(7, 1);
+  setPixel(8, 1);
 
   // Eyes (2x2 squares)
-  fillRect(5, 5, 6, 7);   // Left eye
-  fillRect(9, 5, 10, 7);  // Right eye
+  fillRect(5, 5, 6, 7); // Left eye
+  fillRect(9, 5, 10, 7); // Right eye
 
   // Mouth (horizontal line)
   fillRect(5, 10, 10, 11);
@@ -673,8 +742,18 @@ function getMenuIcon(): Electron.NativeImage | undefined {
     const rawIcon = nativeImage.createFromPath(menuIconPath);
     if (!rawIcon.isEmpty()) {
       cachedMenuIcon = nativeImage.createEmpty();
-      cachedMenuIcon.addRepresentation({ scaleFactor: 1, width: 16, height: 16, buffer: rawIcon.resize({ width: 16, height: 16 }).toPNG() });
-      cachedMenuIcon.addRepresentation({ scaleFactor: 2, width: 32, height: 32, buffer: rawIcon.resize({ width: 32, height: 32 }).toPNG() });
+      cachedMenuIcon.addRepresentation({
+        scaleFactor: 1,
+        width: 16,
+        height: 16,
+        buffer: rawIcon.resize({ width: 16, height: 16 }).toPNG(),
+      });
+      cachedMenuIcon.addRepresentation({
+        scaleFactor: 2,
+        width: 32,
+        height: 32,
+        buffer: rawIcon.resize({ width: 32, height: 32 }).toPNG(),
+      });
       cachedMenuIcon.setTemplateImage(true);
     }
   } catch {
@@ -886,7 +965,9 @@ function openCronWindow(): void {
       if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
       if (savedBounds.width) windowOptions.width = savedBounds.width;
       if (savedBounds.height) windowOptions.height = savedBounds.height;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   cronWindow = new BrowserWindow(windowOptions);
@@ -942,7 +1023,9 @@ function openSettingsWindow(tab?: string): void {
       if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
       if (savedBounds.width) windowOptions.width = savedBounds.width;
       if (savedBounds.height) windowOptions.height = savedBounds.height;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   settingsWindow = new BrowserWindow(windowOptions);
@@ -1036,7 +1119,9 @@ function openFactsGraphWindow(): void {
       if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
       if (savedBounds.width) windowOptions.width = savedBounds.width;
       if (savedBounds.height) windowOptions.height = savedBounds.height;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   factsGraphWindow = new BrowserWindow(windowOptions);
@@ -1088,7 +1173,9 @@ function openCustomizeWindow(): void {
       if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
       if (savedBounds.width) windowOptions.width = savedBounds.width;
       if (savedBounds.height) windowOptions.height = savedBounds.height;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   customizeWindow = new BrowserWindow(windowOptions);
@@ -1140,7 +1227,9 @@ function openFactsWindow(): void {
       if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
       if (savedBounds.width) windowOptions.width = savedBounds.width;
       if (savedBounds.height) windowOptions.height = savedBounds.height;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   factsWindow = new BrowserWindow(windowOptions);
@@ -1192,7 +1281,9 @@ function openDailyLogsWindow(): void {
       if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
       if (savedBounds.width) windowOptions.width = savedBounds.width;
       if (savedBounds.height) windowOptions.height = savedBounds.height;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   dailyLogsWindow = new BrowserWindow(windowOptions);
@@ -1244,7 +1335,9 @@ function openSoulWindow(): void {
       if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
       if (savedBounds.width) windowOptions.width = savedBounds.width;
       if (savedBounds.height) windowOptions.height = savedBounds.height;
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   soulWindow = new BrowserWindow(windowOptions);
@@ -1303,13 +1396,22 @@ function setupIPC(): void {
         await initializeAgent();
       }
       if (!AgentManager.isInitialized()) {
-        return { success: false, error: 'No API keys configured. Please add your key in Settings > LLM.' };
+        return {
+          success: false,
+          error: 'No API keys configured. Please add your key in Settings > LLM.',
+        };
       }
     }
 
     // Set up status listener to forward to renderer
     const effectiveSessionId = sessionId || 'default';
-    const statusHandler = (status: { type: string; sessionId?: string; toolName?: string; toolInput?: string; message?: string }) => {
+    const statusHandler = (status: {
+      type: string;
+      sessionId?: string;
+      toolName?: string;
+      toolInput?: string;
+      message?: string;
+    }) => {
       // Only forward status events for this session (or events without sessionId for backward compat)
       if (status.sessionId && status.sessionId !== effectiveSessionId) return;
 
@@ -1331,12 +1433,21 @@ function setupIPC(): void {
 
       // Sync to Telegram (Desktop -> Telegram) - only to the linked chat for this session
       const linkedChatId = memory?.getChatForSession(effectiveSessionId);
-      console.log('[Main] Checking telegram sync - bot exists:', !!telegramBot, 'session:', effectiveSessionId, 'linked chat:', linkedChatId);
+      console.log(
+        '[Main] Checking telegram sync - bot exists:',
+        !!telegramBot,
+        'session:',
+        effectiveSessionId,
+        'linked chat:',
+        linkedChatId
+      );
       if (telegramBot && linkedChatId && result.response) {
         console.log('[Main] Syncing desktop message to Telegram chat:', linkedChatId);
-        telegramBot.syncToChat(message, result.response, linkedChatId, result.media).catch((err) => {
-          console.error('[Main] Failed to sync desktop message to Telegram:', err);
-        });
+        telegramBot
+          .syncToChat(message, result.response, linkedChatId, result.media)
+          .catch((err) => {
+            console.error('[Main] Failed to sync desktop message to Telegram:', err);
+          });
       }
 
       // Sync to iOS (Desktop -> iOS) — skip if response is empty (e.g. aborted)
@@ -1401,11 +1512,17 @@ function setupIPC(): void {
       // Don't create working directory yet — it's created lazily on first message
       // so users can switch modes before committing
       const mode = AgentManager.getMode();
-      console.log(`[Sessions] Creating session "${name}" mode=${mode} workingDirectory=null (deferred)`);
+      console.log(
+        `[Sessions] Creating session "${name}" mode=${mode} workingDirectory=null (deferred)`
+      );
       const session = memory?.createSession(name, mode, null);
       // Notify iOS of updated session list
       if (iosChannel) {
-        iosChannel.broadcast({ type: 'sessions', sessions: memory?.getSessions() || [], activeSessionId: '' });
+        iosChannel.broadcast({
+          type: 'sessions',
+          sessions: memory?.getSessions() || [],
+          activeSessionId: '',
+        });
       }
       return { success: true, session };
     } catch (err) {
@@ -1418,7 +1535,9 @@ function setupIPC(): void {
       // Check if session has a working directory that needs renaming
       const session = memory?.getSession(id);
       let newWorkingDirectory: string | undefined;
-      console.log(`[Sessions] Renaming session ${id} to "${name}" | current working_directory=${session?.working_directory || 'null'}`);
+      console.log(
+        `[Sessions] Renaming session ${id} to "${name}" | current working_directory=${session?.working_directory || 'null'}`
+      );
 
       if (session?.working_directory) {
         const newPath = renameSessionDirectory(session.working_directory, name);
@@ -1427,7 +1546,9 @@ function setupIPC(): void {
           return { success: false, error: `Cannot rename: directory "${name}" already exists` };
         }
         newWorkingDirectory = newPath;
-        console.log(`[Sessions] Directory renamed: ${session.working_directory} -> ${newPath} | closing SDK session`);
+        console.log(
+          `[Sessions] Directory renamed: ${session.working_directory} -> ${newPath} | closing SDK session`
+        );
         // Close persistent SDK session since cwd changed
         AgentManager.clearSdkSessionMapping(id);
       }
@@ -1435,7 +1556,11 @@ function setupIPC(): void {
       const success = memory?.renameSession(id, name, newWorkingDirectory) ?? false;
       // Notify iOS of updated session list
       if (success && iosChannel) {
-        iosChannel.broadcast({ type: 'sessions', sessions: memory?.getSessions() || [], activeSessionId: '' });
+        iosChannel.broadcast({
+          type: 'sessions',
+          sessions: memory?.getSessions() || [],
+          activeSessionId: '',
+        });
       }
       return { success };
     } catch (err) {
@@ -1446,11 +1571,15 @@ function setupIPC(): void {
   ipcMain.handle('sessions:delete', async (_, id: string) => {
     // Close persistent session (kills subprocess + bg tasks) and clear queue
     AgentManager.clearQueue(id);
-    AgentManager.clearSdkSessionMapping(id);  // Also closes persistent session
+    AgentManager.clearSdkSessionMapping(id); // Also closes persistent session
     const success = memory?.deleteSession(id) ?? false;
     // Notify iOS of updated session list
     if (success && iosChannel) {
-      iosChannel.broadcast({ type: 'sessions', sessions: memory?.getSessions() || [], activeSessionId: '' });
+      iosChannel.broadcast({
+        type: 'sessions',
+        sessions: memory?.getSessions() || [],
+        activeSessionId: '',
+      });
     }
     return { success };
   });
@@ -1498,12 +1627,16 @@ function setupIPC(): void {
     }
 
     const session = memory?.getSession(sessionId);
-    console.log(`[Sessions] Mode switch: session=${sessionId} "${session?.name}" ${session?.mode}->${mode} | current working_directory=${session?.working_directory || 'null'}`);
+    console.log(
+      `[Sessions] Mode switch: session=${sessionId} "${session?.name}" ${session?.mode}->${mode} | current working_directory=${session?.working_directory || 'null'}`
+    );
 
     // Don't create working directory on mode switch — it's created lazily on first message.
     // When switching to general: clear working directory (keep directory on disk)
     if (mode === 'general' && session?.working_directory) {
-      console.log(`[Sessions] Clearing working directory (kept on disk): ${session.working_directory}`);
+      console.log(
+        `[Sessions] Clearing working directory (kept on disk): ${session.working_directory}`
+      );
       memory?.setSessionWorkingDirectory(sessionId, null);
     }
 
@@ -1548,57 +1681,90 @@ function setupIPC(): void {
         iosChannel = createiOSChannel();
         if (iosChannel) {
           // Wire up handlers (same as initialization)
-          iosChannel.setMessageHandler(async (client: { device: ConnectedDevice }, message: ClientChatMessage) => {
-            let messageText = message.text;
-            if (message.audio?.data) {
-              console.log(`[Main] iOS voice note received (${message.audio.duration}s, ${Math.round(message.audio.data.length / 1024)}KB base64)`);
-              const audioBuffer = Buffer.from(message.audio.data, 'base64');
-              const transcription = await transcribeAudio(audioBuffer, message.audio.format || 'm4a');
-              if (transcription.success && transcription.text) {
-                messageText = transcription.text;
-                console.log(`[Main] Transcribed: "${messageText.substring(0, 80)}..."`);
-              } else {
-                console.warn('[Main] Voice transcription failed:', transcription.error);
+          iosChannel.setMessageHandler(
+            async (client: { device: ConnectedDevice }, message: ClientChatMessage) => {
+              let messageText = message.text;
+              if (message.audio?.data) {
+                console.log(
+                  `[Main] iOS voice note received (${message.audio.duration}s, ${Math.round(message.audio.data.length / 1024)}KB base64)`
+                );
+                const audioBuffer = Buffer.from(message.audio.data, 'base64');
+                const transcription = await transcribeAudio(
+                  audioBuffer,
+                  message.audio.format || 'm4a'
+                );
+                if (transcription.success && transcription.text) {
+                  messageText = transcription.text;
+                  console.log(`[Main] Transcribed: "${messageText.substring(0, 80)}..."`);
+                } else {
+                  console.warn('[Main] Voice transcription failed:', transcription.error);
+                  if (!message.text) {
+                    throw new Error(
+                      `Voice transcription failed: ${transcription.error || 'Unknown error'}. Please try again or type your message.`
+                    );
+                  }
+                }
               }
-            }
-            // Forward status events to desktop UI during iOS-initiated queries
-            const iosSessionId = message.sessionId;
-            const desktopStatusHandler = (status: { type: string; sessionId?: string }) => {
-              if (status.sessionId && status.sessionId !== iosSessionId) return;
-              if (chatWindow && !chatWindow.isDestroyed()) {
-                chatWindow.webContents.send('agent:status', status);
+              // Forward status events to desktop UI during iOS-initiated queries
+              const iosSessionId = message.sessionId;
+              const desktopStatusHandler = (status: { type: string; sessionId?: string }) => {
+                if (status.sessionId && status.sessionId !== iosSessionId) return;
+                if (chatWindow && !chatWindow.isDestroyed()) {
+                  chatWindow.webContents.send('agent:status', status);
+                }
+              };
+              AgentManager.on('status', desktopStatusHandler);
+              ensureCoderWorkingDirectory(message.sessionId);
+              let result;
+              try {
+                result = await AgentManager.processMessage(messageText, 'ios', message.sessionId);
+              } finally {
+                AgentManager.off('status', desktopStatusHandler);
               }
-            };
-            AgentManager.on('status', desktopStatusHandler);
-            ensureCoderWorkingDirectory(message.sessionId);
-            let result;
-            try {
-              result = await AgentManager.processMessage(messageText, 'ios', message.sessionId);
-            } finally {
-              AgentManager.off('status', desktopStatusHandler);
+              if (chatWindow && !chatWindow.isDestroyed() && result.response) {
+                chatWindow.webContents.send('ios:message', {
+                  userMessage: messageText,
+                  response: result.response,
+                  sessionId: message.sessionId,
+                  deviceId: client.device.deviceId,
+                });
+              }
+              const linkedChatId = memory?.getChatForSession(message.sessionId);
+              if (telegramBot && linkedChatId) {
+                telegramBot
+                  .syncToChat(messageText, result.response, linkedChatId, result.media)
+                  .catch(() => {});
+              }
+              if (result.response && iosChannel) {
+                iosChannel
+                  .sendPushNotifications('Pocket Agent', result.response, {
+                    sessionId: message.sessionId,
+                    type: 'response',
+                  })
+                  .catch(() => {});
+              }
+              return {
+                response: result.response,
+                tokensUsed: result.tokensUsed,
+                media: result.media,
+                planPending: result.planPending,
+              };
             }
-            if (chatWindow && !chatWindow.isDestroyed() && result.response) {
-              chatWindow.webContents.send('ios:message', {
-                userMessage: messageText, response: result.response,
-                sessionId: message.sessionId, deviceId: client.device.deviceId,
-              });
-            }
-            const linkedChatId = memory?.getChatForSession(message.sessionId);
-            if (telegramBot && linkedChatId) {
-              telegramBot.syncToChat(messageText, result.response, linkedChatId, result.media).catch(() => {});
-            }
-            return { response: result.response, tokensUsed: result.tokensUsed, media: result.media, planPending: result.planPending };
-          });
+          );
           iosChannel.setSessionsHandler(() => {
             const sessions = memory?.getSessions() || [];
             return sessions.map((s: { id: string; name: string; updated_at?: string }) => ({
-              id: s.id, name: s.name, updatedAt: s.updated_at || new Date().toISOString(),
+              id: s.id,
+              name: s.name,
+              updatedAt: s.updated_at || new Date().toISOString(),
             }));
           });
           iosChannel.setHistoryHandler((sessionId, limit) => {
             const messages = AgentManager.getRecentMessages(limit, sessionId);
             return messages.map((m) => ({
-              role: m.role, content: m.content, timestamp: m.timestamp,
+              role: m.role,
+              content: m.content,
+              timestamp: m.timestamp,
               metadata: m.metadata,
             }));
           });
@@ -1669,11 +1835,20 @@ function setupIPC(): void {
             console.log(`[Main] Fresh start from iOS (session: ${sessionId})`);
           });
           iosChannel.setFactsHandler(() => AgentManager.getAllFacts());
-          iosChannel.setFactsDeleteHandler((id) => { memory?.deleteFact(id); return true; });
+          iosChannel.setFactsDeleteHandler((id) => {
+            memory?.deleteFact(id);
+            return true;
+          });
           iosChannel.setDailyLogsHandler((days) => memory?.getDailyLogsSince(days || 3) || []);
           iosChannel.setSoulHandler(() => memory?.getAllSoulAspects() || []);
-          iosChannel.setSoulDeleteHandler((id) => { memory?.deleteSoulAspectById(id); return true; });
-          iosChannel.setFactsGraphHandler(async () => memory?.getFactsGraphData() || { nodes: [] as never[], links: [] as never[] });
+          iosChannel.setSoulDeleteHandler((id) => {
+            memory?.deleteSoulAspectById(id);
+            return true;
+          });
+          iosChannel.setFactsGraphHandler(
+            async () =>
+              memory?.getFactsGraphData() || { nodes: [] as never[], links: [] as never[] }
+          );
           iosChannel.setCustomizeGetHandler(() => ({
             agentName: SettingsManager.get('personalize.agentName') || 'Frankie',
             personality: SettingsManager.get('personalize.personality') || '',
@@ -1682,39 +1857,69 @@ function setupIPC(): void {
             funFacts: SettingsManager.get('personalize.funFacts') || '',
             systemGuidelines: SYSTEM_GUIDELINES,
             profile: {
-              name: SettingsManager.get('profile.name') || '', occupation: SettingsManager.get('profile.occupation') || '',
-              location: SettingsManager.get('profile.location') || '', timezone: SettingsManager.get('profile.timezone') || '',
+              name: SettingsManager.get('profile.name') || '',
+              occupation: SettingsManager.get('profile.occupation') || '',
+              location: SettingsManager.get('profile.location') || '',
+              timezone: SettingsManager.get('profile.timezone') || '',
               birthday: SettingsManager.get('profile.birthday') || '',
             },
           }));
           iosChannel.setCustomizeSaveHandler((data) => {
-            if (data.agentName !== undefined) SettingsManager.set('personalize.agentName', data.agentName);
-            if (data.personality !== undefined) SettingsManager.set('personalize.personality', data.personality);
+            if (data.agentName !== undefined)
+              SettingsManager.set('personalize.agentName', data.agentName);
+            if (data.personality !== undefined)
+              SettingsManager.set('personalize.personality', data.personality);
             if (data.goals !== undefined) SettingsManager.set('personalize.goals', data.goals);
-            if (data.struggles !== undefined) SettingsManager.set('personalize.struggles', data.struggles);
-            if (data.funFacts !== undefined) SettingsManager.set('personalize.funFacts', data.funFacts);
+            if (data.struggles !== undefined)
+              SettingsManager.set('personalize.struggles', data.struggles);
+            if (data.funFacts !== undefined)
+              SettingsManager.set('personalize.funFacts', data.funFacts);
             if (data.profile) {
-              if (data.profile.name !== undefined) SettingsManager.set('profile.name', data.profile.name);
-              if (data.profile.occupation !== undefined) SettingsManager.set('profile.occupation', data.profile.occupation);
-              if (data.profile.location !== undefined) SettingsManager.set('profile.location', data.profile.location);
-              if (data.profile.timezone !== undefined) SettingsManager.set('profile.timezone', data.profile.timezone);
-              if (data.profile.birthday !== undefined) SettingsManager.set('profile.birthday', data.profile.birthday);
+              if (data.profile.name !== undefined)
+                SettingsManager.set('profile.name', data.profile.name);
+              if (data.profile.occupation !== undefined)
+                SettingsManager.set('profile.occupation', data.profile.occupation);
+              if (data.profile.location !== undefined)
+                SettingsManager.set('profile.location', data.profile.location);
+              if (data.profile.timezone !== undefined)
+                SettingsManager.set('profile.timezone', data.profile.timezone);
+              if (data.profile.birthday !== undefined)
+                SettingsManager.set('profile.birthday', data.profile.birthday);
             }
           });
           iosChannel.setRoutinesListHandler(() => scheduler?.getAllJobs() || []);
-          iosChannel.setRoutinesCreateHandler(async (name, schedule, prompt, channel, sessionId) => {
-            return await scheduler?.createJob(name, schedule, prompt, channel, sessionId) || false;
-          });
+          iosChannel.setRoutinesCreateHandler(
+            async (name, schedule, prompt, channel, sessionId) => {
+              return (
+                (await scheduler?.createJob(name, schedule, prompt, channel, sessionId)) || false
+              );
+            }
+          );
           iosChannel.setRoutinesDeleteHandler((name) => scheduler?.deleteJob(name) || false);
-          iosChannel.setRoutinesToggleHandler((name, enabled) => scheduler?.setJobEnabled(name, enabled) || false);
+          iosChannel.setRoutinesToggleHandler(
+            (name, enabled) => scheduler?.setJobEnabled(name, enabled) || false
+          );
           iosChannel.setRoutinesRunHandler(async (name) => {
-            try { await scheduler?.runJobNow(name); return { success: true }; }
-            catch (e) { return { success: false, error: String(e) }; }
+            try {
+              await scheduler?.runJobNow(name);
+              return { success: true };
+            } catch (e) {
+              return { success: false, error: String(e) };
+            }
           });
           iosChannel.setAppInfoHandler(() => ({ version: app.getVersion(), name: 'Pocket Agent' }));
           iosChannel.setSkinHandler((skinId: string) => {
             SettingsManager.set('ui.skin', skinId);
-            const allWindows = [chatWindow, settingsWindow, cronWindow, factsWindow, factsGraphWindow, customizeWindow, soulWindow, dailyLogsWindow];
+            const allWindows = [
+              chatWindow,
+              settingsWindow,
+              cronWindow,
+              factsWindow,
+              factsGraphWindow,
+              customizeWindow,
+              soulWindow,
+              dailyLogsWindow,
+            ];
             for (const win of allWindows) {
               if (win && !win.isDestroyed()) {
                 win.webContents.send('skin:changed', skinId);
@@ -1734,7 +1939,11 @@ function setupIPC(): void {
             const msgCount = memory?.getSessionMessageCount(sessionId) || 0;
             if (msgCount > 0) {
               const current = memory?.getSessionMode(sessionId) || 'coder';
-              return { mode: current, locked: true, error: 'Cannot change mode after messages have been sent' };
+              return {
+                mode: current,
+                locked: true,
+                error: 'Cannot change mode after messages have been sent',
+              };
             }
             memory?.setSessionMode(sessionId, mode as 'general' | 'coder');
             // Also update global default for new sessions
@@ -1751,20 +1960,39 @@ function setupIPC(): void {
             if (sessionMode === 'coder' && sessionWorkDir) {
               const sessionCommandsDir = path.join(sessionWorkDir, '.claude', 'commands');
               if (fs.existsSync(sessionCommandsDir)) {
-                return loadWorkflowCommandsFromDir(sessionCommandsDir).map(c => ({ name: c.name, description: c.description, content: c.content }));
+                return loadWorkflowCommandsFromDir(sessionCommandsDir).map((c) => ({
+                  name: c.name,
+                  description: c.description,
+                  content: c.content,
+                }));
               }
             }
-            return loadWorkflowCommands().map(c => ({ name: c.name, description: c.description, content: c.content }));
+            return loadWorkflowCommands().map((c) => ({
+              name: c.name,
+              description: c.description,
+              content: c.content,
+            }));
           });
           // Calendar & Tasks handlers
           iosChannel.setCalendarListHandler(async () => {
             const result = JSON.parse(await handleCalendarListTool({}));
             return result.events || [];
           });
-          iosChannel.setCalendarAddHandler(async (title, startTime, endTime, location, description, reminderMinutes) => {
-            const result = JSON.parse(await handleCalendarAddTool({ title, start_time: startTime, end_time: endTime, location, description, reminder_minutes: reminderMinutes }));
-            return result.success ? result : null;
-          });
+          iosChannel.setCalendarAddHandler(
+            async (title, startTime, endTime, location, description, reminderMinutes) => {
+              const result = JSON.parse(
+                await handleCalendarAddTool({
+                  title,
+                  start_time: startTime,
+                  end_time: endTime,
+                  location,
+                  description,
+                  reminder_minutes: reminderMinutes,
+                })
+              );
+              return result.success ? result : null;
+            }
+          );
           iosChannel.setCalendarDeleteHandler(async (id) => {
             const result = JSON.parse(await handleCalendarDeleteTool({ id }));
             return result.success || false;
@@ -1777,10 +2005,20 @@ function setupIPC(): void {
             const result = JSON.parse(await handleTaskListTool({ status: status || 'all' }));
             return result.tasks || [];
           });
-          iosChannel.setTasksAddHandler(async (title, dueDate, priority, description, reminderMinutes) => {
-            const result = JSON.parse(await handleTaskAddTool({ title, due: dueDate, priority, description, reminder_minutes: reminderMinutes }));
-            return result.success ? result : null;
-          });
+          iosChannel.setTasksAddHandler(
+            async (title, dueDate, priority, description, reminderMinutes) => {
+              const result = JSON.parse(
+                await handleTaskAddTool({
+                  title,
+                  due: dueDate,
+                  priority,
+                  description,
+                  reminder_minutes: reminderMinutes,
+                })
+              );
+              return result.success ? result : null;
+            }
+          );
           iosChannel.setTasksCompleteHandler(async (id) => {
             const result = JSON.parse(await handleTaskCompleteTool({ id }));
             return result.success || false;
@@ -1915,10 +2153,14 @@ function setupIPC(): void {
         const buf = Buffer.from(await res.arrayBuffer());
 
         const contentType = res.headers.get('content-type') || '';
-        const ext = contentType.includes('jpeg') || contentType.includes('jpg') ? '.jpg'
-          : contentType.includes('gif') ? '.gif'
-          : contentType.includes('webp') ? '.webp'
-          : '.png';
+        const ext =
+          contentType.includes('jpeg') || contentType.includes('jpg')
+            ? '.jpg'
+            : contentType.includes('gif')
+              ? '.gif'
+              : contentType.includes('webp')
+                ? '.webp'
+                : '.png';
 
         const filePath = path.join(mediaDir, `img-${Date.now()}${ext}`);
         fs.writeFileSync(filePath, buf);
@@ -1948,13 +2190,15 @@ function setupIPC(): void {
 
     const results = cityTimezones.lookupViaCity(query);
     // Return top 10 results with city, country, and timezone
-    return results.slice(0, 10).map((r: { city: string; country: string; timezone: string; province?: string }) => ({
-      city: r.city,
-      country: r.country,
-      province: r.province || '',
-      timezone: r.timezone,
-      display: r.province ? `${r.city}, ${r.province}, ${r.country}` : `${r.city}, ${r.country}`,
-    }));
+    return results
+      .slice(0, 10)
+      .map((r: { city: string; country: string; timezone: string; province?: string }) => ({
+        city: r.city,
+        country: r.country,
+        province: r.province || '',
+        timezone: r.timezone,
+        display: r.province ? `${r.city}, ${r.province}, ${r.country}` : `${r.city}, ${r.country}`,
+      }));
   });
 
   ipcMain.handle('timezone:list', async () => {
@@ -1965,15 +2209,41 @@ function setupIPC(): void {
     } catch {
       // Fallback for older environments
       return [
-        'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
-        'America/Toronto', 'America/Vancouver', 'America/Mexico_City', 'America/Sao_Paulo',
-        'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Europe/Rome', 'Europe/Madrid',
-        'Europe/Amsterdam', 'Europe/Stockholm', 'Europe/Moscow',
-        'Asia/Tokyo', 'Asia/Shanghai', 'Asia/Hong_Kong', 'Asia/Singapore', 'Asia/Seoul',
-        'Asia/Bangkok', 'Asia/Jakarta', 'Asia/Kolkata', 'Asia/Dubai', 'Asia/Jerusalem',
-        'Australia/Sydney', 'Australia/Melbourne', 'Australia/Perth',
-        'Pacific/Auckland', 'Pacific/Honolulu', 'Pacific/Fiji',
-        'Africa/Cairo', 'Africa/Johannesburg', 'Africa/Lagos',
+        'America/New_York',
+        'America/Chicago',
+        'America/Denver',
+        'America/Los_Angeles',
+        'America/Toronto',
+        'America/Vancouver',
+        'America/Mexico_City',
+        'America/Sao_Paulo',
+        'Europe/London',
+        'Europe/Paris',
+        'Europe/Berlin',
+        'Europe/Rome',
+        'Europe/Madrid',
+        'Europe/Amsterdam',
+        'Europe/Stockholm',
+        'Europe/Moscow',
+        'Asia/Tokyo',
+        'Asia/Shanghai',
+        'Asia/Hong_Kong',
+        'Asia/Singapore',
+        'Asia/Seoul',
+        'Asia/Bangkok',
+        'Asia/Jakarta',
+        'Asia/Kolkata',
+        'Asia/Dubai',
+        'Asia/Jerusalem',
+        'Australia/Sydney',
+        'Australia/Melbourne',
+        'Australia/Perth',
+        'Pacific/Auckland',
+        'Pacific/Honolulu',
+        'Pacific/Fiji',
+        'Africa/Cairo',
+        'Africa/Johannesburg',
+        'Africa/Lagos',
       ];
     }
   });
@@ -1983,15 +2253,31 @@ function setupIPC(): void {
     return scheduler?.getAllJobs() || [];
   });
 
-  ipcMain.handle('cron:create', async (_, name: string, schedule: string, prompt: string, channel: string, sessionId: string) => {
-    const success = await scheduler?.createJob(name, schedule, prompt, channel, sessionId || 'default');
-    updateTrayMenu();
-    // Notify iOS of updated routines
-    if (iosChannel) {
-      iosChannel.broadcast({ type: 'routines', jobs: scheduler?.getAllJobs() || [] });
+  ipcMain.handle(
+    'cron:create',
+    async (
+      _,
+      name: string,
+      schedule: string,
+      prompt: string,
+      channel: string,
+      sessionId: string
+    ) => {
+      const success = await scheduler?.createJob(
+        name,
+        schedule,
+        prompt,
+        channel,
+        sessionId || 'default'
+      );
+      updateTrayMenu();
+      // Notify iOS of updated routines
+      if (iosChannel) {
+        iosChannel.broadcast({ type: 'routines', jobs: scheduler?.getAllJobs() || [] });
+      }
+      return { success };
     }
-    return { success };
-  });
+  );
 
   ipcMain.handle('cron:delete', async (_, name: string) => {
     const success = scheduler?.deleteJob(name);
@@ -2045,7 +2331,7 @@ function setupIPC(): void {
 
   ipcMain.handle('settings:get', async (_, key: string) => {
     // Block encrypted settings from being sent to renderer (except explicitly allowed ones)
-    const def = SETTINGS_SCHEMA.find(s => s.key === key);
+    const def = SETTINGS_SCHEMA.find((s) => s.key === key);
     if (def?.encrypted && !RENDERER_ALLOWED_ENCRYPTED_KEYS.has(key)) {
       const value = SettingsManager.get(key);
       return value ? '••••••••' : '';
@@ -2064,7 +2350,11 @@ function setupIPC(): void {
 
       // Notify iOS when model changes
       if (key === 'agent.model' && iosChannel) {
-        iosChannel.broadcast({ type: 'models', models: getAvailableModels(), activeModelId: value });
+        iosChannel.broadcast({
+          type: 'models',
+          models: getAvailableModels(),
+          activeModelId: value,
+        });
       }
 
       // Notify iOS when mode changes (desktop toggle)
@@ -2074,7 +2364,16 @@ function setupIPC(): void {
 
       // Broadcast skin change to all open windows + iOS
       if (key === 'ui.skin') {
-        const allWindows = [chatWindow, settingsWindow, cronWindow, factsWindow, factsGraphWindow, customizeWindow, soulWindow, dailyLogsWindow];
+        const allWindows = [
+          chatWindow,
+          settingsWindow,
+          cronWindow,
+          factsWindow,
+          factsGraphWindow,
+          customizeWindow,
+          soulWindow,
+          dailyLogsWindow,
+        ];
         for (const win of allWindows) {
           if (win && !win.isDestroyed()) {
             win.webContents.send('skin:changed', value);
@@ -2252,8 +2551,8 @@ function setupIPC(): void {
       const { ClaudeOAuth } = await import('../auth/oauth');
       // Timeout after 5 seconds to avoid hanging the UI
       const result = await Promise.race([
-        ClaudeOAuth.getAccessToken().then(token => ({ valid: token !== null })),
-        new Promise<{ valid: boolean }>(resolve =>
+        ClaudeOAuth.getAccessToken().then((token) => ({ valid: token !== null })),
+        new Promise<{ valid: boolean }>((resolve) =>
           setTimeout(() => resolve({ valid: false }), 5000)
         ),
       ]);
@@ -2284,8 +2583,16 @@ function setupIPC(): void {
   // Shell commands — platform-aware shell selection
   // Allowlisted command prefixes for security (only Pocket CLI operations)
   const ALLOWED_COMMAND_PREFIXES = IS_WINDOWS
-    ? ['(Get-Command pocket', 'Invoke-RestMethod https://api.github.com/repos/KenKaiii/', '$installDir = Join-Path']
-    : ['which pocket', 'curl -fsSL https://api.github.com/repos/KenKaiii/pocket-agent-cli/', 'curl -fsSL https://raw.githubusercontent.com/KenKaiii/pocket-agent-cli/main/scripts/install.sh -o /tmp/pocket-cli-install.sh && sed'];
+    ? [
+        '(Get-Command pocket',
+        'Invoke-RestMethod https://api.github.com/repos/KenKaiii/',
+        '$installDir = Join-Path',
+      ]
+    : [
+        'which pocket',
+        'curl -fsSL https://api.github.com/repos/KenKaiii/pocket-agent-cli/',
+        'curl -fsSL https://raw.githubusercontent.com/KenKaiii/pocket-agent-cli/main/scripts/install.sh -o /tmp/pocket-cli-install.sh && sed',
+      ];
 
   // Validate the `strings` version-check command: must have a safe path and the exact grep suffix
   const STRINGS_CMD_SUFFIX = ` | grep -E '^v[0-9]+\\.[0-9]+\\.[0-9]+$' | head -1`;
@@ -2305,8 +2612,9 @@ function setupIPC(): void {
       throw new Error('Access denied: shell commands only allowed from local UI');
     }
     // Security: only allow known command patterns
-    const isAllowed = ALLOWED_COMMAND_PREFIXES.some(prefix => command.startsWith(prefix))
-      || (!IS_WINDOWS && isAllowedStringsCmd(command));
+    const isAllowed =
+      ALLOWED_COMMAND_PREFIXES.some((prefix) => command.startsWith(prefix)) ||
+      (!IS_WINDOWS && isAllowedStringsCmd(command));
     if (!isAllowed) {
       console.warn('[Shell] Blocked non-allowlisted command:', command.slice(0, 80));
       throw new Error('Access denied: command not in allowlist');
@@ -2314,7 +2622,13 @@ function setupIPC(): void {
     const execAsync = promisify(exec);
     const shellOpts: Record<string, unknown> = IS_WINDOWS
       ? { shell: 'powershell.exe', env: process.env }
-      : { shell: '/bin/bash', env: { ...process.env, PATH: `${process.env.PATH}:/usr/local/bin:/opt/homebrew/bin:${HOME_DIR}/.local/bin` } };
+      : {
+          shell: '/bin/bash',
+          env: {
+            ...process.env,
+            PATH: `${process.env.PATH}:/usr/local/bin:/opt/homebrew/bin:${HOME_DIR}/.local/bin`,
+          },
+        };
     try {
       const { stdout } = await execAsync(command, shellOpts);
       return stdout;
@@ -2427,7 +2741,6 @@ function setupIPC(): void {
   ipcMain.handle('permissions:openSettings', async (_, type: PermissionType) => {
     await openPermissionSettings(type);
   });
-
 }
 
 // ============ Agent Lifecycle ============
@@ -2482,7 +2795,8 @@ async function initializeAgent(): Promise<void> {
   // If not (e.g. default is claude-* but only a Kimi/GLM key exists), fall back.
   let model = SettingsManager.get('agent.model') || 'claude-opus-4-6';
   const hasAnthropicKey = !!SettingsManager.get('anthropic.apiKey');
-  const hasOAuth = SettingsManager.get('auth.method') === 'oauth' && !!SettingsManager.get('auth.oauthToken');
+  const hasOAuth =
+    SettingsManager.get('auth.method') === 'oauth' && !!SettingsManager.get('auth.oauthToken');
   const hasMoonshotKey = !!SettingsManager.get('moonshot.apiKey');
   const hasGlmKey = !!SettingsManager.get('glm.apiKey');
 
@@ -2512,21 +2826,26 @@ async function initializeAgent(): Promise<void> {
   AgentManager.initialize({
     memory,
     projectRoot,
-    workspace,  // Isolated working directory for agent file operations
+    workspace, // Isolated working directory for agent file operations
     dataDir: app.getPath('userData'),
     model,
     tools: toolsConfig,
   });
 
   // Listen for model changes and broadcast to UI
-  AgentManager.on('model:changed', (model: string) => {
+  // Remove previous listener to prevent stacking on re-init
+  if (modelChangedHandler) {
+    AgentManager.off('model:changed', modelChangedHandler);
+  }
+  modelChangedHandler = (model: string) => {
     if (chatWindow && !chatWindow.isDestroyed()) {
       chatWindow.webContents.send('model:changed', model);
     }
     if (settingsWindow && !settingsWindow.isDestroyed()) {
       settingsWindow.webContents.send('model:changed', model);
     }
-  });
+  };
+  AgentManager.on('model:changed', modelChangedHandler);
 
   // Initialize iOS channel (WebSocket server for mobile companion app)
   // Must be initialized BEFORE scheduler so push notifications work for jobs that fire during init
@@ -2538,66 +2857,86 @@ async function initializeAgent(): Promise<void> {
 
       if (iosChannel) {
         // Handle incoming messages from iOS → Agent
-        iosChannel.setMessageHandler(async (client: { device: ConnectedDevice }, message: ClientChatMessage) => {
-          // Transcribe audio if present (voice note from iOS)
-          let messageText = message.text;
-          if (message.audio?.data) {
-            const audioBuffer = Buffer.from(message.audio.data, 'base64');
-            const transcription = await transcribeAudio(audioBuffer, message.audio.format || 'm4a');
-            if (transcription.success && transcription.text) {
-              messageText = transcription.text;
-              console.log(`[Main] Transcribed iOS voice note (${message.audio.duration}s): "${messageText.substring(0, 80)}..."`);
-            } else {
-              console.warn('[Main] Voice transcription failed:', transcription.error);
+        iosChannel.setMessageHandler(
+          async (client: { device: ConnectedDevice }, message: ClientChatMessage) => {
+            // Transcribe audio if present (voice note from iOS)
+            let messageText = message.text;
+            if (message.audio?.data) {
+              const audioBuffer = Buffer.from(message.audio.data, 'base64');
+              const transcription = await transcribeAudio(
+                audioBuffer,
+                message.audio.format || 'm4a'
+              );
+              if (transcription.success && transcription.text) {
+                messageText = transcription.text;
+                console.log(
+                  `[Main] Transcribed iOS voice note (${message.audio.duration}s): "${messageText.substring(0, 80)}..."`
+                );
+              } else {
+                console.warn('[Main] Voice transcription failed:', transcription.error);
+                if (!message.text) {
+                  throw new Error(
+                    `Voice transcription failed: ${transcription.error || 'Unknown error'}. Please try again or type your message.`
+                  );
+                }
+              }
             }
-          }
 
-          // Forward status events to desktop UI during iOS-initiated queries
-          const iosSessionId = message.sessionId;
-          const desktopStatusHandler = (status: { type: string; sessionId?: string }) => {
-            if (status.sessionId && status.sessionId !== iosSessionId) return;
-            if (chatWindow && !chatWindow.isDestroyed()) {
-              chatWindow.webContents.send('agent:status', status);
+            // Forward status events to desktop UI during iOS-initiated queries
+            const iosSessionId = message.sessionId;
+            const desktopStatusHandler = (status: { type: string; sessionId?: string }) => {
+              if (status.sessionId && status.sessionId !== iosSessionId) return;
+              if (chatWindow && !chatWindow.isDestroyed()) {
+                chatWindow.webContents.send('agent:status', status);
+              }
+            };
+            AgentManager.on('status', desktopStatusHandler);
+            ensureCoderWorkingDirectory(message.sessionId);
+            let result;
+            try {
+              result = await AgentManager.processMessage(messageText, 'ios', message.sessionId);
+            } finally {
+              AgentManager.off('status', desktopStatusHandler);
             }
-          };
-          AgentManager.on('status', desktopStatusHandler);
-          ensureCoderWorkingDirectory(message.sessionId);
-          let result;
-          try {
-            result = await AgentManager.processMessage(
-              messageText,
-              'ios',
-              message.sessionId
-            );
-          } finally {
-            AgentManager.off('status', desktopStatusHandler);
-          }
 
-          // Sync to desktop UI (skip if response is empty, e.g. aborted)
-          if (chatWindow && !chatWindow.isDestroyed() && result.response) {
-            chatWindow.webContents.send('ios:message', {
-              userMessage: messageText,
+            // Sync to desktop UI (skip if response is empty, e.g. aborted)
+            if (chatWindow && !chatWindow.isDestroyed() && result.response) {
+              chatWindow.webContents.send('ios:message', {
+                userMessage: messageText,
+                response: result.response,
+                sessionId: message.sessionId,
+                deviceId: client.device.deviceId,
+              });
+            }
+
+            // Sync to Telegram if linked
+            const linkedChatId = memory?.getChatForSession(message.sessionId);
+            if (telegramBot && linkedChatId) {
+              telegramBot
+                .syncToChat(messageText, result.response, linkedChatId, result.media)
+                .catch((err) => {
+                  console.error('[Main] Failed to sync iOS message to Telegram:', err);
+                });
+            }
+
+            // Push notification for backgrounded/closed iOS devices
+            if (result.response && iosChannel) {
+              iosChannel
+                .sendPushNotifications('Pocket Agent', result.response, {
+                  sessionId: message.sessionId,
+                  type: 'response',
+                })
+                .catch((err) => console.error('[iOS] Push failed:', err));
+            }
+
+            return {
               response: result.response,
-              sessionId: message.sessionId,
-              deviceId: client.device.deviceId,
-            });
+              tokensUsed: result.tokensUsed,
+              media: result.media,
+              planPending: result.planPending,
+            };
           }
-
-          // Sync to Telegram if linked
-          const linkedChatId = memory?.getChatForSession(message.sessionId);
-          if (telegramBot && linkedChatId) {
-            telegramBot.syncToChat(messageText, result.response, linkedChatId, result.media).catch((err) => {
-              console.error('[Main] Failed to sync iOS message to Telegram:', err);
-            });
-          }
-
-          return {
-            response: result.response,
-            tokensUsed: result.tokensUsed,
-            media: result.media,
-            planPending: result.planPending,
-          };
-        });
+        );
 
         // Handle session list requests
         iosChannel.setSessionsHandler(() => {
@@ -2693,11 +3032,19 @@ async function initializeAgent(): Promise<void> {
         });
 
         iosChannel.setFactsHandler(() => AgentManager.getAllFacts());
-        iosChannel.setFactsDeleteHandler((id) => { memory?.deleteFact(id); return true; });
+        iosChannel.setFactsDeleteHandler((id) => {
+          memory?.deleteFact(id);
+          return true;
+        });
         iosChannel.setDailyLogsHandler((days) => memory?.getDailyLogsSince(days || 3) || []);
         iosChannel.setSoulHandler(() => memory?.getAllSoulAspects() || []);
-        iosChannel.setSoulDeleteHandler((id) => { memory?.deleteSoulAspectById(id); return true; });
-        iosChannel.setFactsGraphHandler(async () => memory?.getFactsGraphData() || { nodes: [] as never[], links: [] as never[] });
+        iosChannel.setSoulDeleteHandler((id) => {
+          memory?.deleteSoulAspectById(id);
+          return true;
+        });
+        iosChannel.setFactsGraphHandler(
+          async () => memory?.getFactsGraphData() || { nodes: [] as never[], links: [] as never[] }
+        );
         iosChannel.setCustomizeGetHandler(() => ({
           agentName: SettingsManager.get('personalize.agentName') || 'Frankie',
           personality: SettingsManager.get('personalize.personality') || '',
@@ -2706,39 +3053,65 @@ async function initializeAgent(): Promise<void> {
           funFacts: SettingsManager.get('personalize.funFacts') || '',
           systemGuidelines: SYSTEM_GUIDELINES,
           profile: {
-            name: SettingsManager.get('profile.name') || '', occupation: SettingsManager.get('profile.occupation') || '',
-            location: SettingsManager.get('profile.location') || '', timezone: SettingsManager.get('profile.timezone') || '',
+            name: SettingsManager.get('profile.name') || '',
+            occupation: SettingsManager.get('profile.occupation') || '',
+            location: SettingsManager.get('profile.location') || '',
+            timezone: SettingsManager.get('profile.timezone') || '',
             birthday: SettingsManager.get('profile.birthday') || '',
           },
         }));
         iosChannel.setCustomizeSaveHandler((data) => {
-          if (data.agentName !== undefined) SettingsManager.set('personalize.agentName', data.agentName);
-          if (data.personality !== undefined) SettingsManager.set('personalize.personality', data.personality);
+          if (data.agentName !== undefined)
+            SettingsManager.set('personalize.agentName', data.agentName);
+          if (data.personality !== undefined)
+            SettingsManager.set('personalize.personality', data.personality);
           if (data.goals !== undefined) SettingsManager.set('personalize.goals', data.goals);
-          if (data.struggles !== undefined) SettingsManager.set('personalize.struggles', data.struggles);
-          if (data.funFacts !== undefined) SettingsManager.set('personalize.funFacts', data.funFacts);
+          if (data.struggles !== undefined)
+            SettingsManager.set('personalize.struggles', data.struggles);
+          if (data.funFacts !== undefined)
+            SettingsManager.set('personalize.funFacts', data.funFacts);
           if (data.profile) {
-            if (data.profile.name !== undefined) SettingsManager.set('profile.name', data.profile.name);
-            if (data.profile.occupation !== undefined) SettingsManager.set('profile.occupation', data.profile.occupation);
-            if (data.profile.location !== undefined) SettingsManager.set('profile.location', data.profile.location);
-            if (data.profile.timezone !== undefined) SettingsManager.set('profile.timezone', data.profile.timezone);
-            if (data.profile.birthday !== undefined) SettingsManager.set('profile.birthday', data.profile.birthday);
+            if (data.profile.name !== undefined)
+              SettingsManager.set('profile.name', data.profile.name);
+            if (data.profile.occupation !== undefined)
+              SettingsManager.set('profile.occupation', data.profile.occupation);
+            if (data.profile.location !== undefined)
+              SettingsManager.set('profile.location', data.profile.location);
+            if (data.profile.timezone !== undefined)
+              SettingsManager.set('profile.timezone', data.profile.timezone);
+            if (data.profile.birthday !== undefined)
+              SettingsManager.set('profile.birthday', data.profile.birthday);
           }
         });
         iosChannel.setRoutinesListHandler(() => scheduler?.getAllJobs() || []);
         iosChannel.setRoutinesCreateHandler(async (name, schedule, prompt, channel, sessionId) => {
-          return await scheduler?.createJob(name, schedule, prompt, channel, sessionId) || false;
+          return (await scheduler?.createJob(name, schedule, prompt, channel, sessionId)) || false;
         });
         iosChannel.setRoutinesDeleteHandler((name) => scheduler?.deleteJob(name) || false);
-        iosChannel.setRoutinesToggleHandler((name, enabled) => scheduler?.setJobEnabled(name, enabled) || false);
+        iosChannel.setRoutinesToggleHandler(
+          (name, enabled) => scheduler?.setJobEnabled(name, enabled) || false
+        );
         iosChannel.setRoutinesRunHandler(async (name) => {
-          try { await scheduler?.runJobNow(name); return { success: true }; }
-          catch (e) { return { success: false, error: String(e) }; }
+          try {
+            await scheduler?.runJobNow(name);
+            return { success: true };
+          } catch (e) {
+            return { success: false, error: String(e) };
+          }
         });
         iosChannel.setAppInfoHandler(() => ({ version: app.getVersion(), name: 'Pocket Agent' }));
         iosChannel.setSkinHandler((skinId: string) => {
           SettingsManager.set('ui.skin', skinId);
-          const allWindows = [chatWindow, settingsWindow, cronWindow, factsWindow, factsGraphWindow, customizeWindow, soulWindow, dailyLogsWindow];
+          const allWindows = [
+            chatWindow,
+            settingsWindow,
+            cronWindow,
+            factsWindow,
+            factsGraphWindow,
+            customizeWindow,
+            soulWindow,
+            dailyLogsWindow,
+          ];
           for (const win of allWindows) {
             if (win && !win.isDestroyed()) {
               win.webContents.send('skin:changed', skinId);
@@ -2758,7 +3131,11 @@ async function initializeAgent(): Promise<void> {
           const msgCount = memory?.getSessionMessageCount(sessionId) || 0;
           if (msgCount > 0) {
             const current = memory?.getSessionMode(sessionId) || 'coder';
-            return { mode: current, locked: true, error: 'Cannot change mode after messages have been sent' };
+            return {
+              mode: current,
+              locked: true,
+              error: 'Cannot change mode after messages have been sent',
+            };
           }
           memory?.setSessionMode(sessionId, mode as 'general' | 'coder');
           AgentManager.setMode(mode);
@@ -2774,20 +3151,39 @@ async function initializeAgent(): Promise<void> {
           if (sessionMode === 'coder' && sessionWorkDir) {
             const sessionCommandsDir = path.join(sessionWorkDir, '.claude', 'commands');
             if (fs.existsSync(sessionCommandsDir)) {
-              return loadWorkflowCommandsFromDir(sessionCommandsDir).map(c => ({ name: c.name, description: c.description, content: c.content }));
+              return loadWorkflowCommandsFromDir(sessionCommandsDir).map((c) => ({
+                name: c.name,
+                description: c.description,
+                content: c.content,
+              }));
             }
           }
-          return loadWorkflowCommands().map(c => ({ name: c.name, description: c.description, content: c.content }));
+          return loadWorkflowCommands().map((c) => ({
+            name: c.name,
+            description: c.description,
+            content: c.content,
+          }));
         });
         // Calendar & Tasks handlers
         iosChannel.setCalendarListHandler(async () => {
           const result = JSON.parse(await handleCalendarListTool({}));
           return result.events || [];
         });
-        iosChannel.setCalendarAddHandler(async (title, startTime, endTime, location, description, reminderMinutes) => {
-          const result = JSON.parse(await handleCalendarAddTool({ title, start_time: startTime, end_time: endTime, location, description, reminder_minutes: reminderMinutes }));
-          return result.success ? result : null;
-        });
+        iosChannel.setCalendarAddHandler(
+          async (title, startTime, endTime, location, description, reminderMinutes) => {
+            const result = JSON.parse(
+              await handleCalendarAddTool({
+                title,
+                start_time: startTime,
+                end_time: endTime,
+                location,
+                description,
+                reminder_minutes: reminderMinutes,
+              })
+            );
+            return result.success ? result : null;
+          }
+        );
         iosChannel.setCalendarDeleteHandler(async (id) => {
           const result = JSON.parse(await handleCalendarDeleteTool({ id }));
           return result.success || false;
@@ -2800,10 +3196,20 @@ async function initializeAgent(): Promise<void> {
           const result = JSON.parse(await handleTaskListTool({ status: status || 'all' }));
           return result.tasks || [];
         });
-        iosChannel.setTasksAddHandler(async (title, dueDate, priority, description, reminderMinutes) => {
-          const result = JSON.parse(await handleTaskAddTool({ title, due: dueDate, priority, description, reminder_minutes: reminderMinutes }));
-          return result.success ? result : null;
-        });
+        iosChannel.setTasksAddHandler(
+          async (title, dueDate, priority, description, reminderMinutes) => {
+            const result = JSON.parse(
+              await handleTaskAddTool({
+                title,
+                due: dueDate,
+                priority,
+                description,
+                reminder_minutes: reminderMinutes,
+              })
+            );
+            return result.success ? result : null;
+          }
+        );
         iosChannel.setTasksCompleteHandler(async (id) => {
           const result = JSON.parse(await handleTaskCompleteTool({ id }));
           return result.success || false;
@@ -2824,7 +3230,9 @@ async function initializeAgent(): Promise<void> {
         await iosChannel.start();
         const mode = iosChannel.getMode();
         if (mode === 'relay') {
-          console.log(`[Main] iOS channel started (relay, instance: ${iosChannel.getInstanceId()})`);
+          console.log(
+            `[Main] iOS channel started (relay, instance: ${iosChannel.getInstanceId()})`
+          );
         } else {
           console.log(`[Main] iOS channel started (local, port: ${iosChannel.getPort()})`);
         }
@@ -2843,44 +3251,56 @@ async function initializeAgent(): Promise<void> {
       showNotification(title, body);
     });
 
-    scheduler.setChatHandler((jobName: string, prompt: string, response: string, sessionId: string) => {
-      console.log(`[Scheduler] Sending chat message for job: ${jobName} (session: ${sessionId})`);
-      if (chatWindow && !chatWindow.isDestroyed()) {
-        chatWindow.webContents.send('scheduler:message', { jobName, prompt, response, sessionId });
-      }
-      if (!chatWindow || chatWindow.isDestroyed()) {
-        openChatWindow();
-        setTimeout(() => {
-          try {
-            if (chatWindow && !chatWindow.isDestroyed()) {
-              chatWindow.webContents.send('scheduler:message', { jobName, prompt, response, sessionId });
+    scheduler.setChatHandler(
+      (jobName: string, prompt: string, response: string, sessionId: string) => {
+        console.log(`[Scheduler] Sending chat message for job: ${jobName} (session: ${sessionId})`);
+        if (chatWindow && !chatWindow.isDestroyed()) {
+          chatWindow.webContents.send('scheduler:message', {
+            jobName,
+            prompt,
+            response,
+            sessionId,
+          });
+        }
+        if (!chatWindow || chatWindow.isDestroyed()) {
+          openChatWindow();
+          setTimeout(() => {
+            try {
+              if (chatWindow && !chatWindow.isDestroyed()) {
+                chatWindow.webContents.send('scheduler:message', {
+                  jobName,
+                  prompt,
+                  response,
+                  sessionId,
+                });
+              }
+            } catch (err) {
+              console.error('[Main] Failed to send scheduler message to chat window:', err);
             }
-          } catch (err) {
-            console.error('[Main] Failed to send scheduler message to chat window:', err);
-          }
-        }, 1000);
+          }, 1000);
+        }
       }
-    });
+    );
 
-    scheduler.setIOSSyncHandler((jobName: string, prompt: string, response: string, sessionId: string) => {
-      if (iosChannel) {
-        // WebSocket broadcast (reaches connected/foregrounded devices)
-        iosChannel.broadcast({
-          type: 'scheduler',
-          jobName,
-          prompt,
-          response,
-          sessionId,
-          timestamp: new Date().toISOString(),
-        });
-        // Push notification (reaches backgrounded/closed devices)
-        iosChannel.sendPushNotifications(
-          jobName,
-          response,
-          { sessionId, jobName, type: 'scheduler' }
-        ).catch(err => console.error('[Scheduler→iOS] Push failed:', err));
+    scheduler.setIOSSyncHandler(
+      (jobName: string, prompt: string, response: string, sessionId: string) => {
+        if (iosChannel) {
+          // WebSocket broadcast (reaches connected/foregrounded devices)
+          iosChannel.broadcast({
+            type: 'scheduler',
+            jobName,
+            prompt,
+            response,
+            sessionId,
+            timestamp: new Date().toISOString(),
+          });
+          // Push notification (reaches backgrounded/closed devices)
+          iosChannel
+            .sendPushNotifications(jobName, response, { sessionId, jobName, type: 'scheduler' })
+            .catch((err) => console.error('[Scheduler→iOS] Push failed:', err));
+        }
       }
-    });
+    );
 
     await scheduler.initialize(memory, dbPath);
 
@@ -3013,9 +3433,11 @@ app.whenReady().then(async () => {
       // Restart power blocker in case it was affected
       startPowerBlocker();
       // Force CDP reconnection — WebSocket is dead after sleep
-      getBrowserManager().forceReconnectCdp().catch((err) => {
-        console.warn('[Power] CDP reconnect after resume failed:', err);
-      });
+      getBrowserManager()
+        .forceReconnectCdp()
+        .catch((err) => {
+          console.warn('[Power] CDP reconnect after resume failed:', err);
+        });
       // Force iOS relay reconnection — WebSocket is dead after sleep
       if (iosChannel) {
         iosChannel.forceReconnect().catch((err) => {
@@ -3033,9 +3455,11 @@ app.whenReady().then(async () => {
     powerMonitor.on('unlock-screen', () => {
       console.log('[Power] Screen unlocked');
       // Force CDP reconnection — connection may have gone stale during lock
-      getBrowserManager().forceReconnectCdp().catch((err) => {
-        console.warn('[Power] CDP reconnect after unlock failed:', err);
-      });
+      getBrowserManager()
+        .forceReconnectCdp()
+        .catch((err) => {
+          console.warn('[Power] CDP reconnect after unlock failed:', err);
+        });
       // Force iOS relay reconnection — connection may have gone stale during lock
       if (iosChannel) {
         iosChannel.forceReconnect().catch((err) => {
@@ -3108,7 +3532,7 @@ app.whenReady().then(async () => {
     }
 
     // Periodic tray update
-    setInterval(updateTrayMenu, 30000);
+    trayUpdateInterval = setInterval(updateTrayMenu, 30000);
   } catch (error) {
     console.error('[Main] FATAL ERROR during initialization:', error);
   }
@@ -3126,6 +3550,14 @@ app.on('activate', () => {
 app.on('before-quit', async () => {
   if (app.isReady()) {
     globalShortcut.unregisterAll(); // Clean up global shortcuts
+  }
+  if (trayUpdateInterval) {
+    clearInterval(trayUpdateInterval);
+    trayUpdateInterval = null;
+  }
+  if (modelChangedHandler) {
+    AgentManager.off('model:changed', modelChangedHandler);
+    modelChangedHandler = null;
   }
   await stopAgent();
   if (memory) {

@@ -38,7 +38,9 @@ function parseSchedule(input: string): {
   const trimmed = input.trim();
 
   // Check for explicit "every" pattern (recurring): "every 30m", "every 2h", "every 1d"
-  const everyMatch = trimmed.match(/^every\s+(\d+)\s*(m|min|mins|minutes?|h|hr|hrs|hours?|d|days?)$/i);
+  const everyMatch = trimmed.match(
+    /^every\s+(\d+)\s*(m|min|mins|minutes?|h|hr|hrs|hours?|d|days?)$/i
+  );
   if (everyMatch) {
     const [, amount, unit] = everyMatch;
     const num = parseInt(amount, 10);
@@ -66,7 +68,11 @@ function parseSchedule(input: string): {
   const atTime = parseDateTime(trimmed);
   if (atTime) {
     // If it's a relative/specific time, treat as "at"
-    if (trimmed.match(/^(today|tomorrow|in\s+\d|monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i)) {
+    if (
+      trimmed.match(
+        /^(today|tomorrow|in\s+\d|monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i
+      )
+    ) {
       return { type: 'at', runAt: atTime };
     }
   }
@@ -90,7 +96,9 @@ function parseDateTime(input: string): string | null {
   const now = new Date();
 
   // "today 3pm", "tomorrow 9am", "monday 2pm"
-  const relativeMatch = input.match(/^(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+  const relativeMatch = input.match(
+    /^(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i
+  );
   if (relativeMatch) {
     const [, dayStr, hourStr, minStr, ampm] = relativeMatch;
     const targetDate = new Date(now);
@@ -146,11 +154,11 @@ function validateCron(schedule: string): boolean {
   if (parts.length !== 5) return false;
 
   const ranges = [
-    [0, 59],  // minute
-    [0, 23],  // hour
-    [1, 31],  // day
-    [1, 12],  // month
-    [0, 7],   // weekday
+    [0, 59], // minute
+    [0, 23], // hour
+    [1, 31], // day
+    [1, 12], // month
+    [0, 7], // weekday
   ];
 
   for (let i = 0; i < 5; i++) {
@@ -173,7 +181,7 @@ function validateCron(schedule: string): boolean {
 function matchesCronField(spec: string, value: number, min: number, max: number): boolean {
   if (spec === '*') return true;
 
-  return spec.split(',').some(part => {
+  return spec.split(',').some((part) => {
     const [range, stepStr] = part.split('/');
     const step = stepStr ? parseInt(stepStr, 10) : 1;
 
@@ -197,7 +205,12 @@ function matchesCronField(spec: string, value: number, min: number, max: number)
 }
 
 // Calculate next run time
-function calculateNextRun(type: string, schedule: string | null, runAt: string | null, intervalMs: number | null): string | null {
+function calculateNextRun(
+  type: string,
+  schedule: string | null,
+  runAt: string | null,
+  intervalMs: number | null
+): string | null {
   const now = new Date();
 
   if (type === 'at' && runAt) {
@@ -267,7 +280,8 @@ function formatDuration(ms: number): string {
 export function getCreateRoutineToolDefinition() {
   return {
     name: 'create_routine',
-    description: 'Schedule a prompt for the LLM to execute at a specific time. When triggered, the prompt is sent to the agent who will perform the requested action (browse web, check APIs, research, etc). For simple notifications with no LLM action, use create_reminder instead.',
+    description:
+      'Schedule a prompt for the LLM to execute at a specific time. When triggered, the prompt is sent to the agent who will perform the requested action (browse web, check APIs, research, etc). For simple notifications with no LLM action, use create_reminder instead.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -277,11 +291,13 @@ export function getCreateRoutineToolDefinition() {
         },
         schedule: {
           type: 'string',
-          description: 'When to run. One-shot: "30m", "2h", "in 10 minutes", "tomorrow 3pm". Recurring: "every 30m", "every 2h", or cron "0 9 * * *". Bare durations like "2h" are ONE-SHOT (runs once). Use "every 2h" for recurring.',
+          description:
+            'When to run. One-shot: "30m", "2h", "in 10 minutes", "tomorrow 3pm". Recurring: "every 30m", "every 2h", or cron "0 9 * * *". Bare durations like "2h" are ONE-SHOT (runs once). Use "every 2h" for recurring.',
         },
         prompt: {
           type: 'string',
-          description: 'The prompt sent to the LLM when triggered. Write as an instruction: "Check the weather in KL and tell me", "Summarize today\'s tech news", "Research competitors for X".',
+          description:
+            'The prompt sent to the LLM when triggered. Write as an instruction: "Check the weather in KL and tell me", "Summarize today\'s tech news", "Research competitors for X".',
         },
       },
       required: ['name', 'schedule', 'prompt'],
@@ -328,25 +344,39 @@ export async function handleCreateRoutineTool(input: unknown): Promise<string> {
       // Ensure table has the new columns
       try {
         db.exec(`ALTER TABLE cron_jobs ADD COLUMN schedule_type TEXT DEFAULT 'cron'`);
-      } catch { /* column exists */ }
+      } catch {
+        /* column exists */
+      }
       try {
         db.exec(`ALTER TABLE cron_jobs ADD COLUMN run_at TEXT`);
-      } catch { /* column exists */ }
+      } catch {
+        /* column exists */
+      }
       try {
         db.exec(`ALTER TABLE cron_jobs ADD COLUMN interval_ms INTEGER`);
-      } catch { /* column exists */ }
+      } catch {
+        /* column exists */
+      }
       try {
         db.exec(`ALTER TABLE cron_jobs ADD COLUMN delete_after_run INTEGER DEFAULT 0`);
-      } catch { /* column exists */ }
+      } catch {
+        /* column exists */
+      }
       try {
         db.exec(`ALTER TABLE cron_jobs ADD COLUMN next_run_at TEXT`);
-      } catch { /* column exists */ }
+      } catch {
+        /* column exists */
+      }
       try {
         db.exec(`ALTER TABLE cron_jobs ADD COLUMN session_id TEXT`);
-      } catch { /* column exists */ }
+      } catch {
+        /* column exists */
+      }
       try {
         db.exec(`ALTER TABLE cron_jobs ADD COLUMN job_type TEXT DEFAULT 'routine'`);
-      } catch { /* column exists */ }
+      } catch {
+        /* column exists */
+      }
 
       const sessionId = getCurrentSessionId();
 
@@ -367,26 +397,48 @@ export async function handleCreateRoutineTool(input: unknown): Promise<string> {
       const existing = db.prepare('SELECT id FROM cron_jobs WHERE name = ?').get(name);
 
       if (existing) {
-        db.prepare(`
+        db.prepare(
+          `
           UPDATE cron_jobs SET
             schedule_type = ?, schedule = ?, run_at = ?, interval_ms = ?,
             prompt = ?, channel = ?, enabled = 1,
             delete_after_run = ?, next_run_at = ?, session_id = ?, job_type = ?,
             updated_at = datetime('now')
           WHERE name = ?
-        `).run(
-          parsed.type, parsed.schedule || null, parsed.runAt || null, parsed.intervalMs || null,
-          prompt, targetChannel, deleteAfterRun, nextRunAt, sessionId, 'routine', name
+        `
+        ).run(
+          parsed.type,
+          parsed.schedule || null,
+          parsed.runAt || null,
+          parsed.intervalMs || null,
+          prompt,
+          targetChannel,
+          deleteAfterRun,
+          nextRunAt,
+          sessionId,
+          'routine',
+          name
         );
       } else {
-        db.prepare(`
+        db.prepare(
+          `
           INSERT INTO cron_jobs (
             name, schedule_type, schedule, run_at, interval_ms,
             prompt, channel, enabled, delete_after_run, next_run_at, session_id, job_type
           ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
-        `).run(
-          name, parsed.type, parsed.schedule || null, parsed.runAt || null, parsed.intervalMs || null,
-          prompt, targetChannel, deleteAfterRun, nextRunAt, sessionId, 'routine'
+        `
+        ).run(
+          name,
+          parsed.type,
+          parsed.schedule || null,
+          parsed.runAt || null,
+          parsed.intervalMs || null,
+          prompt,
+          targetChannel,
+          deleteAfterRun,
+          nextRunAt,
+          sessionId,
+          'routine'
         );
       }
 
@@ -429,7 +481,8 @@ export async function handleCreateRoutineTool(input: unknown): Promise<string> {
 export function getCreateReminderToolDefinition() {
   return {
     name: 'create_reminder',
-    description: 'Create a simple reminder notification (NO LLM processing). The message is displayed exactly as written. Use for: "remind me to X", "don\'t forget Y". For tasks requiring LLM action (research, checking weather), use create_routine instead. NOT for todo items - use task_add for todos.',
+    description:
+      'Create a simple reminder notification (NO LLM processing). The message is displayed exactly as written. Use for: "remind me to X", "don\'t forget Y". For tasks requiring LLM action (research, checking weather), use create_routine instead. NOT for todo items - use task_add for todos.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -439,11 +492,13 @@ export function getCreateReminderToolDefinition() {
         },
         schedule: {
           type: 'string',
-          description: 'When to remind. One-shot: "30m", "2h", "in 10 minutes", "tomorrow 3pm". Recurring: "every 30m", "every 2h", or cron "0 9 * * *". Bare durations like "2h" are ONE-SHOT (runs once). Use "every 2h" for recurring.',
+          description:
+            'When to remind. One-shot: "30m", "2h", "in 10 minutes", "tomorrow 3pm". Recurring: "every 30m", "every 2h", or cron "0 9 * * *". Bare durations like "2h" are ONE-SHOT (runs once). Use "every 2h" for recurring.',
         },
         reminder: {
           type: 'string',
-          description: 'The exact message to display. Examples: "Hey Ken! Time to take a shower 🚿", "Don\'t forget to call mom! 📱". Write a friendly, complete message.',
+          description:
+            'The exact message to display. Examples: "Hey Ken! Time to take a shower 🚿", "Don\'t forget to call mom! 📱". Write a friendly, complete message.',
         },
       },
       required: ['name', 'schedule', 'reminder'],
@@ -489,25 +544,39 @@ export async function handleCreateReminderTool(input: unknown): Promise<string> 
       // Ensure table has the new columns (including job_type)
       try {
         db.exec(`ALTER TABLE cron_jobs ADD COLUMN schedule_type TEXT DEFAULT 'cron'`);
-      } catch { /* column exists */ }
+      } catch {
+        /* column exists */
+      }
       try {
         db.exec(`ALTER TABLE cron_jobs ADD COLUMN run_at TEXT`);
-      } catch { /* column exists */ }
+      } catch {
+        /* column exists */
+      }
       try {
         db.exec(`ALTER TABLE cron_jobs ADD COLUMN interval_ms INTEGER`);
-      } catch { /* column exists */ }
+      } catch {
+        /* column exists */
+      }
       try {
         db.exec(`ALTER TABLE cron_jobs ADD COLUMN delete_after_run INTEGER DEFAULT 0`);
-      } catch { /* column exists */ }
+      } catch {
+        /* column exists */
+      }
       try {
         db.exec(`ALTER TABLE cron_jobs ADD COLUMN next_run_at TEXT`);
-      } catch { /* column exists */ }
+      } catch {
+        /* column exists */
+      }
       try {
         db.exec(`ALTER TABLE cron_jobs ADD COLUMN session_id TEXT`);
-      } catch { /* column exists */ }
+      } catch {
+        /* column exists */
+      }
       try {
         db.exec(`ALTER TABLE cron_jobs ADD COLUMN job_type TEXT DEFAULT 'routine'`);
-      } catch { /* column exists */ }
+      } catch {
+        /* column exists */
+      }
 
       const sessionId = getCurrentSessionId();
 
@@ -528,26 +597,48 @@ export async function handleCreateReminderTool(input: unknown): Promise<string> 
       const existing = db.prepare('SELECT id FROM cron_jobs WHERE name = ?').get(name);
 
       if (existing) {
-        db.prepare(`
+        db.prepare(
+          `
           UPDATE cron_jobs SET
             schedule_type = ?, schedule = ?, run_at = ?, interval_ms = ?,
             prompt = ?, channel = ?, enabled = 1,
             delete_after_run = ?, next_run_at = ?, session_id = ?, job_type = ?,
             updated_at = datetime('now')
           WHERE name = ?
-        `).run(
-          parsed.type, parsed.schedule || null, parsed.runAt || null, parsed.intervalMs || null,
-          reminder, targetChannel, deleteAfterRun, nextRunAt, sessionId, 'reminder', name
+        `
+        ).run(
+          parsed.type,
+          parsed.schedule || null,
+          parsed.runAt || null,
+          parsed.intervalMs || null,
+          reminder,
+          targetChannel,
+          deleteAfterRun,
+          nextRunAt,
+          sessionId,
+          'reminder',
+          name
         );
       } else {
-        db.prepare(`
+        db.prepare(
+          `
           INSERT INTO cron_jobs (
             name, schedule_type, schedule, run_at, interval_ms,
             prompt, channel, enabled, delete_after_run, next_run_at, session_id, job_type
           ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
-        `).run(
-          name, parsed.type, parsed.schedule || null, parsed.runAt || null, parsed.intervalMs || null,
-          reminder, targetChannel, deleteAfterRun, nextRunAt, sessionId, 'reminder'
+        `
+        ).run(
+          name,
+          parsed.type,
+          parsed.schedule || null,
+          parsed.runAt || null,
+          parsed.intervalMs || null,
+          reminder,
+          targetChannel,
+          deleteAfterRun,
+          nextRunAt,
+          sessionId,
+          'reminder'
         );
       }
 
@@ -589,7 +680,8 @@ export async function handleCreateReminderTool(input: unknown): Promise<string> 
 export function getListRoutinesToolDefinition() {
   return {
     name: 'list_routines',
-    description: 'List all scheduled routines (LLM tasks) and reminders (simple notifications). Shows name, type, schedule, and next run time. NOT for todo items - use task_list for todos.',
+    description:
+      'List all scheduled routines (LLM tasks) and reminders (simple notifications). Shows name, type, schedule, and next run time. NOT for todo items - use task_list for todos.',
     input_schema: {
       type: 'object' as const,
       properties: {},
@@ -651,7 +743,7 @@ export async function handleListRoutinesTool(): Promise<string> {
   return JSON.stringify({
     success: true,
     count: jobs.length,
-    tasks: jobs.map(job => ({
+    tasks: jobs.map((job) => ({
       name: job.name,
       type: job.job_type || 'routine',
       schedule: formatScheduleDisplay(job),
@@ -669,7 +761,8 @@ export async function handleListRoutinesTool(): Promise<string> {
 export function getDeleteRoutineToolDefinition() {
   return {
     name: 'delete_routine',
-    description: 'Delete a scheduled routine or reminder by name. NOT for todo items - use task_delete for todos.',
+    description:
+      'Delete a scheduled routine or reminder by name. NOT for todo items - use task_delete for todos.',
     input_schema: {
       type: 'object' as const,
       properties: {

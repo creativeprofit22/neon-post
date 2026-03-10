@@ -19,7 +19,8 @@ export function setMemoryManager(memory: MemoryManager): void {
 export function getRememberToolDefinition() {
   return {
     name: 'remember',
-    description: 'Save a fact to long-term memory. Keep each fact atomic (under 30 words, one piece of info per call). Use specific keys like "partner_name" not "family". Save proactively when user shares something meaningful.',
+    description:
+      'Save a fact to long-term memory. Keep each fact atomic (under 30 words, one piece of info per call). Use specific keys like "partner_name" not "family". Save proactively when user shares something meaningful.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -29,7 +30,8 @@ export function getRememberToolDefinition() {
         },
         subject: {
           type: 'string',
-          description: 'Specific, descriptive key (e.g., "partner_name", "coffee_preference", "current_project")',
+          description:
+            'Specific, descriptive key (e.g., "partner_name", "coffee_preference", "current_project")',
         },
         content: {
           type: 'string',
@@ -77,7 +79,8 @@ export async function handleRememberTool(input: unknown): Promise<string> {
 export function getForgetToolDefinition() {
   return {
     name: 'forget',
-    description: 'Remove a fact from long-term memory. Forget by category + subject, or by fact ID.',
+    description:
+      'Remove a fact from long-term memory. Forget by category + subject, or by fact ID.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -113,7 +116,7 @@ export async function handleForgetTool(input: unknown): Promise<string> {
     id?: number;
   };
 
-  let deleted = false;
+  let deleted: boolean;
 
   if (id !== undefined) {
     deleted = memoryManager.deleteFact(id);
@@ -137,7 +140,8 @@ export async function handleForgetTool(input: unknown): Promise<string> {
 export function getListFactsToolDefinition() {
   return {
     name: 'list_facts',
-    description: 'List all known facts from memory. Use when user asks "what do you know about me" or similar.',
+    description:
+      'List all known facts from memory. Use when user asks "what do you know about me" or similar.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -179,7 +183,7 @@ export async function handleListFactsTool(input: unknown): Promise<string> {
   return JSON.stringify({
     success: true,
     count: facts.length,
-    facts: facts.map(f => ({
+    facts: facts.map((f) => ({
       id: f.id,
       category: f.category,
       subject: f.subject,
@@ -194,7 +198,8 @@ export async function handleListFactsTool(input: unknown): Promise<string> {
 export function getMemorySearchToolDefinition() {
   return {
     name: 'memory_search',
-    description: 'Search long-term memory using semantic + keyword hybrid search. Use proactively to recall facts about the user. Returns top 6 results.',
+    description:
+      'Search long-term memory using semantic + keyword hybrid search. Use proactively to recall facts about the user. Returns top 6 results.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -238,7 +243,7 @@ export async function handleMemorySearchTool(input: unknown): Promise<string> {
     return JSON.stringify({
       success: true,
       count: results.length,
-      results: results.map(r => ({
+      results: results.map((r) => ({
         id: r.fact.id,
         category: r.fact.category,
         subject: r.fact.subject,
@@ -261,7 +266,8 @@ export async function handleMemorySearchTool(input: unknown): Promise<string> {
 export function getDailyLogToolDefinition() {
   return {
     name: 'daily_log',
-    description: "Add an entry to today's daily log. Log completed tasks, decisions, mood, or key events at natural breakpoints.",
+    description:
+      "Add an entry to today's daily log. Log completed tasks, decisions, mood, or key events at natural breakpoints.",
     input_schema: {
       type: 'object' as const,
       properties: {

@@ -144,7 +144,7 @@ class ClaudeOAuthManager {
     console.log('[OAuth] Exchanging code:', {
       codeLength: authCode.length,
       hasState: parts.length > 1,
-      stateMatch: state === pkce.state
+      stateMatch: state === pkce.state,
     });
 
     const response = await net.fetch(OAUTH_CONFIG.tokenUrl, {

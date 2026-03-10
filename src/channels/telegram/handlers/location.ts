@@ -36,13 +36,15 @@ async function reverseGeocode(lat: number, lon: number): Promise<GeocodingResult
 
     return {
       displayName: data.display_name || 'Unknown location',
-      address: data.address ? {
-        road: data.address.road,
-        city: data.address.city || data.address.town || data.address.village,
-        state: data.address.state,
-        country: data.address.country,
-        postcode: data.address.postcode,
-      } : undefined,
+      address: data.address
+        ? {
+            road: data.address.road,
+            city: data.address.city || data.address.town || data.address.village,
+            state: data.address.state,
+            country: data.address.country,
+            postcode: data.address.postcode,
+          }
+        : undefined,
     };
   } catch (error) {
     console.error('[Telegram] Geocoding error:', error);
@@ -119,12 +121,13 @@ export async function handleLocationMessage(
 
       console.log(
         `[Telegram] Processing location: ${locationData.latitude}, ${locationData.longitude}` +
-        (geocoding ? ` (${geocoding.displayName.substring(0, 50)})` : '') +
-        (isLiveLocation ? ' [LIVE]' : '')
+          (geocoding ? ` (${geocoding.displayName.substring(0, 50)})` : '') +
+          (isLiveLocation ? ' [LIVE]' : '')
       );
 
       // Build location description
-      const locationDesc = geocoding?.displayName || `${locationData.latitude}, ${locationData.longitude}`;
+      const locationDesc =
+        geocoding?.displayName || `${locationData.latitude}, ${locationData.longitude}`;
       const addressParts: string[] = [];
 
       if (geocoding?.address) {
@@ -150,10 +153,16 @@ export async function handleLocationMessage(
       const memory = AgentManager.getMemory();
       const sessionId = memory?.getSessionForChat(chatId) || 'default';
 
-      const agentResult = await AgentManager.processMessage(prompt, 'telegram', sessionId, undefined, {
-        hasAttachment: true,
-        attachmentType: 'location',
-      });
+      const agentResult = await AgentManager.processMessage(
+        prompt,
+        'telegram',
+        sessionId,
+        undefined,
+        {
+          hasAttachment: true,
+          attachmentType: 'location',
+        }
+      );
 
       return {
         agentResult,
@@ -168,7 +177,7 @@ export async function handleLocationMessage(
     // Add quick actions in rows of 2
     for (let i = 0; i < quickActions.length; i += 2) {
       const rowActions = quickActions.slice(i, i + 2);
-      const buttons = rowActions.map(action => ({
+      const buttons = rowActions.map((action) => ({
         text: action.label,
         callbackData: `location:${action.action}:${action.query}`,
       }));
@@ -203,8 +212,8 @@ export async function handleLocationMessage(
     if (onMessageCallback) {
       const memory = AgentManager.getMemory();
       const sessionId = memory?.getSessionForChat(chatId) || 'default';
-      const locationStr = result.geocoding?.displayName ||
-        `${locationData.latitude}, ${locationData.longitude}`;
+      const locationStr =
+        result.geocoding?.displayName || `${locationData.latitude}, ${locationData.longitude}`;
 
       onMessageCallback({
         userMessage: `Shared location: ${locationStr}`,
@@ -244,9 +253,7 @@ export async function handleEditedLocation(
 
   // For live location updates, we just log them
   // The agent doesn't need to respond to every position update
-  console.log(
-    `[Telegram] Live location update: ${location.latitude}, ${location.longitude}`
-  );
+  console.log(`[Telegram] Live location update: ${location.latitude}, ${location.longitude}`);
 
   // Optionally, you could update a stored location state here
   // or notify the agent periodically about significant moves

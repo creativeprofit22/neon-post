@@ -59,5 +59,3 @@ export class InlineKeyboardBuilder {
     return this.rows.length === 0;
   }
 }
-
-

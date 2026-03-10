@@ -87,7 +87,8 @@ function validatePath(inputPath: string): { valid: boolean; normalized?: string;
 export function getSetProjectToolDefinition() {
   return {
     name: 'set_project',
-    description: 'Set the working directory for this session to a project path. Takes effect on next message.',
+    description:
+      'Set the working directory for this session to a project path. Takes effect on next message.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -127,10 +128,12 @@ export async function handleSetProjectTool(input: unknown): Promise<string> {
     console.log(`[ProjectTools] set_project: session=${sessionId} path=${validation.normalized}`);
 
     // Update the session's working_directory in the DB
-    db.prepare(`
+    db.prepare(
+      `
       UPDATE sessions SET working_directory = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ'))
       WHERE id = ?
-    `).run(validation.normalized, sessionId);
+    `
+    ).run(validation.normalized, sessionId);
 
     // Flag the session for restart after the current turn completes.
     // Can't close the session mid-turn (causes "Session closed" errors),
@@ -185,10 +188,14 @@ export async function handleGetProjectTool(): Promise<string> {
 
   try {
     const sessionId = getCurrentSessionId();
-    const row = db.prepare('SELECT working_directory FROM sessions WHERE id = ?').get(sessionId) as { working_directory: string | null } | undefined;
+    const row = db.prepare('SELECT working_directory FROM sessions WHERE id = ?').get(sessionId) as
+      | { working_directory: string | null }
+      | undefined;
 
     const workingDir = row?.working_directory;
-    console.log(`[ProjectTools] get_project: session=${sessionId} working_directory=${workingDir || 'null'}`);
+    console.log(
+      `[ProjectTools] get_project: session=${sessionId} working_directory=${workingDir || 'null'}`
+    );
 
     if (!workingDir) {
       return JSON.stringify({
@@ -254,12 +261,18 @@ export async function handleClearProjectTool(): Promise<string> {
   try {
     const sessionId = getCurrentSessionId();
     const defaultPath = AgentManager.getProjectRoot();
-    console.log(`[ProjectTools] clear_project: session=${sessionId} resetting to default=${defaultPath}`);
+    console.log(
+      `[ProjectTools] clear_project: session=${sessionId} resetting to default=${defaultPath}`
+    );
 
-    const result = db.prepare(`
+    const result = db
+      .prepare(
+        `
       UPDATE sessions SET working_directory = NULL, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ'))
       WHERE id = ?
-    `).run(sessionId);
+    `
+      )
+      .run(sessionId);
 
     // Flag the session for restart after the current turn completes.
     AgentManager.flagProjectSwitch(sessionId);

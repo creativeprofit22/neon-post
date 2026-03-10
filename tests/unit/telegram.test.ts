@@ -296,19 +296,6 @@ describe('TelegramBot', () => {
       expect(chatIds).toContain(2000);
     });
 
-    it('should allow adding users to allowlist', () => {
-      const bot = new TelegramBot();
-      bot.addAllowedUser(777);
-      // Verify the user was added (implementation detail)
-      expect(bot).toBeDefined();
-    });
-
-    it('should allow removing users from allowlist', () => {
-      const bot = new TelegramBot();
-      bot.removeAllowedUser(123);
-      // Verify the user was removed (implementation detail)
-      expect(bot).toBeDefined();
-    });
   });
 
   describe('command handlers', () => {
@@ -691,19 +678,6 @@ describe('TelegramBot', () => {
       const sent = await bot.broadcast('Broadcast message');
 
       expect(sent).toBeGreaterThanOrEqual(1);
-    });
-  });
-
-  describe('syncFromDesktop', () => {
-    it('should format and broadcast desktop sync', async () => {
-      const bot = new TelegramBot();
-      await bot.start();
-
-      await bot.syncFromDesktop('User message', 'Assistant response');
-
-      expect(mockState.api.sendMessage).toHaveBeenCalled();
-      const call = mockState.api.sendMessage.mock.calls[0];
-      expect(call[1]).toContain('[Desktop]');
     });
   });
 

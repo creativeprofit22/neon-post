@@ -38,10 +38,7 @@ import { handleLocationMessage, handleEditedLocation } from './handlers/location
 import { registerCallbackHandler, CallbackHandlerDeps } from './handlers/callbacks';
 
 // Features
-import {
-  createReactionHandler,
-  registerReactionHandler,
-} from './features/reactions';
+import { createReactionHandler, registerReactionHandler } from './features/reactions';
 
 // Re-export types
 export type { MessageCallback, SessionLinkCallback, AttachmentType };
@@ -73,10 +70,10 @@ export class TelegramBot extends BaseChannel {
     if (allowedUsers.length === 0) {
       throw new Error(
         'Telegram allowlist is empty. For security, you must add at least one user ID.\n\n' +
-        'To get your Telegram user ID:\n' +
-        '1. Open Telegram and message @userinfobot\n' +
-        '2. It will reply with your user ID\n' +
-        '3. Add that ID to Settings -> Telegram -> Allowed User IDs'
+          'To get your Telegram user ID:\n' +
+          '1. Open Telegram and message @userinfobot\n' +
+          '2. It will reply with your user ID\n' +
+          '3. Add that ID to Settings -> Telegram -> Allowed User IDs'
       );
     }
 
@@ -122,7 +119,9 @@ export class TelegramBot extends BaseChannel {
     // Use getter so the callback is resolved at call-time, not at setup-time
     const commandDeps: CommandHandlerDeps = {
       bot: this.bot,
-      get onSessionLinkCallback() { return self.onSessionLinkCallback; },
+      get onSessionLinkCallback() {
+        return self.onSessionLinkCallback;
+      },
       sendResponse: this.sendResponse.bind(this),
     };
 
@@ -144,10 +143,10 @@ export class TelegramBot extends BaseChannel {
       // Handle negative reaction - offer clarification
       await this.bot.api.sendMessage(
         chatId,
-        'I see you weren\'t satisfied with that response. Would you like me to:\n' +
-        '* Try again with a different approach?\n' +
-        '* Provide more detail?\n' +
-        '* Explain my reasoning?',
+        "I see you weren't satisfied with that response. Would you like me to:\n" +
+          '* Try again with a different approach?\n' +
+          '* Provide more detail?\n' +
+          '* Explain my reasoning?',
         { reply_to_message_id: messageId }
       );
     });
@@ -246,7 +245,7 @@ export class TelegramBot extends BaseChannel {
       }
       // Small delay between messages to maintain order
       if (i < chunks.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
       }
     }
   }
@@ -283,7 +282,7 @@ export class TelegramBot extends BaseChannel {
             await this.bot.api.sendMessage(chatId, prefix + chunks[i]);
           }
           if (i < chunks.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
           }
         }
       }
@@ -311,7 +310,10 @@ export class TelegramBot extends BaseChannel {
   /**
    * Send photos to a Telegram chat from local file paths
    */
-  async sendPhotos(chatId: number, media: Array<{ type: string; filePath: string; mimeType: string }>): Promise<void> {
+  async sendPhotos(
+    chatId: number,
+    media: Array<{ type: string; filePath: string; mimeType: string }>
+  ): Promise<void> {
     for (const item of media) {
       if (item.type === 'image' && fs.existsSync(item.filePath)) {
         try {
@@ -326,7 +328,11 @@ export class TelegramBot extends BaseChannel {
   /**
    * Send a response with optional media attachments
    */
-  async sendResponseWithMedia(ctx: Context, text: string, media?: Array<{ type: string; filePath: string; mimeType: string }>): Promise<void> {
+  async sendResponseWithMedia(
+    ctx: Context,
+    text: string,
+    media?: Array<{ type: string; filePath: string; mimeType: string }>
+  ): Promise<void> {
     await this.sendResponse(ctx, text);
 
     if (media && media.length > 0 && ctx.chat?.id) {
@@ -337,7 +343,12 @@ export class TelegramBot extends BaseChannel {
   /**
    * Sync a desktop conversation to a specific Telegram chat
    */
-  async syncToChat(userMessage: string, response: string, chatId: number, media?: Array<{ type: string; filePath: string; mimeType: string }>): Promise<boolean> {
+  async syncToChat(
+    userMessage: string,
+    response: string,
+    chatId: number,
+    media?: Array<{ type: string; filePath: string; mimeType: string }>
+  ): Promise<boolean> {
     const text = `[Desktop]\n\nYou: ${userMessage}\n\nAssistant: ${response}`;
     const success = await this.sendMessage(chatId, text);
 

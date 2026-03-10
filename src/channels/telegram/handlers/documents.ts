@@ -54,20 +54,41 @@ export function getFileTypeDescription(mimeType: string, fileName: string): stri
 
   // Office documents
   const officeExtensions: Record<string, string> = {
-    docx: 'Word document', odt: 'OpenDocument text',
-    pptx: 'PowerPoint presentation', odp: 'OpenDocument presentation',
-    xlsx: 'Excel spreadsheet', ods: 'OpenDocument spreadsheet',
+    docx: 'Word document',
+    odt: 'OpenDocument text',
+    pptx: 'PowerPoint presentation',
+    odp: 'OpenDocument presentation',
+    xlsx: 'Excel spreadsheet',
+    ods: 'OpenDocument spreadsheet',
     rtf: 'RTF document',
   };
   if (ext && officeExtensions[ext]) return officeExtensions[ext];
 
   // Code files
   const codeExtensions: Record<string, string> = {
-    js: 'JavaScript', ts: 'TypeScript', tsx: 'TypeScript React', jsx: 'JavaScript React',
-    py: 'Python', rb: 'Ruby', java: 'Java', c: 'C', cpp: 'C++', h: 'C header',
-    cs: 'C#', go: 'Go', rs: 'Rust', swift: 'Swift', kt: 'Kotlin',
-    sh: 'Shell script', sql: 'SQL', html: 'HTML', css: 'CSS',
-    json: 'JSON', yaml: 'YAML', yml: 'YAML', xml: 'XML',
+    js: 'JavaScript',
+    ts: 'TypeScript',
+    tsx: 'TypeScript React',
+    jsx: 'JavaScript React',
+    py: 'Python',
+    rb: 'Ruby',
+    java: 'Java',
+    c: 'C',
+    cpp: 'C++',
+    h: 'C header',
+    cs: 'C#',
+    go: 'Go',
+    rs: 'Rust',
+    swift: 'Swift',
+    kt: 'Kotlin',
+    sh: 'Shell script',
+    sql: 'SQL',
+    html: 'HTML',
+    css: 'CSS',
+    json: 'JSON',
+    yaml: 'YAML',
+    yml: 'YAML',
+    xml: 'XML',
   };
   if (ext && codeExtensions[ext]) return `${codeExtensions[ext]} file`;
 
@@ -94,15 +115,49 @@ export function isSupportedFileType(mimeType: string, fileName: string): boolean
   const ext = fileName.split('.').pop()?.toLowerCase();
   const supportedExtensions = [
     // Office documents
-    'docx', 'pptx', 'xlsx', 'odt', 'odp', 'ods', 'rtf',
+    'docx',
+    'pptx',
+    'xlsx',
+    'odt',
+    'odp',
+    'ods',
+    'rtf',
     // Code
-    'js', 'ts', 'tsx', 'jsx', 'py', 'rb', 'java', 'c', 'cpp', 'h', 'hpp',
-    'cs', 'go', 'rs', 'swift', 'kt', 'sh', 'bash', 'sql', 'html', 'css',
-    'json', 'yaml', 'yml', 'xml',
+    'js',
+    'ts',
+    'tsx',
+    'jsx',
+    'py',
+    'rb',
+    'java',
+    'c',
+    'cpp',
+    'h',
+    'hpp',
+    'cs',
+    'go',
+    'rs',
+    'swift',
+    'kt',
+    'sh',
+    'bash',
+    'sql',
+    'html',
+    'css',
+    'json',
+    'yaml',
+    'yml',
+    'xml',
     // Text
-    'txt', 'md', 'log', 'ini', 'cfg', 'conf',
+    'txt',
+    'md',
+    'log',
+    'ini',
+    'cfg',
+    'conf',
     // Spreadsheets
-    'csv', 'xls',
+    'csv',
+    'xls',
   ];
 
   return ext ? supportedExtensions.includes(ext) : false;
@@ -125,7 +180,7 @@ export async function handleDocumentMessage(
     chatId,
     hasDocument: !!document,
     fileName: document?.file_name,
-    mimeType: document?.mime_type
+    mimeType: document?.mime_type,
   });
 
   if (!chatId || !document) {
@@ -145,8 +200,7 @@ export async function handleDocumentMessage(
   const MAX_FILE_SIZE = 20 * 1024 * 1024;
   if (fileSize > MAX_FILE_SIZE) {
     await ctx.reply(
-      `File too large (${(fileSize / 1024 / 1024).toFixed(1)}MB).\n` +
-      `Maximum size is 20MB.`
+      `File too large (${(fileSize / 1024 / 1024).toFixed(1)}MB).\n` + `Maximum size is 20MB.`
     );
     return;
   }
@@ -155,12 +209,12 @@ export async function handleDocumentMessage(
   if (!isSupportedFileType(mimeType, fileName)) {
     await ctx.reply(
       `I can't process this file type (${mimeType}).\n\n` +
-      `Supported formats:\n` +
-      `• Office documents (.docx, .pptx, .xlsx, .odt, .odp, .ods, .rtf)\n` +
-      `• PDF files\n` +
-      `• Code files (.js, .ts, .py, .go, etc.)\n` +
-      `• Text files (.txt, .md, .log)\n` +
-      `• Spreadsheets (.csv)`
+        `Supported formats:\n` +
+        `• Office documents (.docx, .pptx, .xlsx, .odt, .odp, .ods, .rtf)\n` +
+        `• PDF files\n` +
+        `• Code files (.js, .ts, .py, .go, etc.)\n` +
+        `• Text files (.txt, .md, .log)\n` +
+        `• Spreadsheets (.csv)`
     );
     return;
   }

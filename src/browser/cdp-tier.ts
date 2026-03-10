@@ -137,7 +137,10 @@ export class CdpTier {
       });
       let connectTimeoutId: ReturnType<typeof setTimeout>;
       const timeoutPromise = new Promise<never>((_, reject) => {
-        connectTimeoutId = setTimeout(() => reject(new Error('puppeteer.connect() timed out after 10s')), 10000);
+        connectTimeoutId = setTimeout(
+          () => reject(new Error('puppeteer.connect() timed out after 10s')),
+          10000
+        );
       });
       try {
         this.browser = await Promise.race([connectPromise, timeoutPromise]);
@@ -153,7 +156,7 @@ export class CdpTier {
 
       // Get existing pages
       const pages = await this.browser.pages();
-      this.page = pages[0] || await this.browser.newPage();
+      this.page = pages[0] || (await this.browser.newPage());
       this.currentUrl = this.page.url();
 
       // Start health monitoring
@@ -185,14 +188,16 @@ export class CdpTier {
   private getConnectionHelp(error: unknown): string {
     const msg = error instanceof Error ? error.message : 'Unknown error';
 
-    return `CDP connection failed: ${msg}\n\n` +
+    return (
+      `CDP connection failed: ${msg}\n\n` +
       'To use CDP tier, start Chrome with remote debugging:\n\n' +
       'macOS:\n' +
       '  /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=9222\n\n' +
       'Windows:\n' +
       '  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --remote-debugging-port=9222\n\n' +
       'Linux:\n' +
-      '  google-chrome --remote-debugging-port=9222';
+      '  google-chrome --remote-debugging-port=9222'
+    );
   }
 
   /**
@@ -224,7 +229,10 @@ export class CdpTier {
       console.log('[CDP] Connection lost, attempting reconnect...');
       const result = await this.connect();
       if (!result.success) {
-        throw new Error(result.error || 'Failed to connect to Chrome. Make sure Chrome is running with --remote-debugging-port=9222');
+        throw new Error(
+          result.error ||
+            'Failed to connect to Chrome. Make sure Chrome is running with --remote-debugging-port=9222'
+        );
       }
     }
 
@@ -271,7 +279,7 @@ export class CdpTier {
       // Wait for condition if specified
       if (waitFor) {
         if (typeof waitFor === 'number') {
-          await new Promise(resolve => setTimeout(resolve, waitFor));
+          await new Promise((resolve) => setTimeout(resolve, waitFor));
         } else {
           await page.waitForSelector(waitFor, { timeout: 10000 });
         }
@@ -346,7 +354,8 @@ export class CdpTier {
         if (!el) return { clickable: false, reason: 'not found' };
         const style = window.getComputedStyle(el);
         if (style.display === 'none') return { clickable: false, reason: 'hidden (display:none)' };
-        if (style.visibility === 'hidden') return { clickable: false, reason: 'hidden (visibility)' };
+        if (style.visibility === 'hidden')
+          return { clickable: false, reason: 'hidden (visibility)' };
         if ((el as HTMLButtonElement).disabled) return { clickable: false, reason: 'disabled' };
         return { clickable: true };
       }, selector);
@@ -362,7 +371,7 @@ export class CdpTier {
       await page.click(selector);
 
       // Brief wait for any immediate effects
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       return {
         success: true,
@@ -444,55 +453,61 @@ export class CdpTier {
       const selector = action.extractSelector || 'body';
       const extractType = action.extractType || 'structured';
 
-      const result = await page.evaluate((sel: string, type: string) => {
-        const el = document.querySelector(sel) || document.body;
+      const result = await page.evaluate(
+        (sel: string, type: string) => {
+          const el = document.querySelector(sel) || document.body;
 
-        switch (type) {
-          case 'text':
-            return { text: (el as HTMLElement).innerText };
+          switch (type) {
+            case 'text':
+              return { text: (el as HTMLElement).innerText };
 
-          case 'html':
-            return { html: el.innerHTML };
+            case 'html':
+              return { html: el.innerHTML };
 
-          case 'links':
-            const links: Array<{ href: string; text: string }> = [];
-            el.querySelectorAll('a[href]').forEach((a: Element) => {
-              links.push({
-                href: (a as HTMLAnchorElement).href,
-                text: a.textContent?.trim() || '',
-              });
-            });
-            return { links };
-
-          case 'tables':
-            const tables: string[][][] = [];
-            el.querySelectorAll('table').forEach((table: Element) => {
-              const tableData: string[][] = [];
-              table.querySelectorAll('tr').forEach((row: Element) => {
-                const rowData: string[] = [];
-                row.querySelectorAll('td, th').forEach((cell: Element) => {
-                  rowData.push(cell.textContent?.trim() || '');
+            case 'links':
+              const links: Array<{ href: string; text: string }> = [];
+              el.querySelectorAll('a[href]').forEach((a: Element) => {
+                links.push({
+                  href: (a as HTMLAnchorElement).href,
+                  text: a.textContent?.trim() || '',
                 });
-                if (rowData.length) tableData.push(rowData);
               });
-              if (tableData.length) tables.push(tableData);
-            });
-            return { tables };
+              return { links };
 
-          case 'structured':
-          default:
-            const mainEl = document.querySelector('main, article, [role="main"], .content') || document.body;
-            return {
-              title: document.title,
-              url: window.location.href,
-              description: document.querySelector('meta[name="description"]')?.getAttribute('content') || '',
-              headings: Array.from(document.querySelectorAll('h1, h2, h3'))
-                .slice(0, 20)
-                .map(h => h.textContent?.trim()),
-              mainContent: (mainEl as HTMLElement).innerText?.slice(0, 3000) || '',
-            };
-        }
-      }, selector, extractType);
+            case 'tables':
+              const tables: string[][][] = [];
+              el.querySelectorAll('table').forEach((table: Element) => {
+                const tableData: string[][] = [];
+                table.querySelectorAll('tr').forEach((row: Element) => {
+                  const rowData: string[] = [];
+                  row.querySelectorAll('td, th').forEach((cell: Element) => {
+                    rowData.push(cell.textContent?.trim() || '');
+                  });
+                  if (rowData.length) tableData.push(rowData);
+                });
+                if (tableData.length) tables.push(tableData);
+              });
+              return { tables };
+
+            case 'structured':
+            default:
+              const mainEl =
+                document.querySelector('main, article, [role="main"], .content') || document.body;
+              return {
+                title: document.title,
+                url: window.location.href,
+                description:
+                  document.querySelector('meta[name="description"]')?.getAttribute('content') || '',
+                headings: Array.from(document.querySelectorAll('h1, h2, h3'))
+                  .slice(0, 20)
+                  .map((h) => h.textContent?.trim()),
+                mainContent: (mainEl as HTMLElement).innerText?.slice(0, 3000) || '',
+              };
+          }
+        },
+        selector,
+        extractType
+      );
 
       return {
         success: true,
@@ -607,7 +622,7 @@ export class CdpTier {
       await page.hover(selector);
 
       // Wait for hover effects
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       return {
         success: true,
@@ -740,7 +755,8 @@ export class CdpTier {
 
       // Upload file using Puppeteer's uploadFile
       // Cast to input element handle for uploadFile
-      const inputHandle = inputElement as unknown as import('puppeteer-core').ElementHandle<HTMLInputElement>;
+      const inputHandle =
+        inputElement as unknown as import('puppeteer-core').ElementHandle<HTMLInputElement>;
       await inputHandle.uploadFile(filePath);
 
       const stats = fs.statSync(filePath);

@@ -11,6 +11,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { IncomingMessage } from 'http';
 import crypto from 'crypto';
+import fs from 'fs';
 import {
   ClientMessage,
   ClientChatMessage,
@@ -46,8 +47,15 @@ import {
   iOSModeGetHandler,
   iOSModeSwitchHandler,
   iOSWorkflowsHandler,
-  iOSCalendarListHandler, iOSCalendarAddHandler, iOSCalendarDeleteHandler, iOSCalendarUpcomingHandler,
-  iOSTasksListHandler, iOSTasksAddHandler, iOSTasksCompleteHandler, iOSTasksDeleteHandler, iOSTasksDueHandler,
+  iOSCalendarListHandler,
+  iOSCalendarAddHandler,
+  iOSCalendarDeleteHandler,
+  iOSCalendarUpcomingHandler,
+  iOSTasksListHandler,
+  iOSTasksAddHandler,
+  iOSTasksCompleteHandler,
+  iOSTasksDeleteHandler,
+  iOSTasksDueHandler,
   iOSChatInfoHandler,
 } from './types';
 import { loadWorkflowCommands } from '../../config/commands-loader';
@@ -56,6 +64,23 @@ import { SettingsManager } from '../../settings';
 const DEFAULT_PORT = 7888;
 const PAIRING_CODE_LENGTH = 6;
 const PAIRING_CODE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+
+/** Convert desktop file paths to data URIs so iOS can display them */
+function convertMediaToDataUris(
+  media?: Array<{ type: string; filePath: string; mimeType: string }>
+): Array<{ type: string; filePath: string; mimeType: string }> | undefined {
+  if (!media || media.length === 0) return media;
+  return media.map((m) => {
+    try {
+      if (!fs.existsSync(m.filePath)) return m;
+      const data = fs.readFileSync(m.filePath);
+      const b64 = data.toString('base64');
+      return { ...m, filePath: `data:${m.mimeType};base64,${b64}` };
+    } catch {
+      return m;
+    }
+  });
+}
 
 interface AuthenticatedClient {
   ws: WebSocket;
@@ -66,7 +91,8 @@ export class iOSWebSocketServer {
   private wss: WebSocketServer | null = null;
   private port: number;
   private clients: Map<string, AuthenticatedClient> = new Map(); // authToken → client
-  private authTokens: Map<string, { deviceId: string; deviceName: string; pushToken?: string }> = new Map(); // persistent tokens
+  private authTokens: Map<string, { deviceId: string; deviceName: string; pushToken?: string }> =
+    new Map(); // persistent tokens
   private pairingCodes: Map<string, { createdAt: number }> = new Map(); // active pairing codes
   private activePairingCode: string | null = null;
 
@@ -116,9 +142,18 @@ export class iOSWebSocketServer {
     try {
       const raw = SettingsManager.get('ios.pairedDevices');
       if (!raw) return;
-      const devices: Array<{ token: string; deviceId: string; deviceName: string; pushToken?: string }> = JSON.parse(raw);
+      const devices: Array<{
+        token: string;
+        deviceId: string;
+        deviceName: string;
+        pushToken?: string;
+      }> = JSON.parse(raw);
       for (const d of devices) {
-        this.authTokens.set(d.token, { deviceId: d.deviceId, deviceName: d.deviceName, pushToken: d.pushToken });
+        this.authTokens.set(d.token, {
+          deviceId: d.deviceId,
+          deviceName: d.deviceName,
+          pushToken: d.pushToken,
+        });
       }
       if (devices.length > 0) {
         console.log(`[iOS] Loaded ${devices.length} paired device(s)`);
@@ -182,34 +217,90 @@ export class iOSWebSocketServer {
     this.onClear = handler;
   }
 
-  setFactsHandler(handler: iOSFactsHandler): void { this.onGetFacts = handler; }
-  setFactsDeleteHandler(handler: iOSFactsDeleteHandler): void { this.onDeleteFact = handler; }
-  setDailyLogsHandler(handler: iOSDailyLogsHandler): void { this.onGetDailyLogs = handler; }
-  setSoulHandler(handler: iOSSoulHandler): void { this.onGetSoul = handler; }
-  setSoulDeleteHandler(handler: iOSSoulDeleteHandler): void { this.onDeleteSoulAspect = handler; }
-  setFactsGraphHandler(handler: iOSFactsGraphHandler): void { this.onGetFactsGraph = handler; }
-  setCustomizeGetHandler(handler: iOSCustomizeGetHandler): void { this.onGetCustomize = handler; }
-  setCustomizeSaveHandler(handler: iOSCustomizeSaveHandler): void { this.onSaveCustomize = handler; }
-  setRoutinesListHandler(handler: iOSRoutinesListHandler): void { this.onGetRoutines = handler; }
-  setRoutinesCreateHandler(handler: iOSRoutinesCreateHandler): void { this.onCreateRoutine = handler; }
-  setRoutinesDeleteHandler(handler: iOSRoutinesDeleteHandler): void { this.onDeleteRoutine = handler; }
-  setRoutinesToggleHandler(handler: iOSRoutinesToggleHandler): void { this.onToggleRoutine = handler; }
-  setRoutinesRunHandler(handler: iOSRoutinesRunHandler): void { this.onRunRoutine = handler; }
-  setAppInfoHandler(handler: iOSAppInfoHandler): void { this.onGetAppInfo = handler; }
-  setSkinHandler(handler: (skinId: string) => void): void { this.onSkinSet = handler; }
-  setModeGetHandler(handler: iOSModeGetHandler): void { this.onGetMode = handler; }
-  setModeSwitchHandler(handler: iOSModeSwitchHandler): void { this.onSwitchMode = handler; }
-  setWorkflowsHandler(handler: iOSWorkflowsHandler): void { this.onGetWorkflows = handler; }
-  setCalendarListHandler(handler: iOSCalendarListHandler): void { this.onCalendarList = handler; }
-  setCalendarAddHandler(handler: iOSCalendarAddHandler): void { this.onCalendarAdd = handler; }
-  setCalendarDeleteHandler(handler: iOSCalendarDeleteHandler): void { this.onCalendarDelete = handler; }
-  setCalendarUpcomingHandler(handler: iOSCalendarUpcomingHandler): void { this.onCalendarUpcoming = handler; }
-  setTasksListHandler(handler: iOSTasksListHandler): void { this.onTasksList = handler; }
-  setTasksAddHandler(handler: iOSTasksAddHandler): void { this.onTasksAdd = handler; }
-  setTasksCompleteHandler(handler: iOSTasksCompleteHandler): void { this.onTasksComplete = handler; }
-  setTasksDeleteHandler(handler: iOSTasksDeleteHandler): void { this.onTasksDelete = handler; }
-  setTasksDueHandler(handler: iOSTasksDueHandler): void { this.onTasksDue = handler; }
-  setChatInfoHandler(handler: iOSChatInfoHandler): void { this.onChatInfo = handler; }
+  setFactsHandler(handler: iOSFactsHandler): void {
+    this.onGetFacts = handler;
+  }
+  setFactsDeleteHandler(handler: iOSFactsDeleteHandler): void {
+    this.onDeleteFact = handler;
+  }
+  setDailyLogsHandler(handler: iOSDailyLogsHandler): void {
+    this.onGetDailyLogs = handler;
+  }
+  setSoulHandler(handler: iOSSoulHandler): void {
+    this.onGetSoul = handler;
+  }
+  setSoulDeleteHandler(handler: iOSSoulDeleteHandler): void {
+    this.onDeleteSoulAspect = handler;
+  }
+  setFactsGraphHandler(handler: iOSFactsGraphHandler): void {
+    this.onGetFactsGraph = handler;
+  }
+  setCustomizeGetHandler(handler: iOSCustomizeGetHandler): void {
+    this.onGetCustomize = handler;
+  }
+  setCustomizeSaveHandler(handler: iOSCustomizeSaveHandler): void {
+    this.onSaveCustomize = handler;
+  }
+  setRoutinesListHandler(handler: iOSRoutinesListHandler): void {
+    this.onGetRoutines = handler;
+  }
+  setRoutinesCreateHandler(handler: iOSRoutinesCreateHandler): void {
+    this.onCreateRoutine = handler;
+  }
+  setRoutinesDeleteHandler(handler: iOSRoutinesDeleteHandler): void {
+    this.onDeleteRoutine = handler;
+  }
+  setRoutinesToggleHandler(handler: iOSRoutinesToggleHandler): void {
+    this.onToggleRoutine = handler;
+  }
+  setRoutinesRunHandler(handler: iOSRoutinesRunHandler): void {
+    this.onRunRoutine = handler;
+  }
+  setAppInfoHandler(handler: iOSAppInfoHandler): void {
+    this.onGetAppInfo = handler;
+  }
+  setSkinHandler(handler: (skinId: string) => void): void {
+    this.onSkinSet = handler;
+  }
+  setModeGetHandler(handler: iOSModeGetHandler): void {
+    this.onGetMode = handler;
+  }
+  setModeSwitchHandler(handler: iOSModeSwitchHandler): void {
+    this.onSwitchMode = handler;
+  }
+  setWorkflowsHandler(handler: iOSWorkflowsHandler): void {
+    this.onGetWorkflows = handler;
+  }
+  setCalendarListHandler(handler: iOSCalendarListHandler): void {
+    this.onCalendarList = handler;
+  }
+  setCalendarAddHandler(handler: iOSCalendarAddHandler): void {
+    this.onCalendarAdd = handler;
+  }
+  setCalendarDeleteHandler(handler: iOSCalendarDeleteHandler): void {
+    this.onCalendarDelete = handler;
+  }
+  setCalendarUpcomingHandler(handler: iOSCalendarUpcomingHandler): void {
+    this.onCalendarUpcoming = handler;
+  }
+  setTasksListHandler(handler: iOSTasksListHandler): void {
+    this.onTasksList = handler;
+  }
+  setTasksAddHandler(handler: iOSTasksAddHandler): void {
+    this.onTasksAdd = handler;
+  }
+  setTasksCompleteHandler(handler: iOSTasksCompleteHandler): void {
+    this.onTasksComplete = handler;
+  }
+  setTasksDeleteHandler(handler: iOSTasksDeleteHandler): void {
+    this.onTasksDelete = handler;
+  }
+  setTasksDueHandler(handler: iOSTasksDueHandler): void {
+    this.onTasksDue = handler;
+  }
+  setChatInfoHandler(handler: iOSChatInfoHandler): void {
+    this.onChatInfo = handler;
+  }
 
   /**
    * Generate a new 6-digit pairing code
@@ -272,7 +363,11 @@ export class iOSWebSocketServer {
     }
   }
 
-  async sendPushNotifications(title: string, body: string, data?: Record<string, string>): Promise<void> {
+  async sendPushNotifications(
+    title: string,
+    body: string,
+    data?: Record<string, string>
+  ): Promise<void> {
     const tokens: string[] = [];
     for (const info of this.authTokens.values()) {
       if (info.pushToken) tokens.push(info.pushToken);
@@ -376,17 +471,21 @@ export class iOSWebSocketServer {
     // Check if this is an authenticated reconnection
     if (token && this.authTokens.has(token)) {
       const deviceInfo = this.authTokens.get(token)!;
+      // Preserve session from previous connection if available
+      const existingClient = this.clients.get(token);
       const client: AuthenticatedClient = {
         ws,
         device: {
           deviceId: deviceInfo.deviceId,
           deviceName: deviceInfo.deviceName,
           connectedAt: new Date(),
-          sessionId: 'default',
+          sessionId: existingClient?.device.sessionId || 'default',
         },
       };
       this.clients.set(token, client);
-      console.log(`[iOS] Authenticated device reconnected: ${deviceInfo.deviceName}`);
+      console.log(
+        `[iOS] Authenticated device reconnected: ${deviceInfo.deviceName} (session: ${client.device.sessionId})`
+      );
       this.setupClientHandlers(ws, token, client);
       return;
     }
@@ -463,12 +562,14 @@ export class iOSWebSocketServer {
     };
     this.clients.set(authToken, client);
 
-    // Send success
-    const result: ServerPairResultMessage = {
+    // Send success (include adminKey during pairing — one-time secure exchange)
+    const chatInfo = this.onChatInfo?.();
+    const result: ServerPairResultMessage & { adminKey?: string } = {
       type: 'pair_result',
       success: true,
       authToken,
       deviceId,
+      ...(chatInfo?.adminKey ? { adminKey: chatInfo.adminKey } : {}),
     };
     ws.send(JSON.stringify(result));
 
@@ -500,14 +601,35 @@ export class iOSWebSocketServer {
           case 'sessions:switch':
             if ('sessionId' in message) {
               client.device.sessionId = (message as { sessionId: string }).sessionId;
+              // Re-subscribe to status events for the new session
+              if (statusUnsubscribe) {
+                statusUnsubscribe();
+                statusUnsubscribe = null;
+              }
+              if (this.onStatusSubscribe) {
+                statusUnsubscribe = this.onStatusSubscribe(
+                  client.device.sessionId,
+                  (status: ServerStatusMessage) => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                      ws.send(JSON.stringify(status));
+                    }
+                  }
+                );
+              }
             }
             break;
 
           case 'sessions:history': {
-            const histSessionId = ('sessionId' in message ? (message as { sessionId: string }).sessionId : client.device.sessionId) || 'default';
-            const histLimit = ('limit' in message ? (message as { limit: number }).limit : 100) || 100;
+            const histSessionId =
+              ('sessionId' in message
+                ? (message as { sessionId: string }).sessionId
+                : client.device.sessionId) || 'default';
+            const histLimit =
+              ('limit' in message ? (message as { limit: number }).limit : 100) || 100;
             const histMessages = this.onGetHistory?.(histSessionId, histLimit) || [];
-            ws.send(JSON.stringify({ type: 'history', sessionId: histSessionId, messages: histMessages }));
+            ws.send(
+              JSON.stringify({ type: 'history', sessionId: histSessionId, messages: histMessages })
+            );
             break;
           }
 
@@ -525,7 +647,11 @@ export class iOSWebSocketServer {
             const wfSessionId = client.device.sessionId || 'default';
             const workflows = this.onGetWorkflows
               ? this.onGetWorkflows(wfSessionId)
-              : loadWorkflowCommands().map(c => ({ name: c.name, description: c.description, content: c.content }));
+              : loadWorkflowCommands().map((c) => ({
+                  name: c.name,
+                  description: c.description,
+                  content: c.content,
+                }));
             ws.send(JSON.stringify({ type: 'workflows', workflows }));
             break;
           }
@@ -550,11 +676,13 @@ export class iOSWebSocketServer {
             if (client.device.sessionId && this.onStop) {
               this.onStop(client.device.sessionId);
               // Immediately confirm stop so iOS clears the processing state
-              ws.send(JSON.stringify({
-                type: 'status',
-                status: 'done',
-                sessionId: client.device.sessionId,
-              }));
+              ws.send(
+                JSON.stringify({
+                  type: 'status',
+                  status: 'done',
+                  sessionId: client.device.sessionId,
+                })
+              );
             }
             break;
 
@@ -606,32 +734,55 @@ export class iOSWebSocketServer {
             break;
           }
           case 'facts:graph': {
-            this.onGetFactsGraph?.().then((graph) => {
-              if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'facts:graph', ...graph }));
-              }
-            }).catch(() => {
-              if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'facts:graph', nodes: [], links: [] }));
-              }
-            });
+            this.onGetFactsGraph?.()
+              .then((graph) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({ type: 'facts:graph', ...graph }));
+                }
+              })
+              .catch(() => {
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({ type: 'facts:graph', nodes: [], links: [] }));
+                }
+              });
             break;
           }
           case 'customize:get': {
-            const customize = this.onGetCustomize?.() || { agentName: 'Frankie', personality: '', goals: '', struggles: '', funFacts: '', systemGuidelines: '' };
+            const customize = this.onGetCustomize?.() || {
+              agentName: 'Frankie',
+              personality: '',
+              goals: '',
+              struggles: '',
+              funFacts: '',
+              systemGuidelines: '',
+            };
             ws.send(JSON.stringify({ type: 'customize', ...customize }));
             break;
           }
           case 'customize:save': {
             const saveData: Record<string, unknown> = {};
-            if ('agentName' in message) saveData.agentName = (message as { agentName: string }).agentName;
-            if ('personality' in message) saveData.personality = (message as { personality: string }).personality;
+            if ('agentName' in message)
+              saveData.agentName = (message as { agentName: string }).agentName;
+            if ('personality' in message)
+              saveData.personality = (message as { personality: string }).personality;
             if ('goals' in message) saveData.goals = (message as { goals: string }).goals;
-            if ('struggles' in message) saveData.struggles = (message as { struggles: string }).struggles;
-            if ('funFacts' in message) saveData.funFacts = (message as { funFacts: string }).funFacts;
-            if ('profile' in message) saveData.profile = (message as { profile: Record<string, string> }).profile;
-            this.onSaveCustomize?.(saveData as Parameters<NonNullable<typeof this.onSaveCustomize>>[0]);
-            const updated = this.onGetCustomize?.() || { agentName: 'Frankie', personality: '', goals: '', struggles: '', funFacts: '', systemGuidelines: '' };
+            if ('struggles' in message)
+              saveData.struggles = (message as { struggles: string }).struggles;
+            if ('funFacts' in message)
+              saveData.funFacts = (message as { funFacts: string }).funFacts;
+            if ('profile' in message)
+              saveData.profile = (message as { profile: Record<string, string> }).profile;
+            this.onSaveCustomize?.(
+              saveData as Parameters<NonNullable<typeof this.onSaveCustomize>>[0]
+            );
+            const updated = this.onGetCustomize?.() || {
+              agentName: 'Frankie',
+              personality: '',
+              goals: '',
+              struggles: '',
+              funFacts: '',
+              systemGuidelines: '',
+            };
             ws.send(JSON.stringify({ type: 'customize', ...updated }));
             break;
           }
@@ -641,17 +792,31 @@ export class iOSWebSocketServer {
             break;
           }
           case 'routines:create': {
-            const m = message as unknown as { name: string; schedule: string; prompt: string; channel: string; sessionId: string };
-            this.onCreateRoutine?.(m.name, m.schedule, m.prompt, m.channel || 'default', m.sessionId || 'default').then(() => {
-              if (ws.readyState === WebSocket.OPEN) {
-                const updatedJobs = this.onGetRoutines?.() || [];
-                ws.send(JSON.stringify({ type: 'routines', jobs: updatedJobs }));
-              }
-            }).catch(() => {
-              if (ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'error', message: 'Failed to create routine' }));
-              }
-            });
+            const m = message as unknown as {
+              name: string;
+              schedule: string;
+              prompt: string;
+              channel: string;
+              sessionId: string;
+            };
+            this.onCreateRoutine?.(
+              m.name,
+              m.schedule,
+              m.prompt,
+              m.channel || 'default',
+              m.sessionId || 'default'
+            )
+              .then(() => {
+                if (ws.readyState === WebSocket.OPEN) {
+                  const updatedJobs = this.onGetRoutines?.() || [];
+                  ws.send(JSON.stringify({ type: 'routines', jobs: updatedJobs }));
+                }
+              })
+              .catch(() => {
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({ type: 'error', message: 'Failed to create routine' }));
+                }
+              });
             break;
           }
           case 'routines:delete': {
@@ -672,15 +837,26 @@ export class iOSWebSocketServer {
           case 'routines:run': {
             if ('name' in message) {
               const routineName = (message as { name: string }).name;
-              this.onRunRoutine?.(routineName).then((result) => {
-                if (ws.readyState === WebSocket.OPEN) {
-                  ws.send(JSON.stringify({ type: 'routine:result', name: routineName, ...result }));
-                }
-              }).catch((err) => {
-                if (ws.readyState === WebSocket.OPEN) {
-                  ws.send(JSON.stringify({ type: 'routine:result', name: routineName, success: false, error: String(err) }));
-                }
-              });
+              this.onRunRoutine?.(routineName)
+                .then((result) => {
+                  if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(
+                      JSON.stringify({ type: 'routine:result', name: routineName, ...result })
+                    );
+                  }
+                })
+                .catch((err) => {
+                  if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(
+                      JSON.stringify({
+                        type: 'routine:result',
+                        name: routineName,
+                        success: false,
+                        error: String(err),
+                      })
+                    );
+                  }
+                });
             }
             break;
           }
@@ -699,61 +875,94 @@ export class iOSWebSocketServer {
           case 'mode:get': {
             const sessionId = client.device.sessionId || 'default';
             const modeResult = this.onGetMode?.(sessionId) || { mode: 'coder', locked: false };
-            ws.send(JSON.stringify({ type: 'mode', mode: modeResult.mode, locked: modeResult.locked }));
+            ws.send(
+              JSON.stringify({ type: 'mode', mode: modeResult.mode, locked: modeResult.locked })
+            );
             break;
           }
           case 'mode:switch': {
             if ('mode' in message) {
               const newMode = (message as { mode: string }).mode;
               const sessionId = client.device.sessionId || 'default';
-              const result = this.onSwitchMode?.(sessionId, newMode) || { mode: newMode, locked: false };
+              const result = this.onSwitchMode?.(sessionId, newMode) || {
+                mode: newMode,
+                locked: false,
+              };
               ws.send(JSON.stringify({ type: 'mode', mode: result.mode, locked: result.locked }));
             }
             break;
           }
           case 'calendar:list': {
-            const events = await this.onCalendarList?.() || [];
+            const events = (await this.onCalendarList?.()) || [];
             ws.send(JSON.stringify({ type: 'calendar', events }));
             break;
           }
           case 'calendar:add': {
-            const m = message as unknown as { title: string; startTime: string; endTime?: string; location?: string; description?: string; reminderMinutes?: number; allDay?: boolean };
-            await this.onCalendarAdd?.(m.title, m.startTime, m.endTime, m.location, m.description, m.reminderMinutes, m.allDay);
-            const calEvents = await this.onCalendarList?.() || [];
+            const m = message as unknown as {
+              title: string;
+              startTime: string;
+              endTime?: string;
+              location?: string;
+              description?: string;
+              reminderMinutes?: number;
+              allDay?: boolean;
+            };
+            await this.onCalendarAdd?.(
+              m.title,
+              m.startTime,
+              m.endTime,
+              m.location,
+              m.description,
+              m.reminderMinutes,
+              m.allDay
+            );
+            const calEvents = (await this.onCalendarList?.()) || [];
             ws.send(JSON.stringify({ type: 'calendar', events: calEvents }));
             break;
           }
           case 'calendar:delete': {
             if ('id' in message) {
               await this.onCalendarDelete?.((message as unknown as { id: number }).id);
-              const calEvents = await this.onCalendarList?.() || [];
+              const calEvents = (await this.onCalendarList?.()) || [];
               ws.send(JSON.stringify({ type: 'calendar', events: calEvents }));
             }
             break;
           }
           case 'calendar:upcoming': {
             const hours = 'hours' in message ? (message as { hours: number }).hours : undefined;
-            const events = await this.onCalendarUpcoming?.(hours) || [];
+            const events = (await this.onCalendarUpcoming?.(hours)) || [];
             ws.send(JSON.stringify({ type: 'calendar', events }));
             break;
           }
           case 'tasks:list': {
             const status = 'status' in message ? (message as { status: string }).status : undefined;
-            const tasks = await this.onTasksList?.(status) || [];
+            const tasks = (await this.onTasksList?.(status)) || [];
             ws.send(JSON.stringify({ type: 'tasks', tasks }));
             break;
           }
           case 'tasks:add': {
-            const m = message as unknown as { title: string; dueDate?: string; priority?: string; description?: string; reminderMinutes?: number };
-            await this.onTasksAdd?.(m.title, m.dueDate, m.priority, m.description, m.reminderMinutes);
-            const allTasks = await this.onTasksList?.() || [];
+            const m = message as unknown as {
+              title: string;
+              dueDate?: string;
+              priority?: string;
+              description?: string;
+              reminderMinutes?: number;
+            };
+            await this.onTasksAdd?.(
+              m.title,
+              m.dueDate,
+              m.priority,
+              m.description,
+              m.reminderMinutes
+            );
+            const allTasks = (await this.onTasksList?.()) || [];
             ws.send(JSON.stringify({ type: 'tasks', tasks: allTasks }));
             break;
           }
           case 'tasks:complete': {
             if ('id' in message) {
               await this.onTasksComplete?.((message as unknown as { id: number }).id);
-              const allTasks = await this.onTasksList?.() || [];
+              const allTasks = (await this.onTasksList?.()) || [];
               ws.send(JSON.stringify({ type: 'tasks', tasks: allTasks }));
             }
             break;
@@ -761,20 +970,26 @@ export class iOSWebSocketServer {
           case 'tasks:delete': {
             if ('id' in message) {
               await this.onTasksDelete?.((message as unknown as { id: number }).id);
-              const allTasks = await this.onTasksList?.() || [];
+              const allTasks = (await this.onTasksList?.()) || [];
               ws.send(JSON.stringify({ type: 'tasks', tasks: allTasks }));
             }
             break;
           }
           case 'tasks:due': {
             const hours = 'hours' in message ? (message as { hours: number }).hours : undefined;
-            const tasks = await this.onTasksDue?.(hours) || [];
+            const tasks = (await this.onTasksDue?.(hours)) || [];
             ws.send(JSON.stringify({ type: 'tasks', tasks }));
             break;
           }
           case 'chat:info': {
             const info = this.onChatInfo?.() || { username: '', adminKey: '' };
-            ws.send(JSON.stringify({ type: 'chat:info', username: info.username }));
+            ws.send(
+              JSON.stringify({
+                type: 'chat:info',
+                username: info.username,
+                adminKey: info.adminKey,
+              })
+            );
             break;
           }
         }
@@ -812,7 +1027,10 @@ export class iOSWebSocketServer {
   /**
    * Handle an incoming chat message from iOS
    */
-  private async handleChatMessage(client: AuthenticatedClient, message: ClientChatMessage): Promise<void> {
+  private async handleChatMessage(
+    client: AuthenticatedClient,
+    message: ClientChatMessage
+  ): Promise<void> {
     if (!this.onMessage) {
       const error: ServerErrorMessage = {
         type: 'error',
@@ -832,7 +1050,7 @@ export class iOSWebSocketServer {
         text: result.response,
         sessionId: message.sessionId,
         tokensUsed: result.tokensUsed,
-        media: result.media,
+        media: convertMediaToDataUris(result.media),
         timestamp: new Date().toISOString(),
         planPending: result.planPending,
       };

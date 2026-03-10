@@ -25,7 +25,11 @@ let toolCallId = 0;
 /**
  * Log tool diagnostic message
  */
-function logTool(level: 'info' | 'warn' | 'error', message: string, data?: Record<string, unknown>): void {
+function logTool(
+  level: 'info' | 'warn' | 'error',
+  message: string,
+  data?: Record<string, unknown>
+): void {
   const timestamp = new Date().toISOString();
   const dataStr = data ? ` ${JSON.stringify(data)}` : '';
   const prefix = level === 'error' ? '❌' : level === 'warn' ? '⚠️' : '🔧';
@@ -61,17 +65,17 @@ export function wrapToolHandler<T>(
         timing.status = 'timeout';
         timing.endTime = Date.now();
         timing.duration = timing.endTime - timing.startTime;
-        logTool('error', `TIMEOUT ${toolName} after ${timeoutMs}ms`, { callId, duration: timing.duration });
+        logTool('error', `TIMEOUT ${toolName} after ${timeoutMs}ms`, {
+          callId,
+          duration: timing.duration,
+        });
         reject(new Error(`Tool ${toolName} timed out after ${timeoutMs}ms`));
       }, timeoutMs);
     });
 
     try {
       // Race between handler and timeout
-      const result = await Promise.race([
-        handler(input),
-        timeoutPromise,
-      ]);
+      const result = await Promise.race([handler(input), timeoutPromise]);
 
       clearTimeout(timeoutId!);
       timing.status = 'success';
@@ -80,7 +84,11 @@ export function wrapToolHandler<T>(
 
       // Log result (truncated)
       const resultStr = result.length > 200 ? result.slice(0, 200) + '...' : result;
-      logTool('info', `END ${toolName}`, { callId, duration: `${timing.duration}ms`, result: resultStr });
+      logTool('info', `END ${toolName}`, {
+        callId,
+        duration: `${timing.duration}ms`,
+        result: resultStr,
+      });
 
       return result;
     } catch (error) {
@@ -93,7 +101,7 @@ export function wrapToolHandler<T>(
       logTool('error', `FAIL ${toolName}`, {
         callId,
         duration: `${timing.duration}ms`,
-        error: timing.error
+        error: timing.error,
       });
 
       // Return error as JSON so agent can see it
@@ -101,7 +109,7 @@ export function wrapToolHandler<T>(
         error: timing.error,
         toolName,
         duration: timing.duration,
-        timedOut: timing.status === 'timeout'
+        timedOut: timing.status === 'timeout',
       });
     } finally {
       activeTools.delete(callId);
@@ -114,7 +122,7 @@ export function wrapToolHandler<T>(
  */
 export function getActiveTools(): ToolTiming[] {
   const now = Date.now();
-  return Array.from(activeTools.values()).map(t => ({
+  return Array.from(activeTools.values()).map((t) => ({
     ...t,
     duration: now - t.startTime,
   }));
@@ -127,7 +135,7 @@ export function logActiveToolsStatus(): void {
   const active = getActiveTools();
   if (active.length > 0) {
     logTool('warn', `${active.length} tools still running`, {
-      tools: active.map(t => ({ name: t.name, runningFor: `${t.duration}ms` })),
+      tools: active.map((t) => ({ name: t.name, runningFor: `${t.duration}ms` })),
     });
   }
 }

@@ -11,14 +11,14 @@ export interface ProviderConfig {
 }
 
 export const PROVIDER_CONFIGS: Record<ProviderType, ProviderConfig> = {
-  'anthropic': {
+  anthropic: {
     // No baseUrl = uses default Anthropic endpoint
   },
-  'moonshot': {
-    baseUrl: 'https://api.moonshot.ai/anthropic/',
+  moonshot: {
+    // No baseUrl = uses gg-ai default (https://api.moonshot.ai/v1)
   },
-  'glm': {
-    baseUrl: 'https://api.z.ai/api/anthropic/',
+  glm: {
+    baseUrl: 'https://api.z.ai/api/paas/v4',
   },
 };
 

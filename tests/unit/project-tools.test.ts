@@ -46,6 +46,7 @@ vi.mock('../../src/agent/index.js', () => ({
     getWorkspace: vi.fn(() => '/mock/workspace'),
     getProjectRoot: vi.fn(() => '/mock/default'),
     resetWorkspace: vi.fn(),
+    flagProjectSwitch: vi.fn(),
   },
 }));
 
@@ -110,17 +111,17 @@ describe('Project Tools', () => {
       expect(parsed.error).toContain('not a directory');
     });
 
-    it('succeeds: saves to DB and calls AgentManager.setWorkspace', async () => {
+    it('succeeds: saves to DB and calls AgentManager.flagProjectSwitch', async () => {
       const result = await handleSetProjectTool({ path: '/Users/kenkai/my-project' });
       const parsed = JSON.parse(result);
       expect(parsed.success).toBe(true);
       expect(parsed.path).toBeDefined();
-      expect(AgentManager.setWorkspace).toHaveBeenCalled();
+      expect(AgentManager.flagProjectSwitch).toHaveBeenCalled();
 
-      // Verify the DB prepare was called for the INSERT
+      // Verify the DB prepare was called for the UPDATE
       const prepareCalls = mockPrepare.mock.calls.map(c => c[0]);
-      const hasInsert = prepareCalls.some(q => typeof q === 'string' && q.includes('INSERT INTO settings'));
-      expect(hasInsert).toBe(true);
+      const hasUpdate = prepareCalls.some(q => typeof q === 'string' && q.includes('UPDATE sessions'));
+      expect(hasUpdate).toBe(true);
     });
 
     it('returns error when DB is not found', async () => {
@@ -148,11 +149,11 @@ describe('Project Tools', () => {
       const parsed = JSON.parse(result);
       expect(parsed.success).toBe(true);
       expect(parsed.hasProject).toBe(false);
-      expect(parsed.currentWorkspace).toBe('/mock/workspace');
+      expect(parsed.defaultWorkspace).toBe('/mock/default');
     });
 
     it('returns hasProject: true with path when active project exists', async () => {
-      mockGet.mockReturnValue({ value: '/Users/kenkai/my-project' });
+      mockGet.mockReturnValue({ working_directory: '/Users/kenkai/my-project' });
 
       const result = await handleGetProjectTool();
       const parsed = JSON.parse(result);
@@ -163,7 +164,7 @@ describe('Project Tools', () => {
     });
 
     it('returns warning when active project path has been deleted', async () => {
-      mockGet.mockReturnValue({ value: '/Users/kenkai/deleted-project' });
+      mockGet.mockReturnValue({ working_directory: '/Users/kenkai/deleted-project' });
       mockExistsSync.mockImplementation((p: unknown) => {
         if (typeof p === 'string' && p === '/Users/kenkai/deleted-project') return false;
         return true;
@@ -177,14 +178,13 @@ describe('Project Tools', () => {
       expect(parsed.exists).toBe(false);
     });
 
-    it('returns runtime workspace when no DB is available', async () => {
+    it('returns default workspace when no DB is available', async () => {
       mockExistsSync.mockReturnValue(false);
 
       const result = await handleGetProjectTool();
       const parsed = JSON.parse(result);
       expect(parsed.success).toBe(true);
       expect(parsed.hasProject).toBe(false);
-      expect(parsed.currentWorkspace).toBe('/mock/workspace');
       expect(parsed.defaultWorkspace).toBe('/mock/default');
     });
   });
@@ -194,23 +194,23 @@ describe('Project Tools', () => {
   // ============================================================================
 
   describe('handleClearProjectTool', () => {
-    it('returns success and calls resetWorkspace when project was active', async () => {
+    it('returns success and calls flagProjectSwitch when project was active', async () => {
       mockRun.mockReturnValue({ lastInsertRowid: 0, changes: 1 });
 
       const result = await handleClearProjectTool();
       const parsed = JSON.parse(result);
       expect(parsed.success).toBe(true);
       expect(parsed.message).toContain('cleared');
-      expect(AgentManager.resetWorkspace).toHaveBeenCalled();
+      expect(AgentManager.flagProjectSwitch).toHaveBeenCalled();
     });
 
-    it('returns message saying none was set when no active project', async () => {
+    it('returns message when no session found', async () => {
       mockRun.mockReturnValue({ lastInsertRowid: 0, changes: 0 });
 
       const result = await handleClearProjectTool();
       const parsed = JSON.parse(result);
       expect(parsed.success).toBe(true);
-      expect(parsed.message).toContain('No active project was set');
+      expect(parsed.message).toContain('No session found');
     });
 
     it('returns error when DB is not found', async () => {

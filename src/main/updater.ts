@@ -1,9 +1,20 @@
-import { autoUpdater, UpdateInfo, ProgressInfo } from 'electron-updater';
+import electronUpdater from 'electron-updater';
+const { autoUpdater } = electronUpdater;
+type UpdateInfo = electronUpdater.UpdateInfo;
+type ProgressInfo = electronUpdater.ProgressInfo;
 import { BrowserWindow, ipcMain, app } from 'electron';
 import { SettingsManager } from '../settings';
 
 export interface UpdateStatus {
-  status: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error' | 'dev-mode';
+  status:
+    | 'idle'
+    | 'checking'
+    | 'available'
+    | 'not-available'
+    | 'downloading'
+    | 'downloaded'
+    | 'error'
+    | 'dev-mode';
   info?: UpdateInfo;
   progress?: { percent: number; bytesPerSecond: number; transferred: number; total: number };
   error?: string;
@@ -89,15 +100,36 @@ export function initializeUpdater(): void {
     const msg = error.message;
 
     // Classify errors: some are transient/expected, others are real failures
-    if (msg.includes('latest-mac.yml') || msg.includes('latest.yml') || (msg.includes('404') && msg.includes('releases/download'))) {
+    if (
+      msg.includes('latest-mac.yml') ||
+      msg.includes('latest.yml') ||
+      (msg.includes('404') && msg.includes('releases/download'))
+    ) {
       // Release exists but build artifacts aren't uploaded yet — not a real error
-      currentStatus = { status: 'not-available', error: 'Latest release is still being built. Check back in a few minutes.' };
+      currentStatus = {
+        status: 'not-available',
+        error: 'Latest release is still being built. Check back in a few minutes.',
+      };
     } else if (msg.includes('read-only volume')) {
-      currentStatus = { status: 'error', error: 'Move Pocket Agent to Applications folder to enable updates.' };
-    } else if (msg.includes('net::ERR_') || msg.includes('ENOTFOUND') || msg.includes('ETIMEDOUT') || msg.includes('ECONNREFUSED')) {
-      currentStatus = { status: 'error', error: 'Could not reach update server. Check your internet connection.' };
+      currentStatus = {
+        status: 'error',
+        error: 'Move Pocket Agent to Applications folder to enable updates.',
+      };
+    } else if (
+      msg.includes('net::ERR_') ||
+      msg.includes('ENOTFOUND') ||
+      msg.includes('ETIMEDOUT') ||
+      msg.includes('ECONNREFUSED')
+    ) {
+      currentStatus = {
+        status: 'error',
+        error: 'Could not reach update server. Check your internet connection.',
+      };
     } else if (msg.includes('HttpError') || msg.includes('status code')) {
-      currentStatus = { status: 'error', error: 'Update server returned an error. Try again later.' };
+      currentStatus = {
+        status: 'error',
+        error: 'Update server returned an error. Try again later.',
+      };
     } else {
       currentStatus = { status: 'error', error: msg };
     }

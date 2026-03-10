@@ -193,7 +193,8 @@ function ensureTable(db: Database.Database): void {
 export function getTaskAddToolDefinition() {
   return {
     name: 'task_add',
-    description: 'Add a todo item to the task list. Use for trackable items with status (pending/completed). For one-time "remind me" notifications, use create_reminder instead. For scheduled LLM actions, use create_routine.',
+    description:
+      'Add a todo item to the task list. Use for trackable items with status (pending/completed). For one-time "remind me" notifications, use create_reminder instead. For scheduled LLM actions, use create_routine.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -201,7 +202,10 @@ export function getTaskAddToolDefinition() {
         description: { type: 'string', description: 'Optional task description' },
         due: { type: 'string', description: 'Due date (e.g., "tomorrow", "friday 5pm")' },
         priority: { type: 'string', description: 'Priority: low, medium, high (default: medium)' },
-        reminder_minutes: { type: 'number', description: 'Minutes before due date to send a reminder notification' },
+        reminder_minutes: {
+          type: 'number',
+          description: 'Minutes before due date to send a reminder notification',
+        },
       },
       required: ['title'],
     },
@@ -238,10 +242,22 @@ export async function handleTaskAddTool(input: unknown): Promise<string> {
     const db = getDb();
     const sessionId = getCurrentSessionId();
 
-    const result = db.prepare(`
+    const result = db
+      .prepare(
+        `
       INSERT INTO tasks (title, description, due_date, priority, reminder_minutes, channel, session_id)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(params.title, params.description || null, dueDate, priority, params.reminder_minutes || null, channel, sessionId);
+    `
+      )
+      .run(
+        params.title,
+        params.description || null,
+        dueDate,
+        priority,
+        params.reminder_minutes || null,
+        channel,
+        sessionId
+      );
 
     return JSON.stringify({
       success: true,
@@ -266,11 +282,15 @@ export async function handleTaskAddTool(input: unknown): Promise<string> {
 export function getTaskListToolDefinition() {
   return {
     name: 'task_list',
-    description: 'List todo items from the task list. Filter by status: pending (default), completed, in_progress, or all. For scheduled routines/reminders, use list_routines instead.',
+    description:
+      'List todo items from the task list. Filter by status: pending (default), completed, in_progress, or all. For scheduled routines/reminders, use list_routines instead.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        status: { type: 'string', description: 'Filter by status: pending, completed, in_progress, all' },
+        status: {
+          type: 'string',
+          description: 'Filter by status: pending, completed, in_progress, all',
+        },
       },
       required: [],
     },
@@ -309,7 +329,7 @@ export async function handleTaskListTool(input: unknown): Promise<string> {
       success: true,
       filter: statusFilter,
       count: tasks.length,
-      tasks: tasks.map(t => ({
+      tasks: tasks.map((t) => ({
         id: t.id,
         title: t.title,
         due: formatDateTime(t.due_date),
@@ -439,11 +459,15 @@ export async function handleTaskDueTool(input: unknown): Promise<string> {
     const now = new Date();
     const later = new Date(now.getTime() + hours * 3600000);
 
-    const tasks = db.prepare(`
+    const tasks = db
+      .prepare(
+        `
       SELECT * FROM tasks
       WHERE session_id = ? AND status != 'completed' AND due_date IS NOT NULL AND due_date <= ?
       ORDER BY due_date ASC
-    `).all(sessionId, later.toISOString()) as Array<{
+    `
+      )
+      .all(sessionId, later.toISOString()) as Array<{
       id: number;
       title: string;
       due_date: string;
@@ -451,19 +475,19 @@ export async function handleTaskDueTool(input: unknown): Promise<string> {
       status: string;
     }>;
 
-    const overdue = tasks.filter(t => new Date(t.due_date) < now);
-    const upcoming = tasks.filter(t => new Date(t.due_date) >= now);
+    const overdue = tasks.filter((t) => new Date(t.due_date) < now);
+    const upcoming = tasks.filter((t) => new Date(t.due_date) >= now);
 
     return JSON.stringify({
       success: true,
       hours,
-      overdue: overdue.map(t => ({
+      overdue: overdue.map((t) => ({
         id: t.id,
         title: t.title,
         due: formatDateTime(t.due_date),
         priority: t.priority,
       })),
-      upcoming: upcoming.map(t => ({
+      upcoming: upcoming.map((t) => ({
         id: t.id,
         title: t.title,
         due: formatDateTime(t.due_date),

@@ -54,7 +54,10 @@ type ProcessStatusCallback = (message: unknown) => void;
 type ExtractTextCallback = (message: unknown, current: string) => string;
 
 // Query factory function type
-type QueryFn = (params: { prompt: string | AsyncIterable<SDKUserMessage>; options?: Record<string, unknown> }) => SDKQuery;
+type QueryFn = (params: {
+  prompt: string | AsyncIterable<SDKUserMessage>;
+  options?: Record<string, unknown>;
+}) => SDKQuery;
 
 // Maximum time to wait for a turn to complete (ms)
 const TURN_MAX_TIMEOUT = 10 * 60 * 1000; // 10 minutes
@@ -190,10 +193,7 @@ export class PersistentSDKSession extends EventEmitter {
    * Send a subsequent message. Pushes to the message queue; the SDK picks
    * it up via the existing AsyncIterable.
    */
-  async send(
-    message: string,
-    contentBlocks?: ContentBlock[]
-  ): Promise<TurnResult> {
+  async send(message: string, contentBlocks?: ContentBlock[]): Promise<TurnResult> {
     if (!this.query || !this.alive || !this.messageQueue) {
       throw new Error('Session is not alive');
     }
@@ -328,12 +328,16 @@ export class PersistentSDKSession extends EventEmitter {
       } else if (b.name === 'ExitPlanMode') {
         this.inPlanMode = false;
         this.exitedPlanModeThisTurn = true;
-        console.log(`[PersistentSession:${this.sessionId}] Exited plan mode (plan file: ${this.planFilePath || 'none'})`);
+        console.log(
+          `[PersistentSession:${this.sessionId}] Exited plan mode (plan file: ${this.planFilePath || 'none'})`
+        );
         this.emit('planModeExited');
       } else if (b.name === 'Write' && this.inPlanMode && b.input?.file_path) {
         // Capture the plan file path written during plan mode
         this.planFilePath = b.input.file_path as string;
-        console.log(`[PersistentSession:${this.sessionId}] Plan file written: ${this.planFilePath}`);
+        console.log(
+          `[PersistentSession:${this.sessionId}] Plan file written: ${this.planFilePath}`
+        );
       }
     }
   }
@@ -365,7 +369,9 @@ export class PersistentSDKSession extends EventEmitter {
           if (msg.session_id && !this.sdkSessionId) {
             this.sdkSessionId = msg.session_id;
             this.emit('sdkSessionId', this.sdkSessionId);
-            console.log(`[PersistentSession:${this.sessionId}] Captured SDK session ID: ${this.sdkSessionId}`);
+            console.log(
+              `[PersistentSession:${this.sessionId}] Captured SDK session ID: ${this.sdkSessionId}`
+            );
           }
 
           // Capture SDK assistant-level errors
@@ -378,7 +384,9 @@ export class PersistentSDKSession extends EventEmitter {
                 this.turnErrors = [];
               }
               this.turnErrors.push(assistantMsg.error);
-              console.warn(`[PersistentSession:${this.sessionId}] Assistant error: ${assistantMsg.error}`);
+              console.warn(
+                `[PersistentSession:${this.sessionId}] Assistant error: ${assistantMsg.error}`
+              );
             }
           }
 
@@ -393,7 +401,10 @@ export class PersistentSDKSession extends EventEmitter {
             const errResult = message as { errors?: string[]; subtype?: string };
             if (errResult.errors && errResult.errors.length > 0) {
               this.turnErrors = errResult.errors;
-              console.warn(`[PersistentSession:${this.sessionId}] Result errors:`, errResult.errors);
+              console.warn(
+                `[PersistentSession:${this.sessionId}] Result errors:`,
+                errResult.errors
+              );
             }
 
             // Extract context window max from modelUsage (cumulative per-model stats)
@@ -441,7 +452,9 @@ export class PersistentSDKSession extends EventEmitter {
       }
       this.turnErrors.push(`Session error: ${errMsg}`);
     } finally {
-      console.log(`[PersistentSession:${this.sessionId}] Output loop ended (had response: ${this.turnResponse.length > 0}, errors: ${this.turnErrors?.length ?? 0})`);
+      console.log(
+        `[PersistentSession:${this.sessionId}] Output loop ended (had response: ${this.turnResponse.length > 0}, errors: ${this.turnErrors?.length ?? 0})`
+      );
       this.alive = false;
 
       if (this.turnTimeout) {
@@ -481,7 +494,9 @@ export class PersistentSDKSession extends EventEmitter {
 
       // Safety net: max timeout for the turn
       this.turnTimeout = setTimeout(() => {
-        console.error(`[PersistentSession:${this.sessionId}] Turn timed out after ${TURN_MAX_TIMEOUT}ms`);
+        console.error(
+          `[PersistentSession:${this.sessionId}] Turn timed out after ${TURN_MAX_TIMEOUT}ms`
+        );
         if (!this.turnErrors) {
           this.turnErrors = [];
         }

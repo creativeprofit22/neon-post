@@ -27,8 +27,8 @@ export function loadWorkflowCommandsFromDir(commandsDir: string): WorkflowComman
   try {
     if (!fs.existsSync(commandsDir)) return [];
 
-    const files = fs.readdirSync(commandsDir).filter(f => f.endsWith('.md'));
-    return files.map(filename => {
+    const files = fs.readdirSync(commandsDir).filter((f) => f.endsWith('.md'));
+    return files.map((filename) => {
       const filePath = path.join(commandsDir, filename);
       const raw = fs.readFileSync(filePath, 'utf-8');
 
@@ -67,5 +67,5 @@ export function loadWorkflowCommands(): WorkflowCommand[] {
  */
 export function findWorkflowCommand(commandName: string): WorkflowCommand | undefined {
   const commands = loadWorkflowCommands();
-  return commands.find(c => c.name === commandName);
+  return commands.find((c) => c.name === commandName);
 }
