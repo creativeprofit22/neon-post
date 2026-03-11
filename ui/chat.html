@@ -323,30 +323,6 @@
       font-size: 12px;
     }
 
-    .update-badge {
-      font-size: 9px;
-      font-weight: 600;
-      color: #ffffff;
-      background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
-      padding: 2px 8px;
-      border-radius: 4px;
-      margin-left: 8px;
-      letter-spacing: 0;
-      -webkit-text-fill-color: #ffffff;
-      cursor: pointer;
-      display: inline-block;
-      animation: pulse-update 2s ease-in-out infinite;
-    }
-
-    .update-badge:hover {
-      background: linear-gradient(135deg, #fb923c 0%, #f97316 100%);
-    }
-
-    @keyframes pulse-update {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
-    }
-
     .header-right {
       display: flex;
       align-items: center;
@@ -3782,7 +3758,7 @@
   <header>
     <div class="header-left">
       <img src="../assets/tray-icon@2x.png" alt="" class="header-logo">
-      <h1>Pocket Agent<span id="version-badge" class="version-badge"></span><select id="model-badge" class="model-badge"></select><span id="update-badge" class="update-badge hidden" onclick="openSettings('updates')">Update</span></h1>
+      <h1>Pocket Agent<span id="version-badge" class="version-badge"></span><select id="model-badge" class="model-badge"></select></h1>
     </div>
     <div class="header-right">
       <div class="stats" id="stats"></div>
