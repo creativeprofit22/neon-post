@@ -46,15 +46,6 @@ import {
   iOSModeGetHandler,
   iOSModeSwitchHandler,
   iOSWorkflowsHandler,
-  iOSCalendarListHandler,
-  iOSCalendarAddHandler,
-  iOSCalendarDeleteHandler,
-  iOSCalendarUpcomingHandler,
-  iOSTasksListHandler,
-  iOSTasksAddHandler,
-  iOSTasksCompleteHandler,
-  iOSTasksDeleteHandler,
-  iOSTasksDueHandler,
   iOSChatInfoHandler,
 } from './types';
 import { loadWorkflowCommands } from '../../config/commands-loader';
@@ -140,15 +131,6 @@ export class iOSRelayClient {
   private onGetMode: iOSModeGetHandler | null = null;
   private onSwitchMode: iOSModeSwitchHandler | null = null;
   private onGetWorkflows: iOSWorkflowsHandler | null = null;
-  private onCalendarList: iOSCalendarListHandler | null = null;
-  private onCalendarAdd: iOSCalendarAddHandler | null = null;
-  private onCalendarDelete: iOSCalendarDeleteHandler | null = null;
-  private onCalendarUpcoming: iOSCalendarUpcomingHandler | null = null;
-  private onTasksList: iOSTasksListHandler | null = null;
-  private onTasksAdd: iOSTasksAddHandler | null = null;
-  private onTasksComplete: iOSTasksCompleteHandler | null = null;
-  private onTasksDelete: iOSTasksDeleteHandler | null = null;
-  private onTasksDue: iOSTasksDueHandler | null = null;
   private onChatInfo: iOSChatInfoHandler | null = null;
 
   private _isRunning = false;
@@ -279,33 +261,6 @@ export class iOSRelayClient {
   }
   setWorkflowsHandler(handler: iOSWorkflowsHandler): void {
     this.onGetWorkflows = handler;
-  }
-  setCalendarListHandler(handler: iOSCalendarListHandler): void {
-    this.onCalendarList = handler;
-  }
-  setCalendarAddHandler(handler: iOSCalendarAddHandler): void {
-    this.onCalendarAdd = handler;
-  }
-  setCalendarDeleteHandler(handler: iOSCalendarDeleteHandler): void {
-    this.onCalendarDelete = handler;
-  }
-  setCalendarUpcomingHandler(handler: iOSCalendarUpcomingHandler): void {
-    this.onCalendarUpcoming = handler;
-  }
-  setTasksListHandler(handler: iOSTasksListHandler): void {
-    this.onTasksList = handler;
-  }
-  setTasksAddHandler(handler: iOSTasksAddHandler): void {
-    this.onTasksAdd = handler;
-  }
-  setTasksCompleteHandler(handler: iOSTasksCompleteHandler): void {
-    this.onTasksComplete = handler;
-  }
-  setTasksDeleteHandler(handler: iOSTasksDeleteHandler): void {
-    this.onTasksDelete = handler;
-  }
-  setTasksDueHandler(handler: iOSTasksDueHandler): void {
-    this.onTasksDue = handler;
   }
   setChatInfoHandler(handler: iOSChatInfoHandler): void {
     this.onChatInfo = handler;
@@ -972,144 +927,6 @@ export class iOSRelayClient {
             locked: result.locked,
           });
         }
-        break;
-      }
-      case 'calendar:list': {
-        this.onCalendarList?.()
-          .then((events) => {
-            this.sendToRelay(client.relayClientId, { type: 'calendar', events });
-          })
-          .catch(() => {
-            this.sendToRelay(client.relayClientId, { type: 'calendar', events: [] });
-          });
-        break;
-      }
-      case 'calendar:add': {
-        const m = message as unknown as {
-          title: string;
-          startTime: string;
-          endTime?: string;
-          location?: string;
-          description?: string;
-          reminderMinutes?: number;
-          allDay?: boolean;
-        };
-        this.onCalendarAdd?.(
-          m.title,
-          m.startTime,
-          m.endTime,
-          m.location,
-          m.description,
-          m.reminderMinutes,
-          m.allDay
-        )
-          ?.then(() => {
-            return this.onCalendarList?.() || Promise.resolve([]);
-          })
-          .then((events) => {
-            this.sendToRelay(client.relayClientId, { type: 'calendar', events: events || [] });
-          })
-          .catch(() => {
-            this.sendToRelay(client.relayClientId, { type: 'calendar', events: [] });
-          });
-        break;
-      }
-      case 'calendar:delete': {
-        if ('id' in message) {
-          this.onCalendarDelete?.((message as unknown as { id: number }).id)
-            ?.then(() => {
-              return this.onCalendarList?.() || Promise.resolve([]);
-            })
-            .then((events) => {
-              this.sendToRelay(client.relayClientId, { type: 'calendar', events: events || [] });
-            })
-            .catch(() => {
-              this.sendToRelay(client.relayClientId, { type: 'calendar', events: [] });
-            });
-        }
-        break;
-      }
-      case 'calendar:upcoming': {
-        const hours = 'hours' in message ? (message as { hours: number }).hours : undefined;
-        this.onCalendarUpcoming?.(hours)
-          ?.then((events) => {
-            this.sendToRelay(client.relayClientId, { type: 'calendar', events });
-          })
-          .catch(() => {
-            this.sendToRelay(client.relayClientId, { type: 'calendar', events: [] });
-          });
-        break;
-      }
-      case 'tasks:list': {
-        const status = 'status' in message ? (message as { status: string }).status : undefined;
-        this.onTasksList?.(status)
-          ?.then((tasks) => {
-            this.sendToRelay(client.relayClientId, { type: 'tasks', tasks });
-          })
-          .catch(() => {
-            this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: [] });
-          });
-        break;
-      }
-      case 'tasks:add': {
-        const m = message as unknown as {
-          title: string;
-          dueDate?: string;
-          priority?: string;
-          description?: string;
-          reminderMinutes?: number;
-        };
-        this.onTasksAdd?.(m.title, m.dueDate, m.priority, m.description, m.reminderMinutes)
-          ?.then(() => {
-            return this.onTasksList?.() || Promise.resolve([]);
-          })
-          .then((tasks) => {
-            this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: tasks || [] });
-          })
-          .catch(() => {
-            this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: [] });
-          });
-        break;
-      }
-      case 'tasks:complete': {
-        if ('id' in message) {
-          this.onTasksComplete?.((message as unknown as { id: number }).id)
-            ?.then(() => {
-              return this.onTasksList?.() || Promise.resolve([]);
-            })
-            .then((tasks) => {
-              this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: tasks || [] });
-            })
-            .catch(() => {
-              this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: [] });
-            });
-        }
-        break;
-      }
-      case 'tasks:delete': {
-        if ('id' in message) {
-          this.onTasksDelete?.((message as unknown as { id: number }).id)
-            ?.then(() => {
-              return this.onTasksList?.() || Promise.resolve([]);
-            })
-            .then((tasks) => {
-              this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: tasks || [] });
-            })
-            .catch(() => {
-              this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: [] });
-            });
-        }
-        break;
-      }
-      case 'tasks:due': {
-        const hours = 'hours' in message ? (message as { hours: number }).hours : undefined;
-        this.onTasksDue?.(hours)
-          ?.then((tasks) => {
-            this.sendToRelay(client.relayClientId, { type: 'tasks', tasks });
-          })
-          .catch(() => {
-            this.sendToRelay(client.relayClientId, { type: 'tasks', tasks: [] });
-          });
         break;
       }
       case 'chat:info': {

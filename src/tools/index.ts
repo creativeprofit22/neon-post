@@ -14,8 +14,6 @@ import { getBrowserToolDefinition, handleBrowserTool } from '../browser';
 import { getMemoryTools } from './memory-tools';
 import { getSoulTools } from './soul-tools';
 import { getSchedulerTools } from './scheduler-tools';
-import { getCalendarTools } from './calendar-tools';
-import { getTaskTools } from './task-tools';
 import { getNotifyToolDefinition, handleNotifyTool } from './macos';
 import { getProjectTools } from './project-tools';
 import { wrapToolHandler, getToolTimeout, logActiveToolsStatus } from './diagnostics';
@@ -30,8 +28,6 @@ setInterval(() => {
 export { setMemoryManager } from './memory-tools';
 export { setSoulMemoryManager } from './soul-tools';
 export { getSchedulerTools } from './scheduler-tools';
-export { getCalendarTools } from './calendar-tools';
-export { getTaskTools, closeTaskDb } from './task-tools';
 export { showNotification } from './macos';
 export { setCurrentSessionId, getCurrentSessionId, runWithSessionId } from './session-context';
 
@@ -296,63 +292,6 @@ export async function buildSdkMcpServers(
         tools.push(sdkTool);
       }
 
-      // Calendar tools (with diagnostics wrapper)
-      const calendarTools = getCalendarTools();
-      for (const calTool of calendarTools) {
-        const wrappedHandler = wrapToolHandler(
-          calTool.name,
-          calTool.handler,
-          getToolTimeout(calTool.name)
-        );
-        const sdkTool = tool(
-          calTool.name,
-          calTool.description,
-          Object.fromEntries(
-            Object.entries(calTool.input_schema.properties || {}).map(
-              ([key, value]: [string, unknown]) => {
-                const prop = value as { type?: string };
-                if (prop.type === 'string') return [key, z.string().optional()];
-                if (prop.type === 'number') return [key, z.number().optional()];
-                return [key, z.any().optional()];
-              }
-            )
-          ),
-          async (args) => {
-            const result = await wrappedHandler(args);
-            return { content: [{ type: 'text', text: result }] };
-          }
-        );
-        tools.push(sdkTool);
-      }
-
-      // Task tools (with diagnostics wrapper)
-      const taskTools = getTaskTools();
-      for (const taskTool of taskTools) {
-        const wrappedHandler = wrapToolHandler(
-          taskTool.name,
-          taskTool.handler,
-          getToolTimeout(taskTool.name)
-        );
-        const sdkTool = tool(
-          taskTool.name,
-          taskTool.description,
-          Object.fromEntries(
-            Object.entries(taskTool.input_schema.properties || {}).map(
-              ([key, value]: [string, unknown]) => {
-                const prop = value as { type?: string };
-                if (prop.type === 'string') return [key, z.string().optional()];
-                if (prop.type === 'number') return [key, z.number().optional()];
-                return [key, z.any().optional()];
-              }
-            )
-          ),
-          async (args) => {
-            const result = await wrappedHandler(args);
-            return { content: [{ type: 'text', text: result }] };
-          }
-        );
-        tools.push(sdkTool);
-      }
     }
 
     // Project tools (with diagnostics wrapper)
@@ -466,28 +405,6 @@ export function getCustomTools(config: ToolsConfig): Array<{
     input_schema: notifyDef.input_schema as Record<string, unknown>,
     handler: handleNotifyTool,
   });
-
-  // Calendar tools
-  const calendarTools = getCalendarTools();
-  for (const tool of calendarTools) {
-    tools.push({
-      name: tool.name,
-      description: tool.description,
-      input_schema: tool.input_schema as Record<string, unknown>,
-      handler: tool.handler,
-    });
-  }
-
-  // Task tools
-  const taskTools = getTaskTools();
-  for (const tool of taskTools) {
-    tools.push({
-      name: tool.name,
-      description: tool.description,
-      input_schema: tool.input_schema as Record<string, unknown>,
-      handler: tool.handler,
-    });
-  }
 
   // Project tools
   const projectTools = getProjectTools();

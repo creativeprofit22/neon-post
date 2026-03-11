@@ -1748,17 +1748,6 @@ class AgentManagerClass extends EventEmitter {
               'mcp__pocket-agent__create_reminder',
               'mcp__pocket-agent__list_scheduled_tasks',
               'mcp__pocket-agent__delete_scheduled_task',
-              // Calendar
-              'mcp__pocket-agent__calendar_add',
-              'mcp__pocket-agent__calendar_list',
-              'mcp__pocket-agent__calendar_upcoming',
-              'mcp__pocket-agent__calendar_delete',
-              // Tasks
-              'mcp__pocket-agent__task_add',
-              'mcp__pocket-agent__task_list',
-              'mcp__pocket-agent__task_complete',
-              'mcp__pocket-agent__task_delete',
-              'mcp__pocket-agent__task_due',
             ]),
       ],
       persistSession: true,
@@ -2408,18 +2397,6 @@ class AgentManagerClass extends EventEmitter {
       // macOS tools
       notify: 'sending a meow',
 
-      // Task tools
-      task_add: 'adding to the hunt list',
-      task_list: 'checking your tasks',
-      task_complete: 'caught it!',
-      task_delete: 'batting that away',
-      task_due: "sniffing what's due",
-
-      // Calendar tools
-      calendar_add: 'marking territory',
-      calendar_list: 'checking the calendar',
-      calendar_upcoming: "seeing what's coming up",
-      calendar_delete: 'scratching that out',
 
       // Agent Teams tools
       TeammateTool: 'rallying the squad',

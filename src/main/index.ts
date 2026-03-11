@@ -32,20 +32,6 @@ import { THEMES } from '../settings/themes';
 import { SYSTEM_GUIDELINES } from '../config/system-guidelines';
 import { DEFAULT_COMMANDS } from '../config/commands';
 import { loadWorkflowCommands, loadWorkflowCommandsFromDir } from '../config/commands-loader';
-import { closeTaskDb } from '../tools';
-import {
-  handleCalendarListTool,
-  handleCalendarAddTool,
-  handleCalendarDeleteTool,
-  handleCalendarUpcomingTool,
-} from '../tools/calendar-tools';
-import {
-  handleTaskListTool,
-  handleTaskAddTool,
-  handleTaskCompleteTool,
-  handleTaskDeleteTool,
-  handleTaskDueTool,
-} from '../tools/task-tools';
 import { getBrowserManager } from '../browser';
 import { isMacOS, getPermissionsStatus, openPermissionSettings } from '../permissions';
 import type { PermissionType } from '../permissions';
@@ -1976,65 +1962,7 @@ function setupIPC(): void {
               content: c.content,
             }));
           });
-          // Calendar & Tasks handlers
-          iosChannel.setCalendarListHandler(async () => {
-            const result = JSON.parse(await handleCalendarListTool({}));
-            return result.events || [];
-          });
-          iosChannel.setCalendarAddHandler(
-            async (title, startTime, endTime, location, description, reminderMinutes) => {
-              const result = JSON.parse(
-                await handleCalendarAddTool({
-                  title,
-                  start_time: startTime,
-                  end_time: endTime,
-                  location,
-                  description,
-                  reminder_minutes: reminderMinutes,
-                })
-              );
-              return result.success ? result : null;
-            }
-          );
-          iosChannel.setCalendarDeleteHandler(async (id) => {
-            const result = JSON.parse(await handleCalendarDeleteTool({ id }));
-            return result.success || false;
-          });
-          iosChannel.setCalendarUpcomingHandler(async (hours) => {
-            const result = JSON.parse(await handleCalendarUpcomingTool({ hours }));
-            return result.events || [];
-          });
-          iosChannel.setTasksListHandler(async (status) => {
-            const result = JSON.parse(await handleTaskListTool({ status: status || 'all' }));
-            return result.tasks || [];
-          });
-          iosChannel.setTasksAddHandler(
-            async (title, dueDate, priority, description, reminderMinutes) => {
-              const result = JSON.parse(
-                await handleTaskAddTool({
-                  title,
-                  due: dueDate,
-                  priority,
-                  description,
-                  reminder_minutes: reminderMinutes,
-                })
-              );
-              return result.success ? result : null;
-            }
-          );
-          iosChannel.setTasksCompleteHandler(async (id) => {
-            const result = JSON.parse(await handleTaskCompleteTool({ id }));
-            return result.success || false;
-          });
-          iosChannel.setTasksDeleteHandler(async (id) => {
-            const result = JSON.parse(await handleTaskDeleteTool({ id }));
-            return result.success || false;
-          });
-          iosChannel.setTasksDueHandler(async (hours) => {
-            const result = JSON.parse(await handleTaskDueTool({ hours }));
-            return [...(result.overdue || []), ...(result.upcoming || [])];
-          });
-          iosChannel.setChatInfoHandler(() => ({
+            iosChannel.setChatInfoHandler(() => ({
             username: SettingsManager.get('chat.username') || '',
             adminKey: SettingsManager.get('chat.adminKey') || '',
           }));
@@ -3170,64 +3098,6 @@ async function initializeAgent(): Promise<void> {
             content: c.content,
           }));
         });
-        // Calendar & Tasks handlers
-        iosChannel.setCalendarListHandler(async () => {
-          const result = JSON.parse(await handleCalendarListTool({}));
-          return result.events || [];
-        });
-        iosChannel.setCalendarAddHandler(
-          async (title, startTime, endTime, location, description, reminderMinutes) => {
-            const result = JSON.parse(
-              await handleCalendarAddTool({
-                title,
-                start_time: startTime,
-                end_time: endTime,
-                location,
-                description,
-                reminder_minutes: reminderMinutes,
-              })
-            );
-            return result.success ? result : null;
-          }
-        );
-        iosChannel.setCalendarDeleteHandler(async (id) => {
-          const result = JSON.parse(await handleCalendarDeleteTool({ id }));
-          return result.success || false;
-        });
-        iosChannel.setCalendarUpcomingHandler(async (hours) => {
-          const result = JSON.parse(await handleCalendarUpcomingTool({ hours }));
-          return result.events || [];
-        });
-        iosChannel.setTasksListHandler(async (status) => {
-          const result = JSON.parse(await handleTaskListTool({ status: status || 'all' }));
-          return result.tasks || [];
-        });
-        iosChannel.setTasksAddHandler(
-          async (title, dueDate, priority, description, reminderMinutes) => {
-            const result = JSON.parse(
-              await handleTaskAddTool({
-                title,
-                due: dueDate,
-                priority,
-                description,
-                reminder_minutes: reminderMinutes,
-              })
-            );
-            return result.success ? result : null;
-          }
-        );
-        iosChannel.setTasksCompleteHandler(async (id) => {
-          const result = JSON.parse(await handleTaskCompleteTool({ id }));
-          return result.success || false;
-        });
-        iosChannel.setTasksDeleteHandler(async (id) => {
-          const result = JSON.parse(await handleTaskDeleteTool({ id }));
-          return result.success || false;
-        });
-        iosChannel.setTasksDueHandler(async (hours) => {
-          const result = JSON.parse(await handleTaskDueTool({ hours }));
-          return [...(result.overdue || []), ...(result.upcoming || [])];
-        });
         iosChannel.setChatInfoHandler(() => ({
           username: SettingsManager.get('chat.username') || '',
           adminKey: SettingsManager.get('chat.adminKey') || '',
@@ -3569,7 +3439,6 @@ app.on('before-quit', async () => {
   if (memory) {
     memory.close();
   }
-  closeTaskDb(); // Clean up task tools database connection
   SettingsManager.close();
 });
 

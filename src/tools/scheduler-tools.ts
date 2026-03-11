@@ -482,7 +482,7 @@ export function getCreateReminderToolDefinition() {
   return {
     name: 'create_reminder',
     description:
-      'Create a simple reminder notification (NO LLM processing). The message is displayed exactly as written. Use for: "remind me to X", "don\'t forget Y". For tasks requiring LLM action (research, checking weather), use create_routine instead. NOT for todo items - use task_add for todos.',
+      'Create a simple reminder notification (NO LLM processing). The message is displayed exactly as written. Use for: "remind me to X", "don\'t forget Y". For tasks requiring LLM action (research, checking weather), use create_routine instead.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -681,7 +681,7 @@ export function getListRoutinesToolDefinition() {
   return {
     name: 'list_routines',
     description:
-      'List all scheduled routines (LLM tasks) and reminders (simple notifications). Shows name, type, schedule, and next run time. NOT for todo items - use task_list for todos.',
+      'List all scheduled routines (LLM tasks) and reminders (simple notifications). Shows name, type, schedule, and next run time.',
     input_schema: {
       type: 'object' as const,
       properties: {},
@@ -762,7 +762,7 @@ export function getDeleteRoutineToolDefinition() {
   return {
     name: 'delete_routine',
     description:
-      'Delete a scheduled routine or reminder by name. NOT for todo items - use task_delete for todos.',
+      'Delete a scheduled routine or reminder by name.',
     input_schema: {
       type: 'object' as const,
       properties: {

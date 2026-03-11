@@ -132,50 +132,6 @@ describe('Session Context Integration', () => {
 describe('Source Code Verification', () => {
   const srcDir = path.join(__dirname, '../../src');
 
-  it('calendar-tools.ts should import getCurrentSessionId', () => {
-    const content = fs.readFileSync(path.join(srcDir, 'tools/calendar-tools.ts'), 'utf-8');
-    expect(content).toContain("import { getCurrentSessionId } from './session-context'");
-  });
-
-  it('calendar-tools.ts should use getCurrentSessionId in handleCalendarAddTool', () => {
-    const content = fs.readFileSync(path.join(srcDir, 'tools/calendar-tools.ts'), 'utf-8');
-    // Check the INSERT includes session_id
-    expect(content).toContain('session_id');
-    expect(content).toMatch(/INSERT INTO calendar_events.*session_id/s);
-  });
-
-  it('calendar-tools.ts should filter by session_id in handleCalendarListTool', () => {
-    const content = fs.readFileSync(path.join(srcDir, 'tools/calendar-tools.ts'), 'utf-8');
-    // Check that SELECT queries include session_id filter
-    expect(content).toMatch(/SELECT \* FROM calendar_events WHERE session_id/);
-  });
-
-  it('calendar-tools.ts should filter by session_id in handleCalendarUpcomingTool', () => {
-    const content = fs.readFileSync(path.join(srcDir, 'tools/calendar-tools.ts'), 'utf-8');
-    // Check that the upcoming query includes session_id
-    expect(content).toMatch(/WHERE session_id = \? AND start_time/);
-  });
-
-  it('task-tools.ts should import getCurrentSessionId', () => {
-    const content = fs.readFileSync(path.join(srcDir, 'tools/task-tools.ts'), 'utf-8');
-    expect(content).toContain("import { getCurrentSessionId } from './session-context'");
-  });
-
-  it('task-tools.ts should use session_id in handleTaskAddTool', () => {
-    const content = fs.readFileSync(path.join(srcDir, 'tools/task-tools.ts'), 'utf-8');
-    expect(content).toMatch(/INSERT INTO tasks.*session_id/s);
-  });
-
-  it('task-tools.ts should filter by session_id in handleTaskListTool', () => {
-    const content = fs.readFileSync(path.join(srcDir, 'tools/task-tools.ts'), 'utf-8');
-    expect(content).toMatch(/SELECT \* FROM tasks WHERE session_id = \?/);
-  });
-
-  it('task-tools.ts should filter by session_id in handleTaskDueTool', () => {
-    const content = fs.readFileSync(path.join(srcDir, 'tools/task-tools.ts'), 'utf-8');
-    expect(content).toMatch(/WHERE session_id = \? AND status/);
-  });
-
   it('scheduler-tools.ts should import getCurrentSessionId', () => {
     const content = fs.readFileSync(path.join(srcDir, 'tools/scheduler-tools.ts'), 'utf-8');
     expect(content).toContain("import { getCurrentSessionId } from './session-context'");

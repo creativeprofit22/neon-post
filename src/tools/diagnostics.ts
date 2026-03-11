@@ -152,18 +152,9 @@ export const TOOL_TIMEOUTS = {
 
   // Medium tools - up to 15s
   memory_search: 15000,
-  task_add: 10000,
-  task_list: 10000,
-  task_complete: 5000,
-  task_delete: 5000,
-  task_due: 10000,
   schedule_task: 10000,
   list_scheduled_tasks: 5000,
   delete_scheduled_task: 5000,
-  calendar_add: 10000,
-  calendar_list: 10000,
-  calendar_upcoming: 10000,
-  calendar_delete: 5000,
 
   // Slow tools - browser operations
   browser: 45000, // Browser can be slow

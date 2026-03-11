@@ -47,15 +47,6 @@ import {
   iOSModeGetHandler,
   iOSModeSwitchHandler,
   iOSWorkflowsHandler,
-  iOSCalendarListHandler,
-  iOSCalendarAddHandler,
-  iOSCalendarDeleteHandler,
-  iOSCalendarUpcomingHandler,
-  iOSTasksListHandler,
-  iOSTasksAddHandler,
-  iOSTasksCompleteHandler,
-  iOSTasksDeleteHandler,
-  iOSTasksDueHandler,
   iOSChatInfoHandler,
 } from './types';
 import { loadWorkflowCommands } from '../../config/commands-loader';
@@ -122,15 +113,6 @@ export class iOSWebSocketServer {
   private onGetMode: iOSModeGetHandler | null = null;
   private onSwitchMode: iOSModeSwitchHandler | null = null;
   private onGetWorkflows: iOSWorkflowsHandler | null = null;
-  private onCalendarList: iOSCalendarListHandler | null = null;
-  private onCalendarAdd: iOSCalendarAddHandler | null = null;
-  private onCalendarDelete: iOSCalendarDeleteHandler | null = null;
-  private onCalendarUpcoming: iOSCalendarUpcomingHandler | null = null;
-  private onTasksList: iOSTasksListHandler | null = null;
-  private onTasksAdd: iOSTasksAddHandler | null = null;
-  private onTasksComplete: iOSTasksCompleteHandler | null = null;
-  private onTasksDelete: iOSTasksDeleteHandler | null = null;
-  private onTasksDue: iOSTasksDueHandler | null = null;
   private onChatInfo: iOSChatInfoHandler | null = null;
 
   constructor(port?: number) {
@@ -270,33 +252,6 @@ export class iOSWebSocketServer {
   }
   setWorkflowsHandler(handler: iOSWorkflowsHandler): void {
     this.onGetWorkflows = handler;
-  }
-  setCalendarListHandler(handler: iOSCalendarListHandler): void {
-    this.onCalendarList = handler;
-  }
-  setCalendarAddHandler(handler: iOSCalendarAddHandler): void {
-    this.onCalendarAdd = handler;
-  }
-  setCalendarDeleteHandler(handler: iOSCalendarDeleteHandler): void {
-    this.onCalendarDelete = handler;
-  }
-  setCalendarUpcomingHandler(handler: iOSCalendarUpcomingHandler): void {
-    this.onCalendarUpcoming = handler;
-  }
-  setTasksListHandler(handler: iOSTasksListHandler): void {
-    this.onTasksList = handler;
-  }
-  setTasksAddHandler(handler: iOSTasksAddHandler): void {
-    this.onTasksAdd = handler;
-  }
-  setTasksCompleteHandler(handler: iOSTasksCompleteHandler): void {
-    this.onTasksComplete = handler;
-  }
-  setTasksDeleteHandler(handler: iOSTasksDeleteHandler): void {
-    this.onTasksDelete = handler;
-  }
-  setTasksDueHandler(handler: iOSTasksDueHandler): void {
-    this.onTasksDue = handler;
   }
   setChatInfoHandler(handler: iOSChatInfoHandler): void {
     this.onChatInfo = handler;
@@ -894,95 +849,6 @@ export class iOSWebSocketServer {
               };
               ws.send(JSON.stringify({ type: 'mode', mode: result.mode, locked: result.locked }));
             }
-            break;
-          }
-          case 'calendar:list': {
-            const events = (await this.onCalendarList?.()) || [];
-            ws.send(JSON.stringify({ type: 'calendar', events }));
-            break;
-          }
-          case 'calendar:add': {
-            const m = message as unknown as {
-              title: string;
-              startTime: string;
-              endTime?: string;
-              location?: string;
-              description?: string;
-              reminderMinutes?: number;
-              allDay?: boolean;
-            };
-            await this.onCalendarAdd?.(
-              m.title,
-              m.startTime,
-              m.endTime,
-              m.location,
-              m.description,
-              m.reminderMinutes,
-              m.allDay
-            );
-            const calEvents = (await this.onCalendarList?.()) || [];
-            ws.send(JSON.stringify({ type: 'calendar', events: calEvents }));
-            break;
-          }
-          case 'calendar:delete': {
-            if ('id' in message) {
-              await this.onCalendarDelete?.((message as unknown as { id: number }).id);
-              const calEvents = (await this.onCalendarList?.()) || [];
-              ws.send(JSON.stringify({ type: 'calendar', events: calEvents }));
-            }
-            break;
-          }
-          case 'calendar:upcoming': {
-            const hours = 'hours' in message ? (message as { hours: number }).hours : undefined;
-            const events = (await this.onCalendarUpcoming?.(hours)) || [];
-            ws.send(JSON.stringify({ type: 'calendar', events }));
-            break;
-          }
-          case 'tasks:list': {
-            const status = 'status' in message ? (message as { status: string }).status : undefined;
-            const tasks = (await this.onTasksList?.(status)) || [];
-            ws.send(JSON.stringify({ type: 'tasks', tasks }));
-            break;
-          }
-          case 'tasks:add': {
-            const m = message as unknown as {
-              title: string;
-              dueDate?: string;
-              priority?: string;
-              description?: string;
-              reminderMinutes?: number;
-            };
-            await this.onTasksAdd?.(
-              m.title,
-              m.dueDate,
-              m.priority,
-              m.description,
-              m.reminderMinutes
-            );
-            const allTasks = (await this.onTasksList?.()) || [];
-            ws.send(JSON.stringify({ type: 'tasks', tasks: allTasks }));
-            break;
-          }
-          case 'tasks:complete': {
-            if ('id' in message) {
-              await this.onTasksComplete?.((message as unknown as { id: number }).id);
-              const allTasks = (await this.onTasksList?.()) || [];
-              ws.send(JSON.stringify({ type: 'tasks', tasks: allTasks }));
-            }
-            break;
-          }
-          case 'tasks:delete': {
-            if ('id' in message) {
-              await this.onTasksDelete?.((message as unknown as { id: number }).id);
-              const allTasks = (await this.onTasksList?.()) || [];
-              ws.send(JSON.stringify({ type: 'tasks', tasks: allTasks }));
-            }
-            break;
-          }
-          case 'tasks:due': {
-            const hours = 'hours' in message ? (message as { hours: number }).hours : undefined;
-            const tasks = (await this.onTasksDue?.(hours)) || [];
-            ws.send(JSON.stringify({ type: 'tasks', tasks }));
             break;
           }
           case 'chat:info': {
