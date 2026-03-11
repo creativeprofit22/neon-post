@@ -231,6 +231,7 @@ export type iOSFactsGraphHandler = () => Promise<{
 
 export type iOSCustomizeGetHandler = () => {
   agentName: string;
+  description: string;
   personality: string;
   goals: string;
   struggles: string;
@@ -247,6 +248,7 @@ export type iOSCustomizeGetHandler = () => {
 
 export type iOSCustomizeSaveHandler = (data: {
   agentName?: string;
+  description?: string;
   personality?: string;
   goals?: string;
   struggles?: string;

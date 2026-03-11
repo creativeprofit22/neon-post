@@ -750,6 +750,7 @@ export class iOSWebSocketServer {
           case 'customize:get': {
             const customize = this.onGetCustomize?.() || {
               agentName: 'Frankie',
+              description: '',
               personality: '',
               goals: '',
               struggles: '',
@@ -763,6 +764,8 @@ export class iOSWebSocketServer {
             const saveData: Record<string, unknown> = {};
             if ('agentName' in message)
               saveData.agentName = (message as { agentName: string }).agentName;
+            if ('description' in message)
+              saveData.description = (message as { description: string }).description;
             if ('personality' in message)
               saveData.personality = (message as { personality: string }).personality;
             if ('goals' in message) saveData.goals = (message as { goals: string }).goals;
@@ -777,6 +780,7 @@ export class iOSWebSocketServer {
             );
             const updated = this.onGetCustomize?.() || {
               agentName: 'Frankie',
+              description: '',
               personality: '',
               goals: '',
               struggles: '',

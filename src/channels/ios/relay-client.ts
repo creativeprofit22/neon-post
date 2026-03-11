@@ -830,6 +830,7 @@ export class iOSRelayClient {
       case 'customize:get': {
         const customize = this.onGetCustomize?.() || {
           agentName: 'Frankie',
+          description: '',
           personality: '',
           goals: '',
           struggles: '',
@@ -843,6 +844,8 @@ export class iOSRelayClient {
         const saveData: Record<string, unknown> = {};
         if ('agentName' in message)
           saveData.agentName = (message as { agentName: string }).agentName;
+        if ('description' in message)
+          saveData.description = (message as { description: string }).description;
         if ('personality' in message)
           saveData.personality = (message as { personality: string }).personality;
         if ('goals' in message) saveData.goals = (message as { goals: string }).goals;
@@ -854,6 +857,7 @@ export class iOSRelayClient {
         this.onSaveCustomize?.(saveData as Parameters<NonNullable<typeof this.onSaveCustomize>>[0]);
         const updated = this.onGetCustomize?.() || {
           agentName: 'Frankie',
+          description: '',
           personality: '',
           goals: '',
           struggles: '',
@@ -1110,7 +1114,11 @@ export class iOSRelayClient {
       }
       case 'chat:info': {
         const info = this.onChatInfo?.() || { username: '', adminKey: '' };
-        this.sendToRelay(client.relayClientId, { type: 'chat:info', username: info.username });
+        this.sendToRelay(client.relayClientId, {
+          type: 'chat:info',
+          username: info.username,
+          adminKey: info.adminKey,
+        });
         break;
       }
     }

@@ -300,7 +300,7 @@ type TaskCompletedHookCallback = (input: {
     hookEventName: 'TaskCompleted';
   };
 }>;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 type UserPromptSubmitHookCallback = (
   input: any,
   toolUseID: string | undefined,

@@ -1851,6 +1851,7 @@ function setupIPC(): void {
           );
           iosChannel.setCustomizeGetHandler(() => ({
             agentName: SettingsManager.get('personalize.agentName') || 'Frankie',
+            description: SettingsManager.get('personalize.description') || '',
             personality: SettingsManager.get('personalize.personality') || '',
             goals: SettingsManager.get('personalize.goals') || '',
             struggles: SettingsManager.get('personalize.struggles') || '',
@@ -1867,6 +1868,8 @@ function setupIPC(): void {
           iosChannel.setCustomizeSaveHandler((data) => {
             if (data.agentName !== undefined)
               SettingsManager.set('personalize.agentName', data.agentName);
+            if (data.description !== undefined)
+              SettingsManager.set('personalize.description', data.description);
             if (data.personality !== undefined)
               SettingsManager.set('personalize.personality', data.personality);
             if (data.goals !== undefined) SettingsManager.set('personalize.goals', data.goals);
@@ -3047,6 +3050,7 @@ async function initializeAgent(): Promise<void> {
         );
         iosChannel.setCustomizeGetHandler(() => ({
           agentName: SettingsManager.get('personalize.agentName') || 'Frankie',
+          description: SettingsManager.get('personalize.description') || '',
           personality: SettingsManager.get('personalize.personality') || '',
           goals: SettingsManager.get('personalize.goals') || '',
           struggles: SettingsManager.get('personalize.struggles') || '',
@@ -3063,6 +3067,8 @@ async function initializeAgent(): Promise<void> {
         iosChannel.setCustomizeSaveHandler((data) => {
           if (data.agentName !== undefined)
             SettingsManager.set('personalize.agentName', data.agentName);
+          if (data.description !== undefined)
+            SettingsManager.set('personalize.description', data.description);
           if (data.personality !== undefined)
             SettingsManager.set('personalize.personality', data.personality);
           if (data.goals !== undefined) SettingsManager.set('personalize.goals', data.goals);

@@ -364,9 +364,7 @@ declare global {
           metadata?: { source?: string; jobName?: string };
         }>
       >;
-      getStats: (
-        sessionId?: string
-      ) => Promise<{
+      getStats: (sessionId?: string) => Promise<{
         messageCount: number;
         factCount: number;
         estimatedTokens: number;
@@ -415,9 +413,7 @@ declare global {
           updated_at: string;
         }>
       >;
-      getSoulAspect: (
-        aspect: string
-      ) => Promise<{
+      getSoulAspect: (aspect: string) => Promise<{
         id: number;
         aspect: string;
         content: string;
@@ -442,9 +438,7 @@ declare global {
       // Customize
       getSystemPrompt: () => Promise<string>;
       // Location and timezone
-      lookupLocation: (
-        query: string
-      ) => Promise<
+      lookupLocation: (query: string) => Promise<
         Array<{
           city: string;
           country: string;
@@ -501,9 +495,7 @@ declare global {
       getSetting: (key: string) => Promise<string>;
       setSetting: (key: string, value: string) => Promise<{ success: boolean }>;
       deleteSetting: (key: string) => Promise<{ success: boolean }>;
-      getSettingsSchema: (
-        category?: string
-      ) => Promise<
+      getSettingsSchema: (category?: string) => Promise<
         Array<{
           key: string;
           defaultValue: string;
@@ -574,9 +566,7 @@ declare global {
       getPlatform: () => string;
       // Permissions (macOS)
       isMacOS: () => Promise<boolean>;
-      checkPermissions: (
-        types: string[]
-      ) => Promise<
+      checkPermissions: (types: string[]) => Promise<
         Array<{
           type: string;
           granted: boolean;
