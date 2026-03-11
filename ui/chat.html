@@ -4340,8 +4340,6 @@
         }
       });
 
-      // Check for updates (delayed to not slow down startup)
-      setTimeout(checkForUpdates, 3000);
 
       // Load sessions first (sets currentSessionId), then init mode for correct session
       await loadSessions();
@@ -7416,7 +7414,6 @@
       const globalMsgsEl = document.getElementById('global-chat-messages');
       const modelBadge = document.getElementById('model-badge');
       const versionBadge = document.getElementById('version-badge');
-      const updateBadge = document.getElementById('update-badge');
       const statsEl = document.getElementById('stats');
       const chatOnlineStats = document.getElementById('chat-online-stats');
       const chatUsernameBadge = document.getElementById('chat-username-badge');
@@ -7441,7 +7438,6 @@
         globalMsgsEl.classList.remove('hidden');
         modelBadge.classList.add('hidden');
         versionBadge.classList.add('hidden');
-        updateBadge.classList.add('hidden');
         statsEl.classList.add('hidden');
         chatUsernameBadge.classList.remove('hidden');
         chatOnlineStats.classList.remove('hidden');
@@ -7475,7 +7471,6 @@
         globalMsgsEl.classList.add('hidden');
         modelBadge.classList.remove('hidden');
         versionBadge.classList.remove('hidden');
-        updateBadge.classList.remove('hidden');
         statsEl.classList.remove('hidden');
         chatUsernameBadge.classList.add('hidden');
         chatOnlineStats.classList.add('hidden');
@@ -8382,21 +8377,6 @@
       }
     }
 
-    async function checkForUpdates() {
-      try {
-        const result = await window.pocketAgent.checkForUpdates();
-        const updateBadge = document.getElementById('update-badge');
-        if (result.status === 'available' && result.info?.version) {
-          updateBadge.textContent = `v${result.info.version}`;
-          updateBadge.classList.remove('hidden');
-        } else {
-          updateBadge.classList.add('hidden');
-        }
-      } catch (err) {
-        // Silently fail - update check is not critical
-        console.debug('Update check failed:', err);
-      }
-    }
 
     async function openFactsGraph() {
       try {
