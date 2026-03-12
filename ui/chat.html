@@ -5233,6 +5233,10 @@
       const sessionId = currentSessionId;
       try {
         await window.pocketAgent.stop(sessionId);
+      } catch (err) {
+        console.error('Failed to stop query:', err);
+      } finally {
+        // Always clean up UI state, even if stop() threw
 
         // Clean up status listener for this session
         const statusCleanup = statusCleanupBySession.get(sessionId);
@@ -5240,6 +5244,9 @@
           statusCleanup();
           statusCleanupBySession.delete(sessionId);
         }
+
+        // Disable AutoAnimate so removals are instant (no slide-out)
+        disableAutoAnimate();
 
         // Remove status indicator for this session
         const statusEl = statusElBySession.get(sessionId);
@@ -5249,20 +5256,32 @@
         }
         toolCountBySession.delete(sessionId);
 
+        // Remove streaming bubble if present
+        const streamBubble = streamingBubbleBySession.get(sessionId);
+        if (streamBubble) {
+          streamBubble.remove();
+          streamingBubbleBySession.delete(sessionId);
+        }
+        streamingTextBySession.delete(sessionId);
+        const pendingRaf = streamingRafBySession.get(sessionId);
+        if (pendingRaf) {
+          cancelAnimationFrame(pendingRaf);
+          streamingRafBySession.delete(sessionId);
+        }
+
         // Remove 'queued' class from any queued messages and clear tracking
         const queuedMsgs = messagesDiv.querySelectorAll('.message.queued');
         queuedMsgs.forEach(msg => msg.classList.remove('queued'));
         queuedMessageElements.clear();
 
         addMessage('system', 'query stopped', true, [], null, false);
+        requestAnimationFrame(() => enableAutoAnimate());
 
         isLoadingBySession.set(sessionId, false);
         renderTabs(); // Update tab loading indicator
         setButtonState(false);
         scrollToBottom();
         input.focus();
-      } catch (err) {
-        console.error('Failed to stop query:', err);
       }
     }
 
