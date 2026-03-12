@@ -27,7 +27,6 @@ import {
   iOSDailyLogsHandler,
   iOSSoulHandler,
   iOSSoulDeleteHandler,
-  iOSFactsGraphHandler,
   iOSCustomizeGetHandler,
   iOSCustomizeSaveHandler,
   iOSRoutinesListHandler,
@@ -125,9 +124,6 @@ export class iOSChannel extends BaseChannel {
   }
   setSoulDeleteHandler(handler: iOSSoulDeleteHandler): void {
     this.backend.setSoulDeleteHandler(handler);
-  }
-  setFactsGraphHandler(handler: iOSFactsGraphHandler): void {
-    this.backend.setFactsGraphHandler(handler);
   }
   setCustomizeGetHandler(handler: iOSCustomizeGetHandler): void {
     this.backend.setCustomizeGetHandler(handler);

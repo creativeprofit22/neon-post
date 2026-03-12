@@ -35,7 +35,6 @@ import {
   iOSDailyLogsHandler,
   iOSSoulHandler,
   iOSSoulDeleteHandler,
-  iOSFactsGraphHandler,
   iOSCustomizeGetHandler,
   iOSCustomizeSaveHandler,
   iOSRoutinesListHandler,
@@ -100,7 +99,6 @@ export class iOSWebSocketServer {
   private onGetDailyLogs: iOSDailyLogsHandler | null = null;
   private onGetSoul: iOSSoulHandler | null = null;
   private onDeleteSoulAspect: iOSSoulDeleteHandler | null = null;
-  private onGetFactsGraph: iOSFactsGraphHandler | null = null;
   private onGetCustomize: iOSCustomizeGetHandler | null = null;
   private onSaveCustomize: iOSCustomizeSaveHandler | null = null;
   private onGetRoutines: iOSRoutinesListHandler | null = null;
@@ -213,9 +211,6 @@ export class iOSWebSocketServer {
   }
   setSoulDeleteHandler(handler: iOSSoulDeleteHandler): void {
     this.onDeleteSoulAspect = handler;
-  }
-  setFactsGraphHandler(handler: iOSFactsGraphHandler): void {
-    this.onGetFactsGraph = handler;
   }
   setCustomizeGetHandler(handler: iOSCustomizeGetHandler): void {
     this.onGetCustomize = handler;
@@ -686,20 +681,6 @@ export class iOSWebSocketServer {
               const updatedAspects = this.onGetSoul?.() || [];
               ws.send(JSON.stringify({ type: 'soul', aspects: updatedAspects }));
             }
-            break;
-          }
-          case 'facts:graph': {
-            this.onGetFactsGraph?.()
-              .then((graph) => {
-                if (ws.readyState === WebSocket.OPEN) {
-                  ws.send(JSON.stringify({ type: 'facts:graph', ...graph }));
-                }
-              })
-              .catch(() => {
-                if (ws.readyState === WebSocket.OPEN) {
-                  ws.send(JSON.stringify({ type: 'facts:graph', nodes: [], links: [] }));
-                }
-              });
             break;
           }
           case 'customize:get': {

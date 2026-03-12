@@ -309,15 +309,6 @@ export const SETTINGS_SCHEMA: SettingDefinition[] = [
     type: 'string',
   },
   {
-    key: 'window.factsGraphBounds',
-    defaultValue: '',
-    encrypted: false,
-    category: 'window',
-    label: 'Facts Graph Window Bounds',
-    description: 'Saved position and size of facts graph window (JSON)',
-    type: 'string',
-  },
-  {
     key: 'window.customizeBounds',
     defaultValue: '',
     encrypted: false,

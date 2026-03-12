@@ -215,10 +215,6 @@ export type iOSSoulHandler = () => Array<{
 
 export type iOSSoulDeleteHandler = (id: number) => boolean;
 
-export type iOSFactsGraphHandler = () => Promise<{
-  nodes: Array<{ id: number; subject: string; category: string; content: string; group: number }>;
-  links: Array<{ source: number; target: number; type: string; strength: number }>;
-}>;
 
 export type iOSCustomizeGetHandler = () => {
   agentName: string;

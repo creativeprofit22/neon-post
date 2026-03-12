@@ -133,7 +133,6 @@ contextBridge.exposeInMainWorld('pocketAgent', {
   searchFacts: (query: string) => ipcRenderer.invoke('facts:search', query),
   getFactCategories: () => ipcRenderer.invoke('facts:categories'),
   deleteFact: (id: number) => ipcRenderer.invoke('facts:delete', id),
-  getGraphData: () => ipcRenderer.invoke('facts:graph-data'),
 
   // Soul (Self-Knowledge)
   listSoulAspects: () => ipcRenderer.invoke('soul:list'),
@@ -144,7 +143,6 @@ contextBridge.exposeInMainWorld('pocketAgent', {
   listDailyLogs: () => ipcRenderer.invoke('dailyLogs:list'),
 
   // App windows
-  openFactsGraph: () => ipcRenderer.invoke('app:openFactsGraph'),
   openFacts: () => ipcRenderer.invoke('app:openFacts'),
   openDailyLogs: () => ipcRenderer.invoke('app:openDailyLogs'),
   openSoul: () => ipcRenderer.invoke('app:openSoul'),
@@ -388,21 +386,6 @@ declare global {
       ) => Promise<Array<{ category: string; subject: string; content: string }>>;
       getFactCategories: () => Promise<string[]>;
       deleteFact: (id: number) => Promise<{ success: boolean }>;
-      getGraphData: () => Promise<{
-        nodes: Array<{
-          id: number;
-          subject: string;
-          category: string;
-          content: string;
-          group: number;
-        }>;
-        links: Array<{
-          source: number;
-          target: number;
-          type: 'category' | 'semantic' | 'keyword';
-          strength: number;
-        }>;
-      }>;
       // Soul
       listSoulAspects: () => Promise<
         Array<{
@@ -426,7 +409,6 @@ declare global {
         Array<{ id: number; date: string; content: string; updated_at: string }>
       >;
       // App windows
-      openFactsGraph: () => Promise<void>;
       openFacts: () => Promise<void>;
       openDailyLogs: () => Promise<void>;
       openSoul: () => Promise<void>;

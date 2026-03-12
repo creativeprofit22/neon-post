@@ -315,7 +315,6 @@ let chatWindow: BrowserWindow | null = null;
 let cronWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
 let setupWindow: BrowserWindow | null = null;
-let factsGraphWindow: BrowserWindow | null = null;
 let customizeWindow: BrowserWindow | null = null;
 let factsWindow: BrowserWindow | null = null;
 let soulWindow: BrowserWindow | null = null;
@@ -1078,60 +1077,6 @@ function openSetupWindow(): void {
   });
 }
 
-function openFactsGraphWindow(): void {
-  if (factsGraphWindow && !factsGraphWindow.isDestroyed()) {
-    factsGraphWindow.focus();
-    return;
-  }
-
-  const savedBoundsJson = SettingsManager.get('window.factsGraphBounds');
-  let windowOptions: Electron.BrowserWindowConstructorOptions = {
-    width: 900,
-    height: 700,
-    title: 'Mind Map - Pocket Agent',
-    backgroundColor: '#0a0a0b',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-    show: false,
-  };
-
-  if (savedBoundsJson) {
-    try {
-      const savedBounds = JSON.parse(savedBoundsJson);
-      if (savedBounds.x !== undefined) windowOptions.x = savedBounds.x;
-      if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
-      if (savedBounds.width) windowOptions.width = savedBounds.width;
-      if (savedBounds.height) windowOptions.height = savedBounds.height;
-    } catch {
-      /* ignore */
-    }
-  }
-
-  factsGraphWindow = new BrowserWindow(windowOptions);
-
-  factsGraphWindow.loadFile(path.join(__dirname, '../../ui/facts-graph.html'));
-
-  factsGraphWindow.once('ready-to-show', () => {
-    factsGraphWindow?.show();
-  });
-
-  const saveBounds = () => {
-    if (factsGraphWindow && !factsGraphWindow.isDestroyed()) {
-      SettingsManager.set('window.factsGraphBounds', JSON.stringify(factsGraphWindow.getBounds()));
-    }
-  };
-  factsGraphWindow.on('moved', saveBounds);
-  factsGraphWindow.on('resized', saveBounds);
-  factsGraphWindow.on('close', saveBounds);
-
-  factsGraphWindow.on('closed', () => {
-    factsGraphWindow = null;
-  });
-}
-
 function openCustomizeWindow(): void {
   if (customizeWindow && !customizeWindow.isDestroyed()) {
     customizeWindow.focus();
@@ -1831,10 +1776,6 @@ function setupIPC(): void {
             memory?.deleteSoulAspectById(id);
             return true;
           });
-          iosChannel.setFactsGraphHandler(
-            async () =>
-              memory?.getFactsGraphData() || { nodes: [] as never[], links: [] as never[] }
-          );
           iosChannel.setCustomizeGetHandler(() => ({
             agentName: SettingsManager.get('personalize.agentName') || 'Frankie',
             description: SettingsManager.get('personalize.description') || '',
@@ -1904,7 +1845,6 @@ function setupIPC(): void {
               settingsWindow,
               cronWindow,
               factsWindow,
-              factsGraphWindow,
               customizeWindow,
               soulWindow,
               dailyLogsWindow,
@@ -2001,11 +1941,6 @@ function setupIPC(): void {
     return { success };
   });
 
-  ipcMain.handle('facts:graph-data', async () => {
-    if (!memory) return { nodes: [], links: [] };
-    return memory.getFactsGraphData();
-  });
-
   // Soul (Self-Knowledge)
   ipcMain.handle('soul:list', async () => {
     if (!memory) return [];
@@ -2021,10 +1956,6 @@ function setupIPC(): void {
     if (!memory) return { success: false };
     const success = memory.deleteSoulAspectById(id);
     return { success };
-  });
-
-  ipcMain.handle('app:openFactsGraph', async () => {
-    openFactsGraphWindow();
   });
 
   ipcMain.handle('app:openFacts', async () => {
@@ -2300,7 +2231,6 @@ function setupIPC(): void {
           settingsWindow,
           cronWindow,
           factsWindow,
-          factsGraphWindow,
           customizeWindow,
           soulWindow,
           dailyLogsWindow,
@@ -2973,9 +2903,6 @@ async function initializeAgent(): Promise<void> {
           memory?.deleteSoulAspectById(id);
           return true;
         });
-        iosChannel.setFactsGraphHandler(
-          async () => memory?.getFactsGraphData() || { nodes: [] as never[], links: [] as never[] }
-        );
         iosChannel.setCustomizeGetHandler(() => ({
           agentName: SettingsManager.get('personalize.agentName') || 'Frankie',
           description: SettingsManager.get('personalize.description') || '',
@@ -3041,7 +2968,6 @@ async function initializeAgent(): Promise<void> {
             settingsWindow,
             cronWindow,
             factsWindow,
-            factsGraphWindow,
             customizeWindow,
             soulWindow,
             dailyLogsWindow,

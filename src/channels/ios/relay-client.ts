@@ -34,7 +34,6 @@ import {
   iOSDailyLogsHandler,
   iOSSoulHandler,
   iOSSoulDeleteHandler,
-  iOSFactsGraphHandler,
   iOSCustomizeGetHandler,
   iOSCustomizeSaveHandler,
   iOSRoutinesListHandler,
@@ -118,7 +117,6 @@ export class iOSRelayClient {
   private onGetDailyLogs: iOSDailyLogsHandler | null = null;
   private onGetSoul: iOSSoulHandler | null = null;
   private onDeleteSoulAspect: iOSSoulDeleteHandler | null = null;
-  private onGetFactsGraph: iOSFactsGraphHandler | null = null;
   private onGetCustomize: iOSCustomizeGetHandler | null = null;
   private onSaveCustomize: iOSCustomizeSaveHandler | null = null;
   private onGetRoutines: iOSRoutinesListHandler | null = null;
@@ -222,9 +220,6 @@ export class iOSRelayClient {
   }
   setSoulDeleteHandler(handler: iOSSoulDeleteHandler): void {
     this.onDeleteSoulAspect = handler;
-  }
-  setFactsGraphHandler(handler: iOSFactsGraphHandler): void {
-    this.onGetFactsGraph = handler;
   }
   setCustomizeGetHandler(handler: iOSCustomizeGetHandler): void {
     this.onGetCustomize = handler;
@@ -770,16 +765,6 @@ export class iOSRelayClient {
           const updatedAspects = this.onGetSoul?.() || [];
           this.sendToRelay(client.relayClientId, { type: 'soul', aspects: updatedAspects });
         }
-        break;
-      }
-      case 'facts:graph': {
-        this.onGetFactsGraph?.()
-          .then((graph) => {
-            this.sendToRelay(client.relayClientId, { type: 'facts:graph', ...graph });
-          })
-          .catch(() => {
-            this.sendToRelay(client.relayClientId, { type: 'facts:graph', nodes: [], links: [] });
-          });
         break;
       }
       case 'customize:get': {
