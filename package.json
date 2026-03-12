@@ -1,6 +1,6 @@
 {
   "name": "pocket-agent",
-  "version": "3.0.25",
+  "version": "3.0.26",
   "description": "Desktop AI agent with persistent memory powered by Claude Agent SDK",
   "type": "module",
   "main": "dist/main/index.js",
@@ -144,8 +144,8 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.2.39",
     "@anthropic-ai/sdk": "^0.78.0",
-    "@kenkaiiii/gg-agent": "^4.2.15",
-    "@kenkaiiii/gg-ai": "^4.2.15",
+    "@kenkaiiii/gg-agent": "^4.2.16",
+    "@kenkaiiii/gg-ai": "^4.2.16",
     "better-sqlite3": "^12.6.2",
     "city-timezones": "^1.3.3",
     "electron-updater": "^6.8.3",
