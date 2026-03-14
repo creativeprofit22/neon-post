@@ -1111,6 +1111,13 @@
           </div>
         </div>
 
+        <h3 class="subsection-title" style="margin-top: 24px; margin-bottom: 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary);">Model</h3>
+        <div class="settings-grid">
+          <div class="setting-row">
+            <label>Active Model</label>
+            <select id="agent.model" class="w-140"></select>
+          </div>
+        </div>
 
       </section>
 
@@ -1502,6 +1509,7 @@
       await loadAppVersion();
       setupNavigation();
       setupAutoSave();
+      await refreshModelDropdown();
       initializeBrowserSection();
       initPocketCli();
       await initSkinPicker();
