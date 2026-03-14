@@ -3768,7 +3768,7 @@
     #send-btn .stop-icon { display: block; }
   </style>
   <script>
-    (function(){function _apply(p){var r=document.documentElement;if(!p){['bg-primary','bg-secondary','bg-tertiary','border','text-primary','text-secondary','text-muted','accent','accent-secondary','accent-hover','error','success','warning','orange','user-bubble','user-bubble-solid','assistant-bubble'].forEach(function(k){r.style.removeProperty('--'+k)});return}Object.keys(p).forEach(function(k){r.style.setProperty('--'+k,p[k])})}window.addEventListener('DOMContentLoaded',function(){if(!window.pocketAgent)return;Promise.all([window.pocketAgent.getThemes(),window.pocketAgent.getSkin()]).then(function(res){var themes=res[0],skinId=res[1],t=themes[skinId];if(t)_apply(t.palette);window.pocketAgent.onSkinChanged(function(id){var th=themes[id];if(th)_apply(th.palette)})}).catch(function(){})})})();
+    (function(){function _apply(p){var r=document.documentElement;if(!p){['bg-primary','bg-secondary','bg-tertiary','border','text-primary','text-secondary','text-muted','accent','accent-secondary','accent-hover','error','success','warning','orange','user-bubble','user-bubble-solid','assistant-bubble'].forEach(function(k){r.style.removeProperty('--'+k)});return}Object.keys(p).forEach(function(k){r.style.setProperty('--'+k,p[k])})}window.addEventListener('DOMContentLoaded',function(){if(!window.pocketAgent)return;Promise.all([window.pocketAgent.themes.list(),window.pocketAgent.themes.getSkin()]).then(function(res){var themes=res[0],skinId=res[1],t=themes[skinId];if(t)_apply(t.palette);window.pocketAgent.themes.onSkinChanged(function(id){var th=themes[id];if(th)_apply(th.palette)})}).catch(function(){})})})();
   </script>
   <script type="module">
     import autoAnimate from 'https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.9/+esm';
@@ -3890,14 +3890,14 @@
           <p>if you want to learn more about AI dev, agents, and building cool stuff like me - check him out:</p>
         </div>
         <div class="about-links">
-          <a class="about-link" onclick="playNormalClick(); window.pocketAgent.openExternal('https://www.youtube.com/@kenkaidoesai')">
+          <a class="about-link" onclick="playNormalClick(); window.pocketAgent.app.openExternal('https://www.youtube.com/@kenkaidoesai')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
               <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
             </svg>
             <span>@kenkaidoesai</span>
             <small>YouTube</small>
           </a>
-          <a class="about-link" onclick="playNormalClick(); window.pocketAgent.openExternal('https://www.skool.com/kenkai')">
+          <a class="about-link" onclick="playNormalClick(); window.pocketAgent.app.openExternal('https://www.skool.com/kenkai')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
               <path d="M6 12v5c3 3 9 3 12 0v-5"/>
@@ -4171,7 +4171,7 @@
     // Ensure a status listener exists for a session (called on session load + send)
     function ensureStatusListener(sessionId) {
       if (!statusCleanupBySession.has(sessionId)) {
-        const statusCleanup = window.pocketAgent.onStatus((status) => {
+        const statusCleanup = window.pocketAgent.agent.onStatus((status) => {
           updateStatusIndicator(status, sessionId);
         });
         statusCleanupBySession.set(sessionId, statusCleanup);
@@ -4214,7 +4214,7 @@
     // Initialize notification sound
     async function initNotificationSound() {
       try {
-        soundEnabled = (await window.pocketAgent.getSetting('notifications.soundEnabled')) !== 'false';
+        soundEnabled = (await window.pocketAgent.settings.get('notifications.soundEnabled')) !== 'false';
         notificationSound = new Audio('../assets/pop.mp3');
         notificationSound.volume = 0.5;
       } catch (e) {
@@ -4331,7 +4331,7 @@
     window.addEventListener('DOMContentLoaded', async () => {
       // Load app version
       try {
-        const version = await window.pocketAgent.getAppVersion();
+        const version = await window.pocketAgent.app.getVersion();
         document.getElementById('version-badge').textContent = `v${version}`;
       } catch (err) {
         console.error('Failed to load app version:', err);
@@ -4367,7 +4367,7 @@
       connectChatWs();
 
       // Listen for chat username changes from settings window
-      window.pocketAgent.onChatUsernameChanged((newUsername) => {
+      window.pocketAgent.chat.onUsernameChanged((newUsername) => {
         console.log('[Chat] Username changed via settings:', newUsername);
         globalChatUsername = newUsername;
         // Clear any pending reconnect timer and reconnect with new username
@@ -4383,24 +4383,24 @@
       });
 
       // Listen for scheduler messages
-      window.pocketAgent.onSchedulerMessage((data) => {
+      window.pocketAgent.events.onSchedulerMessage((data) => {
         console.log('[Chat] Received scheduler message:', data.jobName, 'sessionId:', data.sessionId, 'currentSession:', currentSessionId);
         handleSchedulerMessage(data);
       });
 
       // Listen for Telegram messages (cross-channel sync)
-      window.pocketAgent.onTelegramMessage((data) => {
+      window.pocketAgent.events.onTelegramMessage((data) => {
         handleTelegramMessage(data);
       });
 
       // Listen for iOS messages (cross-channel sync)
-      window.pocketAgent.onIOSMessage((data) => {
+      window.pocketAgent.events.onIOSMessage((data) => {
         console.log('[Chat] Received iOS message:', data);
         handleIOSMessage(data);
       });
 
       // Listen for session clears from iOS
-      window.pocketAgent.onSessionCleared((sessionId) => {
+      window.pocketAgent.sessions.onCleared((sessionId) => {
         console.log('[Chat] Session cleared from iOS:', sessionId);
         if (sessionId === currentSessionId) {
           disableAutoAnimate(); messagesDiv.innerHTML = ''; enableAutoAnimate();
@@ -4410,13 +4410,13 @@
       });
 
       // Listen for session changes (e.g., Telegram link/unlink)
-      window.pocketAgent.onSessionsChanged(() => {
+      window.pocketAgent.sessions.onChanged(() => {
         console.log('[Chat] Sessions changed, reloading...');
         loadSessions();
       });
 
       // Listen for model changes (e.g., changed via Telegram)
-      window.pocketAgent.onModelChanged((model) => {
+      window.pocketAgent.events.onModelChanged((model) => {
         console.log('[Chat] Model changed to:', model);
         updateModelBadge();
       });
@@ -4426,7 +4426,7 @@
 
     async function loadSessions() {
       try {
-        sessions = await window.pocketAgent.getSessions();
+        sessions = await window.pocketAgent.sessions.list();
         // Restore last selected session from localStorage, or default to first session
         // Must be set BEFORE renderTabs() so the correct tab is highlighted
         if (sessions.length > 0) {
@@ -4714,7 +4714,7 @@
       }
 
       try {
-        const result = await window.pocketAgent.createSession(getNextSessionName());
+        const result = await window.pocketAgent.sessions.create(getNextSessionName());
         if (!result.success || !result.session) {
           addMessage('system', result.error || 'Failed to create session');
           return;
@@ -4780,7 +4780,7 @@
       const sanitizedName = newName.replace(/\s/g, '').slice(0, 10) || 'Untitled';
 
       try {
-        const result = await window.pocketAgent.renameSession(sessionId, sanitizedName);
+        const result = await window.pocketAgent.sessions.rename(sessionId, sanitizedName);
         if (!result.success) {
           // Show error (likely duplicate name)
           addMessage('system', result.error || 'Failed to rename session');
@@ -4837,12 +4837,12 @@
         pendingUserMessagesBySession.delete(sessionId);
 
         // Now delete the session (this also stops any running query)
-        const result = await window.pocketAgent.deleteSession(sessionId);
+        const result = await window.pocketAgent.sessions.delete(sessionId);
 
         if (!result.success) {
           console.error('Failed to delete session from database');
           // Refresh sessions from DB to ensure UI is in sync
-          sessions = await window.pocketAgent.getSessions();
+          sessions = await window.pocketAgent.sessions.list();
           renderTabs();
           return;
         }
@@ -4862,7 +4862,7 @@
       } catch (err) {
         console.error('Failed to delete session:', err);
         // Refresh sessions from DB to ensure UI is in sync
-        sessions = await window.pocketAgent.getSessions();
+        sessions = await window.pocketAgent.sessions.list();
         renderTabs();
       }
     }
@@ -4960,7 +4960,7 @@
           e.preventDefault();
           const href = link.getAttribute('href');
           if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
-            window.pocketAgent.openExternal(href);
+            window.pocketAgent.app.openExternal(href);
           }
         }
       });
@@ -5029,7 +5029,7 @@
           e.preventDefault();
           const href = link.getAttribute('href');
           if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
-            window.pocketAgent.openExternal(href);
+            window.pocketAgent.app.openExternal(href);
           }
         }
       });
@@ -5046,7 +5046,7 @@
 
     async function loadHistory() {
       try {
-        const history = await window.pocketAgent.getHistory(100, currentSessionId);
+        const history = await window.pocketAgent.agent.getHistory(100, currentSessionId);
         disableAutoAnimate(); messagesDiv.innerHTML = '';
 
         if (history.length === 0) {
@@ -5124,7 +5124,7 @@
 
     async function updateStats() {
       try {
-        const stats = await window.pocketAgent.getStats(currentSessionId);
+        const stats = await window.pocketAgent.agent.getStats(currentSessionId);
         if (stats) {
           let parts = [`${stats.messageCount} msgs`];
           if (currentAgentMode !== 'coder') {
@@ -5145,7 +5145,7 @@
     async function updateModelBadge() {
       try {
         const badge = document.getElementById('model-badge');
-        const modelId = await window.pocketAgent.getSetting('agent.model');
+        const modelId = await window.pocketAgent.settings.get('agent.model');
         const fallbackNames = {
           'claude-opus-4-6': 'OPUS 4.6',
           'claude-sonnet-4-6': 'SONNET 4.6',
@@ -5157,7 +5157,7 @@
 
         let models = [];
         try {
-          models = await window.pocketAgent.getAvailableModels();
+          models = await window.pocketAgent.settings.getAvailableModels();
         } catch (_) {
           // IPC failed — fall back to single option
         }
@@ -5191,11 +5191,11 @@
       const badge = e.target;
       try {
         // Save new model setting
-        await window.pocketAgent.setSetting('agent.model', newModel);
+        await window.pocketAgent.settings.set('agent.model', newModel);
         // Flash badge to indicate switching
         badge.classList.add('badge-attachment');
         // Restart agent with new model
-        await window.pocketAgent.restartAgent();
+        await window.pocketAgent.agent.restart();
         // Restore badge color
         badge.classList.remove('badge-attachment');
         await updateModelBadge();
@@ -5241,7 +5241,7 @@
     async function stopQuery() {
       const sessionId = currentSessionId;
       try {
-        await window.pocketAgent.stop(sessionId);
+        await window.pocketAgent.agent.stop(sessionId);
       } catch (err) {
         console.error('Failed to stop query:', err);
       } finally {
@@ -5325,8 +5325,9 @@
       if (workflow) {
         userMsgEl.classList.add('from-workflow');
       }
-      // Re-enable AutoAnimate after user message is in DOM
-      requestAnimationFrame(() => enableAutoAnimate());
+      // Keep AutoAnimate disabled during the entire query to prevent
+      // the user message from shifting when status/streaming elements appear.
+      // It will be re-enabled after the response is finalized.
 
       // Track pending user message for session state restoration
       if (!pendingUserMessagesBySession.has(sessionId)) {
@@ -5374,7 +5375,7 @@
 
       try {
         // This will resolve when the message is actually processed (not when queued)
-        const result = await window.pocketAgent.send(fullMessage, sessionId);
+        const result = await window.pocketAgent.agent.send(fullMessage, sessionId);
 
         // If this message was queued, remove the queued state
         if (queuedMessageElements.has(messageId)) {
@@ -5421,12 +5422,6 @@
 
         // Always clean up streaming bubble reference (may be stale if user switched sessions)
         const streamBubble = streamingBubbleBySession.get(sessionId);
-        // Disable AutoAnimate for the bubble→final message swap to prevent exit/entrance flash
-        if (streamBubble) disableAutoAnimate();
-        if (streamBubble) {
-          streamBubble.remove();
-          streamingBubbleBySession.delete(sessionId);
-        }
         streamingTextBySession.delete(sessionId);
         // Cancel any pending RAF to avoid stale renders after completion
         const pendingRaf = streamingRafBySession.get(sessionId);
@@ -5438,13 +5433,25 @@
         // Only update visible UI if still on same session
         if (currentSessionId === sessionId) {
           if (result.stopped) {
-            // Query was stopped — nothing to display
-          } else if (result.success && result.planPending) {
-            // Plan mode: show response AND trigger approval overlay
-            addMessage('assistant', result.response, true, [], null, true, result.media);
-            showPlanApproval(result.response, sessionId);
-          } else if (result.success) {
-            addMessage('assistant', result.response, true, [], null, true, result.media);
+            // Query was stopped — remove streaming bubble if present
+            if (streamBubble) {
+              streamBubble.remove();
+              streamingBubbleBySession.delete(sessionId);
+            }
+          } else if (result.success && (result.response || result.planPending)) {
+            // Hide streaming bubble instantly, then add final message in its place
+            if (streamBubble) {
+              streamBubble.style.display = 'none';
+            }
+            addMessage('assistant', result.response, !streamBubble, [], null, true, result.media);
+            if (streamBubble) {
+              streamBubble.remove();
+              streamingBubbleBySession.delete(sessionId);
+            }
+
+            if (result.planPending) {
+              showPlanApproval(result.response, sessionId);
+            }
 
             // Show compaction notice if conversation was compacted
             if (result.wasCompacted) {
@@ -5456,6 +5463,11 @@
               setSuggestion(result.suggestedPrompt);
             }
           } else {
+            // Error or empty response — remove streaming bubble
+            if (streamBubble) {
+              streamBubble.remove();
+              streamingBubbleBySession.delete(sessionId);
+            }
             // Don't show stop/abort related errors - they're already handled
             const errorMsg = result.error || '';
             if (!errorMsg.includes('stopped') && !errorMsg.includes('aborted') && !errorMsg.includes('Aborted')) {
@@ -5465,9 +5477,13 @@
 
           updateStats();
           scrollToBottom();
+        } else {
+          // Different session — just clean up the bubble
+          if (streamBubble) {
+            streamBubble.remove();
+            streamingBubbleBySession.delete(sessionId);
+          }
         }
-        // Re-enable AutoAnimate after bubble→final message swap is complete
-        if (streamBubble) requestAnimationFrame(() => enableAutoAnimate());
       } catch (err) {
         // If this message was queued, remove the queued state
         if (queuedMessageElements.has(messageId)) {
@@ -5516,6 +5532,8 @@
         scrollToBottom();
       }
 
+      // Re-enable AutoAnimate now that the query is complete
+      enableAutoAnimate();
       input.focus();
     }
 
@@ -5534,7 +5552,7 @@
         if (att.isImage && att.dataUrl) {
           // Save image to temp file and reference path
           try {
-            const filePath = await window.pocketAgent.saveAttachment(att.name, att.dataUrl);
+            const filePath = await window.pocketAgent.attachments.save(att.name, att.dataUrl);
             parts.push(`\n\n[Attached image: ${att.name}]\nFile saved at: ${filePath}\nUse the Read tool to view this image.`);
           } catch (err) {
             parts.push(`\n\n[Image: ${att.name}] (failed to save: ${err.message})`);
@@ -5542,9 +5560,9 @@
         } else if (EXTRACTABLE_EXTENSIONS.has(att.ext) && att.dataUrl) {
           // Save Office document, extract text, and include inline
           try {
-            const filePath = await window.pocketAgent.saveAttachment(att.name, att.dataUrl);
+            const filePath = await window.pocketAgent.attachments.save(att.name, att.dataUrl);
             try {
-              const text = await window.pocketAgent.extractText(filePath);
+              const text = await window.pocketAgent.attachments.extractText(filePath);
               const content = text.length > 50000 ? text.slice(0, 50000) + '\n... (truncated)' : text;
               parts.push(`\n\n[Attached document: ${att.name}]\nFile saved at: ${filePath}\n\n\`\`\`\n${content}\n\`\`\``);
             } catch {
@@ -5556,7 +5574,7 @@
         } else if (BINARY_EXTENSIONS.has(att.ext) && att.dataUrl) {
           // Save binary document to temp file and reference path
           try {
-            const filePath = await window.pocketAgent.saveAttachment(att.name, att.dataUrl);
+            const filePath = await window.pocketAgent.attachments.save(att.name, att.dataUrl);
             parts.push(`\n\n[Attached document: ${att.name}]\nFile saved at: ${filePath}\nUse the Read tool to view this document.`);
           } catch (err) {
             parts.push(`\n\n[Document: ${att.name}] (failed to save: ${err.message})`);
@@ -5577,7 +5595,7 @@
       if (!confirm('Start fresh? Don\'t worry - I\'ll keep everything I know about you!')) return;
 
       try {
-        await window.pocketAgent.clearConversation(currentSessionId);
+        await window.pocketAgent.agent.clearConversation(currentSessionId);
         disableAutoAnimate(); messagesDiv.innerHTML = ''; enableAutoAnimate();
         showEmptyState();
         updateStats();
@@ -5588,7 +5606,7 @@
 
     async function showFacts() {
       try {
-        await window.pocketAgent.openFacts();
+        await window.pocketAgent.app.openFacts();
       } catch (err) {
         console.error('Failed to open facts:', err);
       }
@@ -5596,7 +5614,7 @@
 
     async function showDailyLogs() {
       try {
-        await window.pocketAgent.openDailyLogs();
+        await window.pocketAgent.app.openDailyLogs();
       } catch (err) {
         console.error('Failed to open daily logs:', err);
       }
@@ -5604,7 +5622,7 @@
 
     async function showSoul() {
       try {
-        await window.pocketAgent.openSoul();
+        await window.pocketAgent.app.openSoul();
       } catch (err) {
         console.error('Failed to open soul:', err);
       }
@@ -5660,7 +5678,7 @@
             e.preventDefault();
             const href = link.getAttribute('href');
             if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
-              window.pocketAgent.openExternal(href);
+              window.pocketAgent.app.openExternal(href);
             }
             return;
           }
@@ -5668,14 +5686,14 @@
           if (e.target.tagName === 'IMG' && !e.target.closest('.message-media')) {
             const src = e.target.getAttribute('src');
             if (src) {
-              window.pocketAgent.openImage(src);
+              window.pocketAgent.app.openImage(src);
             }
             return;
           }
           // Open attached files from history
           const attEl = e.target.closest('.message-attachment[data-path]');
           if (attEl) {
-            window.pocketAgent.openPath(attEl.dataset.path);
+            window.pocketAgent.app.openPath(attEl.dataset.path);
           }
         });
       }
@@ -5696,7 +5714,7 @@
               img.src = item.dataUri;
             } else if (item.filePath) {
               // Load image via IPC to get data URI
-              window.pocketAgent.readMedia(item.filePath).then(dataUri => {
+              window.pocketAgent.agent.readMedia(item.filePath).then(dataUri => {
                 if (dataUri) {
                   img.src = dataUri;
                 }
@@ -5707,7 +5725,7 @@
             if (item.filePath) {
               img.title = 'Click to open';
               img.addEventListener('click', () => {
-                window.pocketAgent.openImage(item.filePath);
+                window.pocketAgent.app.openImage(item.filePath);
               });
             }
 
@@ -6260,7 +6278,7 @@
         document.getElementById('chat-area').classList.add('hidden');
         area.classList.add('active');
         try {
-          const commands = await window.pocketAgent.getCommands(currentSessionId);
+          const commands = await window.pocketAgent.commands.list(currentSessionId);
           const grid = document.getElementById('workflows-grid');
           grid.innerHTML = '';
           commands.forEach(cmd => {
@@ -6329,18 +6347,18 @@
     async function getOrCreateChatUsername() {
       // Load admin key
       try {
-        chatAdminKey = (await window.pocketAgent.getSetting('chat.adminKey')) || '';
+        chatAdminKey = (await window.pocketAgent.settings.get('chat.adminKey')) || '';
         // Admin key loaded
       } catch (e) { console.log('[Chat] Admin key load failed:', e); chatAdminKey = ''; }
 
       try {
-        const existing = await window.pocketAgent.getSetting('chat.username');
+        const existing = await window.pocketAgent.settings.get('chat.username');
         if (existing) {
           const normalized = existing.toLowerCase();
           globalChatUsername = normalized;
           // Fix any stored mixed-case usernames
           if (normalized !== existing) {
-            try { await window.pocketAgent.setSetting('chat.username', normalized); } catch {}
+            try { await window.pocketAgent.settings.set('chat.username', normalized); } catch {}
           }
           return normalized;
         }
@@ -6349,7 +6367,7 @@
       // Generate from profile name or fallback
       let firstName = 'anon';
       try {
-        const name = await window.pocketAgent.getSetting('profile.name');
+        const name = await window.pocketAgent.settings.get('profile.name');
         if (name) firstName = name.split(' ')[0].toLowerCase().replace(/[^a-z]/g, '');
       } catch { /* use default */ }
 
@@ -6376,7 +6394,7 @@
       }
 
       try {
-        await window.pocketAgent.setSetting('chat.username', username);
+        await window.pocketAgent.settings.set('chat.username', username);
       } catch { /* best effort */ }
 
       globalChatUsername = username;
@@ -6999,7 +7017,7 @@
           // If current user was renamed, update globalChatUsername immediately
           if (oldName === globalChatUsername) {
             globalChatUsername = newName;
-            try { window.pocketAgent.setSetting('chat.username', newName); } catch {}
+            try { window.pocketAgent.settings.set('chat.username', newName); } catch {}
             updateHeaderTierBadge();
           }
           // Update cached messages
@@ -7647,7 +7665,7 @@
     async function initAgentMode() {
       try {
         // Load per-session mode for the current session
-        const mode = await window.pocketAgent.getSessionMode(currentSessionId);
+        const mode = await window.pocketAgent.agent.getSessionMode(currentSessionId);
         currentAgentMode = mode || 'coder';
         await updateModeUIForSession(currentSessionId);
       } catch (err) {
@@ -7655,7 +7673,7 @@
       }
 
       // Listen for global mode changes (affects new session defaults only)
-      window.pocketAgent.onModeChanged((mode) => {
+      window.pocketAgent.agent.onModeChanged((mode) => {
         // Global mode changed — doesn't affect current session, just new ones
         console.log('[Chat] Global default mode changed:', mode);
       });
@@ -7668,11 +7686,11 @@
 
       // Set the mode on the current session (only works if no messages yet)
       try {
-        const result = await window.pocketAgent.setSessionMode(currentSessionId, mode);
+        const result = await window.pocketAgent.agent.setSessionMode(currentSessionId, mode);
         if (!result.success) {
           console.warn('Cannot change session mode:', result.error);
           // Revert UI to actual session mode
-          const actualMode = await window.pocketAgent.getSessionMode(currentSessionId);
+          const actualMode = await window.pocketAgent.agent.getSessionMode(currentSessionId);
           currentAgentMode = actualMode;
           updateModeButtons(actualMode);
           return;
@@ -7683,7 +7701,7 @@
       }
 
       // Also update the global default for new sessions
-      window.pocketAgent.setMode(mode).catch(err => {
+      window.pocketAgent.agent.setMode(mode).catch(err => {
         console.error('Failed to set global default mode:', err);
       });
     }
@@ -7699,14 +7717,14 @@
 
     async function updateModeUIForSession(sessionId) {
       try {
-        const mode = await window.pocketAgent.getSessionMode(sessionId);
+        const mode = await window.pocketAgent.agent.getSessionMode(sessionId);
         currentAgentMode = mode || 'coder';
         updateModeButtons(currentAgentMode);
 
         // Lock toggle if session has messages
         const toggle = document.querySelector('.mode-toggle');
         if (toggle) {
-          const history = await window.pocketAgent.getHistory(1, sessionId);
+          const history = await window.pocketAgent.agent.getHistory(1, sessionId);
           const hasMessages = history && history.length > 0;
           toggle.classList.toggle('locked', hasMessages);
         }
@@ -8432,7 +8450,7 @@
 
     async function openSettings(tab) {
       try {
-        await window.pocketAgent.openSettings(tab);
+        await window.pocketAgent.app.openSettings(tab);
       } catch (err) {
         console.error('Failed to open settings:', err);
       }
@@ -8442,7 +8460,7 @@
 
     async function openCustomize() {
       try {
-        await window.pocketAgent.openCustomize();
+        await window.pocketAgent.app.openCustomize();
       } catch (err) {
         console.error('Failed to open customize:', err);
       }
@@ -8487,7 +8505,7 @@
 
     async function openRoutines() {
       try {
-        await window.pocketAgent.openRoutines();
+        await window.pocketAgent.app.openRoutines();
       } catch (err) {
         console.error('Failed to open routines:', err);
       }
@@ -8495,7 +8513,7 @@
 
     async function openDocs() {
       try {
-        await window.pocketAgent.openExternal('https://pocketagent-web.vercel.app/docs');
+        await window.pocketAgent.app.openExternal('https://pocketagent-web.vercel.app/docs');
       } catch (err) {
         console.error('Failed to open docs:', err);
       }
@@ -8587,7 +8605,7 @@
       scrollToBottom();
 
       try {
-        const result = await window.pocketAgent.send(message, sessionId);
+        const result = await window.pocketAgent.agent.send(message, sessionId);
 
         // Clean up
         const currentStatusEl = statusElBySession.get(sessionId);

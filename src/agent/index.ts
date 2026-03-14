@@ -1,7 +1,5 @@
 import { MemoryManager, Message, DailyLog } from '../memory';
 import {
-  buildMCPServers,
-  buildSdkMcpServers,
   setMemoryManager,
   setSoulMemoryManager,
   ToolsConfig,
@@ -9,16 +7,26 @@ import {
   getCurrentSessionId,
 } from '../tools';
 import { closeBrowserManager } from '../browser';
-import { SYSTEM_GUIDELINES } from '../config/system-guidelines';
 import { SettingsManager } from '../settings';
 import { EventEmitter } from 'events';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { buildCanUseToolCallback, buildPreToolUseHook, setStatusEmitter } from './safety';
+import { setStatusEmitter } from './safety';
 import { PersistentSDKSession, TurnResult } from './persistent-session';
 import { ChatEngine } from './chat-engine';
 import { PROVIDER_CONFIGS, getProviderForModel } from './providers';
+import { processStatusFromMessage as _processStatusFromMessage } from './status-processing';
+import type { StatusProcessingState } from './status-processing';
+import {
+  getQueueLength as _getQueueLength,
+  clearQueue as _clearQueue,
+  stopQuery as _stopQuery,
+  isQueryProcessing as _isQueryProcessing,
+} from './queue-management';
+import type { QueueMaps } from './queue-management';
+import { buildPersistentOptions as _buildPersistentOptions } from './options-builder';
+import type { BuildOptionsConfig } from './options-builder';
 
 /**
  * Build provider-specific environment variables for the selected model.
@@ -343,20 +351,6 @@ type SDKOptions = {
     TeammateIdle?: Array<{ hooks: TeammateIdleHookCallback[] }>;
     TaskCompleted?: Array<{ hooks: TaskCompletedHookCallback[] }>;
   };
-};
-
-// Thinking level to config mapping.
-// For Opus 4.6: the CLI always forces adaptive thinking regardless of budget tokens,
-// so the `effort` parameter is the proper way to control thinking depth.
-// For other models: budget tokens are enforced via the `thinking` option.
-const THINKING_CONFIGS: Record<
-  string,
-  { thinking: ThinkingConfig; effort?: 'low' | 'medium' | 'high' }
-> = {
-  none: { thinking: { type: 'disabled' } },
-  minimal: { thinking: { type: 'enabled', budgetTokens: 2048 }, effort: 'low' },
-  normal: { thinking: { type: 'enabled', budgetTokens: 10000 }, effort: 'medium' },
-  extended: { thinking: { type: 'adaptive' }, effort: 'high' },
 };
 
 // Image content for multimodal messages
@@ -1255,131 +1249,35 @@ class AgentManagerClass extends EventEmitter {
     }
   }
 
-  /**
-   * Get the number of queued messages for a session
-   */
+  /** Expose queue-related Maps for standalone queue-management functions. */
+  private get queueMaps(): QueueMaps {
+    return {
+      messageQueueBySession: this.messageQueueBySession,
+      processingBySession: this.processingBySession,
+      persistentSessions: this.persistentSessions,
+      stoppedByUserSession: this.stoppedByUserSession,
+      sdkToolTimers: this.sdkToolTimers,
+      abortControllersBySession: this.abortControllersBySession,
+    };
+  }
+
   getQueueLength(sessionId: string = 'default'): number {
-    return this.messageQueueBySession.get(sessionId)?.length || 0;
+    return _getQueueLength(this.queueMaps, sessionId);
   }
 
-  /**
-   * Clear the message queue for a session
-   */
   clearQueue(sessionId: string = 'default'): void {
-    const queue = this.messageQueueBySession.get(sessionId);
-    if (queue && queue.length > 0) {
-      // Reject all pending messages
-      for (const item of queue) {
-        item.reject(new Error('Queue cleared'));
-      }
-      // Delete the key entirely to prevent memory leak from accumulated empty arrays
-      this.messageQueueBySession.delete(sessionId);
-      console.log(`[AgentManager] Queue cleared for session ${sessionId}`);
-    } else if (queue) {
-      // Clean up empty queue entries
-      this.messageQueueBySession.delete(sessionId);
-    }
+    _clearQueue(this.queueMaps, sessionId);
   }
 
-  /**
-   * Stop the current turn for a specific session (or any running query if no sessionId).
-   * Uses interrupt() on persistent sessions to stop the current turn while keeping
-   * the subprocess alive (preserving background tasks).
-   * Also clears any queued messages for that session.
-   */
   stopQuery(sessionId?: string, clearQueuedMessages: boolean = true): boolean {
-    // Delegate to Chat engine in General mode
-    if (this.mode === 'general' && this.chatEngine) {
-      return this.chatEngine.stopQuery(sessionId);
-    }
-
-    // Clear SDK tool timeout timers for the session being stopped
-    const targetSessionId =
-      sessionId || [...this.processingBySession.entries()].find(([, v]) => v)?.[0];
-    if (targetSessionId) {
-      for (const [id, entry] of this.sdkToolTimers.entries()) {
-        if (entry.sessionId === targetSessionId) {
-          clearTimeout(entry.timer);
-          this.sdkToolTimers.delete(id);
-        }
-      }
-    }
-
-    if (sessionId) {
-      // Clear the queue first
-      if (clearQueuedMessages) {
-        this.clearQueue(sessionId);
-      }
-
-      const session = this.persistentSessions.get(sessionId);
-      if (session?.isAlive() && this.processingBySession.get(sessionId)) {
-        console.log(
-          `[AgentManager] Interrupting persistent session ${sessionId} (bg tasks survive)...`
-        );
-        this.stoppedByUserSession.add(sessionId);
-        session.interrupt().catch((err) => {
-          console.error(`[AgentManager] Interrupt failed for ${sessionId}:`, err);
-        });
-        return true;
-      }
-
-      // Fallback to abort controller (for non-persistent queries)
-      const abortController = this.abortControllersBySession.get(sessionId);
-      if (this.processingBySession.get(sessionId) && abortController) {
-        console.log(`[AgentManager] Stopping query for session ${sessionId} via abort...`);
-        this.stoppedByUserSession.add(sessionId);
-        abortController.abort();
-        return true;
-      }
-      return false;
-    }
-
-    // Legacy: stop any running query (first one found)
-    for (const [sid, isProcessing] of this.processingBySession.entries()) {
-      if (isProcessing) {
-        if (clearQueuedMessages) {
-          this.clearQueue(sid);
-        }
-
-        const session = this.persistentSessions.get(sid);
-        if (session?.isAlive()) {
-          console.log(`[AgentManager] Interrupting persistent session ${sid}...`);
-          this.stoppedByUserSession.add(sid);
-          session.interrupt().catch((err) => {
-            console.error(`[AgentManager] Interrupt failed for ${sid}:`, err);
-          });
-          return true;
-        }
-
-        const abortController = this.abortControllersBySession.get(sid);
-        if (abortController) {
-          console.log(`[AgentManager] Stopping query for session ${sid} via abort...`);
-          this.stoppedByUserSession.add(sid);
-          abortController.abort();
-          return true;
-        }
-      }
-    }
-    return false;
+    return _stopQuery(this.queueMaps, this.mode, this.chatEngine, sessionId, clearQueuedMessages);
   }
 
   /**
    * Check if a query is currently processing (optionally for a specific session)
    */
   isQueryProcessing(sessionId?: string): boolean {
-    // Check Chat engine in General mode
-    if (this.mode === 'general' && this.chatEngine) {
-      return this.chatEngine.isQueryProcessing(sessionId);
-    }
-
-    if (sessionId) {
-      return this.processingBySession.get(sessionId) || false;
-    }
-    // Check if any session is processing
-    for (const isProcessing of this.processingBySession.values()) {
-      if (isProcessing) return true;
-    }
-    return false;
+    return _isQueryProcessing(this.queueMaps, this.mode, this.chatEngine, sessionId);
   }
 
   /**
@@ -1503,288 +1401,26 @@ class AgentManagerClass extends EventEmitter {
     this.persistentSessions.clear();
   }
 
+  /** Build config for the standalone buildPersistentOptions function. */
+  private get optionsConfig(): BuildOptionsConfig {
+    return {
+      model: this.model,
+      workspace: this.workspace,
+      toolsConfig: this.toolsConfig,
+      emitStatus: (status) => this.emitStatus(status as AgentStatus),
+      buildProviderEnv,
+    };
+  }
+
   /**
-   * Build options for persistent sessions.
-   *
-   * Static context (identity, instructions, profile, capabilities) goes in systemPrompt.append
-   * since it only needs to be set once when the session is created.
-   *
-   * Dynamic context (temporal, facts, soul, daily logs) is injected per-message via
-   * the UserPromptSubmit hook's additionalContext, so it's fresh for each turn.
+   * Build options for persistent sessions (delegates to extracted module).
    */
   private async buildPersistentOptions(
     memory: MemoryManager,
     sessionId: string,
     sdkSessionId?: string
   ): Promise<SDKOptions> {
-    // Determine session mode — coder mode gets lean context (SDK preset + CLAUDE.md only)
-    const sessionMode = memory.getSessionMode(sessionId);
-    const isCoder = sessionMode === 'coder';
-
-    // === Static context (set once at session creation) ===
-    // NOTE: CLAUDE.md (this.instructions) is NOT included here because the SDK
-    // already reads it from the workspace via cwd + settingSources: ['project'].
-    // Including it here would inject it twice.
-    const staticParts: string[] = [];
-
-    // Personalize, guidelines, and profile are only needed for general (personal assistant) mode
-    if (isCoder) {
-      console.log(
-        `[AgentManager] Coder mode — skipping identity, user context, guidelines, capabilities (SDK uses workspace CLAUDE.md)`
-      );
-    }
-    if (!isCoder) {
-      // 1. Agent Identity: name, description, personality
-      const identity = SettingsManager.getFormattedIdentity();
-      if (identity) {
-        staticParts.push(identity);
-        console.log(`[AgentManager] Identity injected: ${identity.length} chars`);
-      }
-
-      // 2. User Context: profile + world
-      const userContext = SettingsManager.getFormattedUserContext();
-      if (userContext) {
-        staticParts.push(userContext);
-        console.log(`[AgentManager] User context injected: ${userContext.length} chars`);
-      }
-
-      // 3. System Guidelines: developer-controlled instructions
-      staticParts.push(SYSTEM_GUIDELINES);
-      console.log(`[AgentManager] System guidelines injected: ${SYSTEM_GUIDELINES.length} chars`);
-    }
-
-    // Look up per-session working directory (falls back to global workspace)
-    const sessionWorkingDir = memory.getSessionWorkingDirectory(sessionId);
-    const effectiveCwd = sessionWorkingDir || this.workspace;
-    console.log(
-      `[AgentManager] buildPersistentOptions session=${sessionId} mode=${sessionMode} | sessionWorkingDir=${sessionWorkingDir || 'null'} | effectiveCwd=${effectiveCwd}`
-    );
-
-    // Log prompt summary for the mode
-    if (isCoder) {
-      console.log(
-        `[AgentManager] Coder mode prompt — static: ${staticParts.join('').length} chars (SDK reads CLAUDE.md from workspace cwd)`
-      );
-    } else {
-      console.log(
-        `[AgentManager] General mode prompt — static: ${staticParts.join('\n\n').length} chars`
-      );
-    }
-
-    // Get thinking level config — only Anthropic models support thinking/effort.
-    // Non-Anthropic providers (Kimi, GLM) use Anthropic-compatible APIs but may not
-    // handle thinking parameters correctly, causing all output to go to thinking blocks.
-    const provider = getProviderForModel(this.model);
-    const thinkingLevel = SettingsManager.get('agent.thinkingLevel') || 'normal';
-    const thinkingEntry = THINKING_CONFIGS[thinkingLevel] || THINKING_CONFIGS['normal'];
-    const isAnthropicModel = provider === 'anthropic';
-
-    // Build provider env vars without mutating process.env (race-safe)
-    const providerEnv = await buildProviderEnv(this.model);
-    const env: Record<string, string | undefined> = {
-      ...process.env,
-      ...providerEnv,
-      CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: '1',
-    };
-    delete env.CLAUDE_CONFIG_DIR;
-
-    const options: SDKOptions = {
-      model: this.model,
-      cwd: effectiveCwd,
-      maxTurns: 100,
-      ...(isAnthropicModel && { thinking: thinkingEntry.thinking }),
-      ...(isAnthropicModel && thinkingEntry.effort && { effort: thinkingEntry.effort }),
-      tools: { type: 'preset', preset: 'claude_code' },
-      permissionMode: 'bypassPermissions',
-      allowDangerouslySkipPermissions: true,
-      settingSources: ['project'],
-      canUseTool: buildCanUseToolCallback(),
-      env,
-      hooks: {
-        PreToolUse: [buildPreToolUseHook()],
-        // Dynamic context injection: fresh facts/soul/temporal for each message
-        // Coder mode skips all personal assistant context for lean coding sessions
-        UserPromptSubmit: [
-          {
-            hooks: [
-              async () => {
-                if (isCoder) {
-                  return {
-                    hookSpecificOutput: {
-                      hookEventName: 'UserPromptSubmit' as const,
-                      additionalContext: '',
-                    },
-                  };
-                }
-
-                const dynamicParts: string[] = [];
-
-                // Temporal context (current time)
-                const recentMsgs = memory.getRecentMessages(1, sessionId);
-                const lastUserMsg = recentMsgs.find((m) => m.role === 'user');
-                const temporalContext = this.buildTemporalContext(lastUserMsg?.timestamp);
-                dynamicParts.push(temporalContext);
-
-                // Facts context
-                const factsContext = memory.getFactsForContext();
-                if (factsContext) {
-                  dynamicParts.push(factsContext);
-                }
-
-                // Soul context
-                const soulContext = memory.getSoulContext();
-                if (soulContext) {
-                  dynamicParts.push(soulContext);
-                }
-
-                // Daily logs
-                const dailyLogsContext = memory.getDailyLogsContext(3);
-                if (dailyLogsContext) {
-                  dynamicParts.push(dailyLogsContext);
-                }
-
-                return {
-                  hookSpecificOutput: {
-                    hookEventName: 'UserPromptSubmit' as const,
-                    additionalContext: dynamicParts.join('\n\n'),
-                  },
-                };
-              },
-            ],
-          },
-        ],
-        TeammateIdle: [
-          {
-            hooks: [
-              async (input: { teammate_name: string; team_name: string }) => {
-                this.emitStatus({
-                  type: 'teammate_idle',
-                  teammateName: input.teammate_name,
-                  teamName: input.team_name,
-                  message: `${input.teammate_name} is idle`,
-                });
-                return { hookSpecificOutput: { hookEventName: 'TeammateIdle' as const } };
-              },
-            ],
-          },
-        ],
-        TaskCompleted: [
-          {
-            hooks: [
-              async (input: {
-                task_id: string;
-                task_subject: string;
-                task_description?: string;
-                teammate_name?: string;
-                team_name?: string;
-              }) => {
-                this.emitStatus({
-                  type: 'task_completed',
-                  taskId: input.task_id,
-                  taskSubject: input.task_subject,
-                  teammateName: input.teammate_name,
-                  teamName: input.team_name,
-                  message: `task done: ${input.task_subject}`,
-                });
-                return { hookSpecificOutput: { hookEventName: 'TaskCompleted' as const } };
-              },
-            ],
-          },
-        ],
-      },
-      allowedTools: [
-        // Built-in SDK tools
-        'Read',
-        'Write',
-        'Edit',
-        'Bash',
-        'Glob',
-        'Grep',
-        'WebSearch',
-        'WebFetch',
-        // Plan mode tools
-        'EnterPlanMode',
-        'ExitPlanMode',
-        'AskUserQuestion',
-        // Agent Teams tools
-        'TeammateTool',
-        'TeamCreate',
-        'SendMessage',
-        'TaskCreate',
-        'TaskGet',
-        'TaskUpdate',
-        'TaskList',
-        // Background task tools (persist across turns with persistent sessions)
-        'TaskOutput',
-        'TaskStop',
-        'BashOutput',
-        'KillBash',
-        // Custom MCP tools - browser & system
-        'mcp__pocket-agent__browser',
-        'mcp__pocket-agent__notify',
-        // Custom MCP tools - project
-        'mcp__pocket-agent__set_project',
-        'mcp__pocket-agent__get_project',
-        'mcp__pocket-agent__clear_project',
-        // Coder-only tools
-        ...(isCoder ? ['mcp__grep__searchGitHub'] : []),
-        // Personal assistant tools — only in general mode
-        ...(isCoder
-          ? []
-          : [
-              // Memory
-              'mcp__pocket-agent__remember',
-              'mcp__pocket-agent__forget',
-              'mcp__pocket-agent__list_facts',
-              'mcp__pocket-agent__memory_search',
-              'mcp__pocket-agent__daily_log',
-              // Soul
-              'mcp__pocket-agent__soul_set',
-              'mcp__pocket-agent__soul_get',
-              'mcp__pocket-agent__soul_list',
-              'mcp__pocket-agent__soul_delete',
-              // Scheduler
-              'mcp__pocket-agent__schedule_task',
-              'mcp__pocket-agent__create_reminder',
-              'mcp__pocket-agent__list_scheduled_tasks',
-              'mcp__pocket-agent__delete_scheduled_task',
-            ]),
-      ],
-      persistSession: true,
-      ...(sdkSessionId && { resume: sdkSessionId }),
-    };
-
-    if (staticParts.length > 0) {
-      options.systemPrompt = {
-        type: 'preset',
-        preset: 'claude_code',
-        append: staticParts.join('\n\n'),
-      };
-    }
-
-    if (this.toolsConfig) {
-      // Build child process MCP servers (e.g., computer use)
-      const mcpServers = buildMCPServers(this.toolsConfig);
-
-      // Build SDK MCP servers (in-process tools like browser, notify, memory)
-      // Coder mode only registers coding-relevant tools (browser, notify, project)
-      const sdkMcpServers = await buildSdkMcpServers(this.toolsConfig, sessionMode);
-
-      // Merge both types + remote MCP servers (coder only)
-      const allServers: Record<string, unknown> = {
-        ...mcpServers,
-        ...(sdkMcpServers || {}),
-        // Grep MCP — remote code search across 1M+ public GitHub repos (coder only)
-        ...(isCoder ? { grep: { type: 'http', url: 'https://mcp.grep.app' } } : {}),
-      };
-
-      if (Object.keys(allServers).length > 0) {
-        options.mcpServers = allServers;
-        console.log('[AgentManager] MCP servers:', Object.keys(allServers).join(', '));
-      }
-    }
-
-    return options;
+    return _buildPersistentOptions(this.optionsConfig, memory, sessionId, sdkSessionId);
   }
 
   private extractFromMessage(message: unknown, current: string, sessionId: string): string {
@@ -2034,462 +1670,23 @@ class AgentManagerClass extends EventEmitter {
     Map<string, { type: string; description: string; toolUseId: string }>
   > = new Map();
 
-  private getActiveSubagents(
-    sessionId: string
-  ): Map<string, { type: string; description: string }> {
-    let map = this.activeSubagentsBySession.get(sessionId);
-    if (!map) {
-      map = new Map();
-      this.activeSubagentsBySession.set(sessionId, map);
-    }
-    return map;
-  }
-
-  private getBackgroundTasks(
-    sessionId: string
-  ): Map<string, { type: string; description: string; toolUseId: string }> {
-    let map = this.backgroundTasksBySession.get(sessionId);
-    if (!map) {
-      map = new Map();
-      this.backgroundTasksBySession.set(sessionId, map);
-    }
-    return map;
+  /** Lazily-built state object shared with status-processing module. */
+  private get statusProcessingState(): StatusProcessingState {
+    return {
+      activeSubagentsBySession: this.activeSubagentsBySession,
+      lastPartialTextBySession: this.lastPartialTextBySession,
+      backgroundTasksBySession: this.backgroundTasksBySession,
+      sdkToolTimers: this.sdkToolTimers,
+    };
   }
 
   private processStatusFromMessage(message: unknown): void {
-    const sessionId = getCurrentSessionId();
-    const activeSubagents = this.getActiveSubagents(sessionId);
-    const backgroundTasks = this.getBackgroundTasks(sessionId);
-
-    // Handle tool use from assistant messages
-    const msg = message as { type?: string; subtype?: string; message?: { content?: unknown } };
-    if (msg.type === 'assistant') {
-      const content = msg.message?.content;
-      if (Array.isArray(content)) {
-        // Emit partial text for visibility while agent is composing
-        const textBlocks = content
-          .filter((block: unknown) => (block as { type?: string })?.type === 'text')
-          .map((block: unknown) => (block as { text: string }).text);
-        if (textBlocks.length > 0) {
-          const fullText = textBlocks.join('\n').trim();
-          const prevText = this.lastPartialTextBySession.get(sessionId) || '';
-          if (fullText && fullText !== prevText) {
-            this.lastPartialTextBySession.set(sessionId, fullText);
-            this.emitStatus({
-              type: 'partial_text',
-              sessionId,
-              partialText: fullText,
-              partialReplace: true,
-              message: 'composing...',
-            });
-          }
-        }
-
-        for (const block of content) {
-          if (block?.type === 'tool_use') {
-            const rawName = block.name as string;
-            const toolName = this.formatToolName(rawName);
-            const toolInput = this.formatToolInput(block.input);
-            const blockInput = block.input as Record<string, unknown>;
-            const toolUseId = (block.id as string) || `bg-${Date.now()}`;
-
-            // Detect background tasks (Bash or Task with run_in_background)
-            if (blockInput?.run_in_background === true) {
-              const bgId = `bg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-              const description =
-                (rawName === 'Bash'
-                  ? (blockInput.command as string)?.slice(0, 60)
-                  : (blockInput.description as string) ||
-                    (blockInput.prompt as string)?.slice(0, 60)) || rawName;
-
-              backgroundTasks.set(bgId, { type: rawName, description, toolUseId });
-              console.log(
-                `[AgentManager] Background task started: ${rawName} - ${description} (${backgroundTasks.size} active)`
-              );
-
-              this.emitStatus({
-                type: 'background_task_start',
-                sessionId,
-                backgroundTaskId: bgId,
-                backgroundTaskDescription: description,
-                backgroundTaskCount: backgroundTasks.size,
-                toolName: rawName,
-                message: `background: ${description}`,
-              });
-            }
-
-            // Detect TaskOutput (checking on background tasks)
-            if (rawName === 'TaskOutput') {
-              this.emitStatus({
-                type: 'background_task_output',
-                sessionId,
-                backgroundTaskId: blockInput.task_id as string,
-                backgroundTaskCount: backgroundTasks.size,
-                message: 'checking background task...',
-              });
-            }
-
-            // Detect TaskStop/KillBash — remove bg task from tracking
-            // Note: SDK task IDs don't match our toolUseIds, so remove oldest matching type
-            if (rawName === 'TaskStop' || rawName === 'KillBash') {
-              const firstKey = backgroundTasks.keys().next().value;
-              if (firstKey) {
-                backgroundTasks.delete(firstKey);
-                console.log(
-                  `[AgentManager] Background task removed via ${rawName}: ${firstKey} (${backgroundTasks.size} remaining)`
-                );
-                this.emitStatus({
-                  type: 'background_task_end',
-                  sessionId,
-                  backgroundTaskId: firstKey,
-                  backgroundTaskCount: backgroundTasks.size,
-                  message: 'background task stopped',
-                });
-              }
-            }
-
-            // Check if this is a Task (subagent) tool
-            if (rawName === 'Task') {
-              const input = block.input as {
-                subagent_type?: string;
-                description?: string;
-                prompt?: string;
-              };
-              const agentId = `agent-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-              const agentType = input.subagent_type || 'general';
-              const description =
-                input.description || input.prompt?.slice(0, 50) || 'working on it';
-
-              activeSubagents.set(agentId, { type: agentType, description });
-
-              this.emitStatus({
-                type: 'subagent_start',
-                sessionId,
-                agentId,
-                agentType,
-                toolInput: description,
-                agentCount: activeSubagents.size,
-                message: this.getSubagentMessage(agentType),
-              });
-            } else if (rawName === 'TeammateTool') {
-              const input = block.input as {
-                name?: string;
-                team_name?: string;
-                description?: string;
-              };
-              this.emitStatus({
-                type: 'teammate_start',
-                sessionId,
-                teammateName: input.name,
-                teamName: input.team_name,
-                toolName,
-                toolInput: input.description || input.name || 'spawning teammate',
-                message: `rallying ${input.name || 'a teammate'}`,
-              });
-            } else if (rawName === 'SendMessage') {
-              const input = block.input as { to?: string; type?: string; message?: string };
-              this.emitStatus({
-                type: 'teammate_message',
-                sessionId,
-                teammateName: input.to,
-                toolName,
-                toolInput: input.message?.slice(0, 80) || '',
-                message:
-                  input.type === 'broadcast'
-                    ? 'broadcasting to the squad'
-                    : `messaging ${input.to || 'teammate'}`,
-              });
-            } else if (rawName === 'EnterPlanMode') {
-              this.emitStatus({
-                type: 'plan_mode_entered',
-                sessionId,
-                message: 'planning the pounce...',
-              });
-            } else if (rawName === 'ExitPlanMode') {
-              this.emitStatus({
-                type: 'plan_mode_exited',
-                sessionId,
-                message: 'plan ready for review',
-              });
-            } else if (rawName === 'Bash' && this.isPocketCliCommand(block.input)) {
-              const pocketName = this.formatPocketCommand(block.input);
-              this.emitStatus({
-                type: 'tool_start',
-                sessionId,
-                toolName: pocketName,
-                toolInput,
-                message: `batting at ${pocketName}...`,
-                isPocketCli: true,
-              });
-            } else {
-              this.emitStatus({
-                type: 'tool_start',
-                sessionId,
-                toolName,
-                toolInput,
-                message: `batting at ${toolName}...`,
-              });
-            }
-
-            // Start timeout timer for SDK built-in tools (MCP tools have their own via wrapToolHandler)
-            // NOTE: On timeout we only log a warning — we do NOT interrupt the session.
-            // The SDK handles tool failures internally and returns error tool_results to the
-            // model, letting it recover gracefully (e.g. retry or respond without the tool).
-            // Interrupting kills the entire turn and leaves the user with no response.
-            if (!rawName.startsWith('mcp__')) {
-              const timeoutMs =
-                AgentManagerClass.SDK_TOOL_TIMEOUTS[rawName] ??
-                AgentManagerClass.SDK_TOOL_DEFAULT_TIMEOUT;
-              const timer = setTimeout(() => {
-                console.warn(
-                  `[AgentManager] SDK tool ${rawName} (${toolUseId}) exceeded ${timeoutMs}ms — waiting for SDK to handle`
-                );
-                this.sdkToolTimers.delete(toolUseId);
-              }, timeoutMs);
-              this.sdkToolTimers.set(toolUseId, { timer, sessionId });
-            }
-          }
-        }
-      }
-    }
-
-    // Handle tool results
-    if (msg.type === 'user' && msg.message?.content) {
-      const content = msg.message.content;
-      if (Array.isArray(content)) {
-        for (const block of content) {
-          if (block?.type === 'tool_result') {
-            // Clear SDK tool timeout timer if this result matches one
-            const resultToolUseId = (block as { tool_use_id?: string }).tool_use_id;
-            if (resultToolUseId) {
-              const entry = this.sdkToolTimers.get(resultToolUseId);
-              if (entry) {
-                clearTimeout(entry.timer);
-                this.sdkToolTimers.delete(resultToolUseId);
-              }
-            }
-
-            // Extract screenshot paths and images from tool results
-            this.extractScreenshotPaths(block, sessionId);
-
-            // Check if any subagents completed
-            if (activeSubagents.size > 0) {
-              // Remove one subagent (we don't have exact ID matching, so remove oldest)
-              const firstKey = activeSubagents.keys().next().value;
-              if (firstKey) {
-                activeSubagents.delete(firstKey);
-              }
-
-              if (activeSubagents.size > 0) {
-                // Still have active subagents
-                this.emitStatus({
-                  type: 'subagent_update',
-                  sessionId,
-                  agentCount: activeSubagents.size,
-                  message: `${activeSubagents.size} kitty${activeSubagents.size > 1 ? 'ies' : ''} still hunting`,
-                });
-              } else {
-                this.emitStatus({
-                  type: 'subagent_end',
-                  sessionId,
-                  agentCount: 0,
-                  message: 'squad done! cleaning up...',
-                });
-              }
-            } else {
-              this.emitStatus({
-                type: 'tool_end',
-                sessionId,
-                message: 'caught it! processing...',
-              });
-            }
-          }
-        }
-      }
-    }
-
-    // Handle system messages
-    if (msg.type === 'system') {
-      if (msg.subtype === 'init') {
-        this.emitStatus({ type: 'thinking', sessionId, message: 'waking up from a nap...' });
-      } else if (msg.subtype === 'status') {
-        const statusMsg = msg as { status?: string };
-        if (statusMsg.status === 'compacting') {
-          console.log('[AgentManager] SDK auto-compaction triggered');
-          this.emitStatus({ type: 'thinking', sessionId, message: 'compacting context...' });
-        }
-      } else if (msg.subtype === 'compact_boundary') {
-        const compactMsg = msg as { compact_metadata?: { trigger: string; pre_tokens: number } };
-        const meta = compactMsg.compact_metadata;
-        console.log(
-          `[AgentManager] SDK compaction complete: trigger=${meta?.trigger}, pre_tokens=${meta?.pre_tokens}`
-        );
-      } else if (msg.subtype === 'task_notification') {
-        const taskMsg = msg as { task_id?: string; status?: string; summary?: string };
-        const taskStatus = taskMsg.status;
-        if (taskStatus === 'completed' || taskStatus === 'failed' || taskStatus === 'stopped') {
-          // Remove oldest tracked bg task (SDK task IDs don't map to our internal IDs)
-          const firstKey = backgroundTasks.keys().next().value;
-          if (firstKey) {
-            backgroundTasks.delete(firstKey);
-            console.log(
-              `[AgentManager] Background task ${taskStatus} (notification): removed ${firstKey} (${backgroundTasks.size} remaining)`
-            );
-            this.emitStatus({
-              type: 'background_task_end',
-              sessionId,
-              backgroundTaskId: firstKey,
-              backgroundTaskCount: backgroundTasks.size,
-              message: `background task ${taskStatus}`,
-            });
-          } else {
-            console.log(
-              `[AgentManager] Background task ${taskStatus} (notification): ${taskMsg.task_id} (not tracked)`
-            );
-          }
-        }
-      }
-    }
-  }
-
-  private getSubagentMessage(agentType: string): string {
-    const messages: Record<string, string> = {
-      Explore: 'sent a curious kitten to explore',
-      Plan: 'calling in the architect cat',
-      Bash: 'summoning a terminal tabby',
-      'general-purpose': 'summoning a helper kitty',
-    };
-    return messages[agentType] || `summoning ${agentType} cat friend`;
-  }
-
-  private formatToolName(name: string): string {
-    // Fun, cat-themed tool names that match PA's vibe
-    const friendlyNames: Record<string, string> = {
-      // SDK built-in tools
-      Read: 'sniffing this file',
-      Write: 'scratching notes down',
-      Edit: 'pawing at some code',
-      Bash: 'hacking at the terminal',
-      Glob: 'hunting for files',
-      Grep: 'digging through code',
-      WebSearch: 'prowling the web',
-      WebFetch: 'fetching that page',
-      Task: 'summoning a helper kitty',
-      NotebookEdit: 'editing notebook',
-
-      // Memory tools
-      remember: 'stashing in my cat brain',
-      forget: 'knocking it off the shelf',
-      list_facts: 'checking my memories',
-      memory_search: 'sniffing through archives',
-
-      // Browser tool
-      browser: 'pouncing on browser',
-
-      // Computer use tool
-      computer: 'walking on the keyboard',
-
-      // Scheduler tools
-      schedule_task: 'setting an alarm meow',
-      list_scheduled_tasks: 'checking the schedule',
-      delete_scheduled_task: 'knocking that off',
-
-      // macOS tools
-      notify: 'sending a meow',
-
-      // Agent Teams tools
-      TeammateTool: 'rallying the squad',
-      TeamCreate: 'rallying the squad',
-      SendMessage: 'passing a note',
-      TaskCreate: 'creating a team task',
-      TaskGet: 'checking task details',
-      TaskUpdate: 'updating team task',
-      TaskList: 'listing team tasks',
-      TaskOutput: 'checking background task',
-      TaskStop: 'stopping background task',
-      BashOutput: 'checking background command',
-      KillBash: 'killing background command',
-    };
-    return friendlyNames[name] || name;
-  }
-
-  private formatToolInput(input: unknown): string {
-    if (!input) return '';
-    // Extract meaningful info from tool input
-    if (typeof input === 'string') return input.slice(0, 100);
-    const inp = input as Record<string, string | number[] | undefined>;
-
-    // File operations
-    if (inp.file_path) return inp.file_path as string;
-    if (inp.notebook_path) return inp.notebook_path as string;
-
-    // Search/patterns
-    if (inp.pattern) return inp.pattern as string;
-    if (inp.query) return inp.query as string;
-
-    // Commands
-    if (inp.command) return (inp.command as string).slice(0, 80);
-
-    // Web
-    if (inp.url) return inp.url as string;
-
-    // Agent/Task
-    if (inp.prompt) return (inp.prompt as string).slice(0, 80);
-    if (inp.description) return (inp.description as string).slice(0, 80);
-
-    // Memory tools
-    if (inp.category && inp.subject) return `${inp.category}/${inp.subject}`;
-    if (inp.content) return (inp.content as string).slice(0, 80);
-
-    // Browser tool
-    if (inp.action) {
-      const browserActions: Record<string, string> = {
-        navigate: inp.url ? `→ ${inp.url}` : 'navigating',
-        screenshot: 'capturing screen',
-        click: inp.selector ? `clicking ${inp.selector}` : 'clicking',
-        type: inp.text ? `typing "${(inp.text as string).slice(0, 30)}"` : 'typing',
-        evaluate: 'running script',
-        extract: (inp.extract_type as string) || 'extracting data',
-      };
-      return browserActions[inp.action as string] || (inp.action as string);
-    }
-
-    // Computer use
-    if (inp.coordinate && Array.isArray(inp.coordinate) && inp.coordinate.length >= 2) {
-      return `at (${inp.coordinate[0]}, ${inp.coordinate[1]})`;
-    }
-    if (inp.text) return `"${(inp.text as string).slice(0, 40)}"`;
-
-    // Agent Teams tools
-    if (inp.to && inp.message) return `→ ${inp.to}: ${(inp.message as string).slice(0, 60)}`;
-    if (inp.name && inp.team_name) return `${inp.name} in ${inp.team_name}`;
-    if (inp.name) return inp.name as string;
-
-    return '';
-  }
-
-  private isPocketCliCommand(input: unknown): boolean {
-    if (!input || typeof input !== 'object') return false;
-    const command = (input as Record<string, unknown>).command;
-    if (typeof command !== 'string') return false;
-    return command.trimStart().startsWith('pocket');
-  }
-
-  private formatPocketCommand(input: unknown): string {
-    if (!input || typeof input !== 'object') return 'running pocket cli';
-    const command = ((input as Record<string, unknown>).command as string) || '';
-    const parts = command.trimStart().split(/\s+/);
-    const subcommand = parts[1] || '';
-    const categories: Record<string, string> = {
-      news: 'fetching the latest news',
-      utility: 'running pocket utility',
-      knowledge: 'checking the knowledge base',
-      dev: 'querying dev tools',
-      commands: 'listing pocket commands',
-      setup: 'configuring pocket',
-      integrations: 'checking integrations',
-    };
-    return categories[subcommand] || 'running pocket cli';
+    _processStatusFromMessage(
+      this.statusProcessingState,
+      (status) => this.emitStatus(status),
+      (block, sid) => this.extractScreenshotPaths(block, sid),
+      message
+    );
   }
 
   /**

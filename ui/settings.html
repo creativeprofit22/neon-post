@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://pocket-agent-chat-production.up.railway.app;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://pocket-agent-chat-production.up.railway.app https://cdn.jsdelivr.net;">
   <title>Settings</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -977,7 +977,7 @@
     .w-80 { width: 80px; }
   </style>
   <script>
-    (function(){function _apply(p){var r=document.documentElement;if(!p){['bg-primary','bg-secondary','bg-tertiary','border','text-primary','text-secondary','text-muted','accent','accent-secondary','accent-hover','error','success','warning','orange','user-bubble','user-bubble-solid','assistant-bubble'].forEach(function(k){r.style.removeProperty('--'+k)});return}Object.keys(p).forEach(function(k){r.style.setProperty('--'+k,p[k])})}window.addEventListener('DOMContentLoaded',function(){if(!window.pocketAgent)return;Promise.all([window.pocketAgent.getThemes(),window.pocketAgent.getSkin()]).then(function(res){var themes=res[0],skinId=res[1],t=themes[skinId];if(t)_apply(t.palette);window.pocketAgent.onSkinChanged(function(id){var th=themes[id];if(th)_apply(th.palette)})}).catch(function(){})})})();
+    (function(){function _apply(p){var r=document.documentElement;if(!p){['bg-primary','bg-secondary','bg-tertiary','border','text-primary','text-secondary','text-muted','accent','accent-secondary','accent-hover','error','success','warning','orange','user-bubble','user-bubble-solid','assistant-bubble'].forEach(function(k){r.style.removeProperty('--'+k)});return}Object.keys(p).forEach(function(k){r.style.setProperty('--'+k,p[k])})}window.addEventListener('DOMContentLoaded',function(){if(!window.pocketAgent)return;Promise.all([window.pocketAgent.themes.list(),window.pocketAgent.themes.getSkin()]).then(function(res){var themes=res[0],skinId=res[1],t=themes[skinId];if(t)_apply(t.palette);window.pocketAgent.themes.onSkinChanged(function(id){var th=themes[id];if(th)_apply(th.palette)})}).catch(function(){})})})();
   </script>
   <script type="module">
     import { animate } from 'https://cdn.jsdelivr.net/npm/motion@12/mini/+esm';
@@ -1492,7 +1492,7 @@
       const link = e.target.closest('a[href]');
       if (link && link.href && (link.target === '_blank' || link.href.startsWith('http'))) {
         e.preventDefault();
-        window.pocketAgent.openExternal(link.href);
+        window.pocketAgent.app.openExternal(link.href);
       }
     });
 
@@ -1509,7 +1509,7 @@
 
     async function loadAppVersion() {
       try {
-        const version = await window.pocketAgent.getAppVersion();
+        const version = await window.pocketAgent.app.getVersion();
         document.getElementById('current-version').textContent = `v${version}`;
       } catch (err) {
         console.error('Failed to load app version:', err);
@@ -1518,7 +1518,7 @@
 
     async function loadSettings() {
       try {
-        settings = await window.pocketAgent.getSettings();
+        settings = await window.pocketAgent.settings.getAll();
         populateFields();
         updateToggles();
         updateAuthStatus();
@@ -1532,11 +1532,11 @@
     // Refresh model dropdown based on available API keys
     async function refreshModelDropdown() {
       try {
-        const models = await window.pocketAgent.getAvailableModels();
+        const models = await window.pocketAgent.settings.getAvailableModels();
         const dropdown = document.getElementById('agent.model');
         // Use local settings cache first (updated synchronously by change handler),
         // fall back to backend only if local cache is empty
-        const savedModel = settings['agent.model'] || await window.pocketAgent.getSetting('agent.model');
+        const savedModel = settings['agent.model'] || await window.pocketAgent.settings.get('agent.model');
 
         // Clear existing options
         dropdown.innerHTML = '';
@@ -1600,7 +1600,7 @@
           // Only reset to first model if saved model is not available
           // (e.g., user removed an API key for that provider)
           dropdown.value = models[0].id;
-          await window.pocketAgent.setSetting('agent.model', models[0].id);
+          await window.pocketAgent.settings.set('agent.model', models[0].id);
         }
       } catch (err) {
         console.error('Failed to refresh model dropdown:', err);
@@ -1623,6 +1623,7 @@
             // Don't populate password fields with masked placeholder values from getAllSafe()
             // This prevents '••••••••' from being saved back as the actual key
             if (input.type === 'password' && value === '••••••••') {
+              input.placeholder = '••••••••  (key saved)';
               continue;
             }
             input.value = value;
@@ -1702,13 +1703,13 @@
       }
 
       // Listen for IPC navigation requests
-      if (window.pocketAgent?.onNavigateTab) {
-        window.pocketAgent.onNavigateTab((tab) => navigateToSection(tab));
+      if (window.pocketAgent?.app?.onNavigateTab) {
+        window.pocketAgent.app.onNavigateTab((tab) => navigateToSection(tab));
       }
 
       // Listen for model changes from other sources (e.g., Telegram)
-      if (window.pocketAgent?.onModelChanged) {
-        window.pocketAgent.onModelChanged(() => refreshModelDropdown());
+      if (window.pocketAgent?.events?.onModelChanged) {
+        window.pocketAgent.events.onModelChanged(() => refreshModelDropdown());
       }
     }
 
@@ -1756,7 +1757,7 @@
           settings[key] = value;
 
           try {
-            await window.pocketAgent.setSetting(key, value);
+            await window.pocketAgent.settings.set(key, value);
             showToast('Got it!', 'success');
             // Activate reboot for settings that require restart
             const rebootSettings = ['agent.model', 'telegram.allowedUserIds', 'telegram.botToken'];
@@ -1824,7 +1825,7 @@
       }
 
       try {
-        await window.pocketAgent.setSetting(inputId, key);
+        await window.pocketAgent.settings.set(inputId, key);
         settings[inputId] = key;
         showToast('Got it!', 'success');
 
@@ -1867,7 +1868,7 @@
       const actualInputId = inputId || keyId;
 
       try {
-        await window.pocketAgent.setSetting(keyId, '');
+        await window.pocketAgent.settings.set(keyId, '');
         settings[keyId] = '';
 
         // Clear the input field
@@ -1905,7 +1906,7 @@
       const value = input.value.trim();
 
       try {
-        await window.pocketAgent.setSetting(inputId, value);
+        await window.pocketAgent.settings.set(inputId, value);
         settings[inputId] = value;
         showToast('Saved!', 'success');
         activateReboot();
@@ -1920,12 +1921,12 @@
       const newValue = !currentValue;
 
       try {
-        await window.pocketAgent.setSetting('ios.enabled', newValue.toString());
+        await window.pocketAgent.settings.set('ios.enabled', newValue.toString());
         settings['ios.enabled'] = newValue.toString();
         updateToggles();
 
         // Start/stop the server immediately
-        const result = await window.pocketAgent.toggleIOS(newValue);
+        const result = await window.pocketAgent.ios.toggle(newValue);
         if (result.success) {
           showToast(newValue ? 'Mobile connection started!' : 'Mobile connection stopped', 'success');
           if (newValue) {
@@ -1991,7 +1992,7 @@
 
     async function refreshPairingCode(regenerate) {
       try {
-        const result = await window.pocketAgent.getIOSPairingCode(!!regenerate);
+        const result = await window.pocketAgent.ios.getPairingCode(!!regenerate);
         if (result && result.code) {
           document.getElementById('ios-pairing-code').textContent = result.code;
           if (result.instanceId) {
@@ -2008,7 +2009,7 @@
 
     async function refreshIOSInfo() {
       try {
-        const info = await window.pocketAgent.getIOSInfo();
+        const info = await window.pocketAgent.ios.getInfo();
         if (info && info.instanceId) {
           document.getElementById('ios-instance-id').textContent = info.instanceId;
         }
@@ -2026,7 +2027,7 @@
 
     async function refreshConnectedDevices() {
       try {
-        const devices = await window.pocketAgent.getIOSDevices();
+        const devices = await window.pocketAgent.ios.getDevices();
         const container = document.getElementById('ios-devices');
         if (devices && devices.length > 0) {
           container.innerHTML = devices.map(d =>
@@ -2048,7 +2049,7 @@
       const value = input.value.trim();
 
       try {
-        await window.pocketAgent.setSetting(inputId, value);
+        await window.pocketAgent.settings.set(inputId, value);
         settings[inputId] = value;
         showToast('Saved!', 'success');
         activateReboot();
@@ -2063,7 +2064,7 @@
       const newValue = (!currentValue).toString();
 
       try {
-        await window.pocketAgent.setSetting(key, newValue);
+        await window.pocketAgent.settings.set(key, newValue);
         settings[key] = newValue;
         updateToggles();
         showToast('Got it!', 'success');
@@ -2097,20 +2098,20 @@
       try {
         let result;
         if (provider === 'anthropic') {
-          result = await window.pocketAgent.validateAnthropicKey(key);
+          result = await window.pocketAgent.validate.anthropicKey(key);
         } else if (provider === 'openai') {
-          result = await window.pocketAgent.validateOpenAIKey(key);
+          result = await window.pocketAgent.validate.openAIKey(key);
         } else if (provider === 'moonshot') {
-          result = await window.pocketAgent.validateMoonshotKey(key);
+          result = await window.pocketAgent.validate.moonshotKey(key);
         } else if (provider === 'glm') {
-          result = await window.pocketAgent.validateGlmKey(key);
+          result = await window.pocketAgent.validate.glmKey(key);
         } else if (provider === 'telegram') {
-          result = await window.pocketAgent.validateTelegramToken(key);
+          result = await window.pocketAgent.validate.telegramToken(key);
         }
 
         if (result.valid) {
           // Auto-save valid key
-          await window.pocketAgent.setSetting(inputId, key);
+          await window.pocketAgent.settings.set(inputId, key);
           settings[inputId] = key;
           showToast(result.botInfo ? `Valid! Bot: @${result.botInfo.username}` : 'All good!', 'success');
 
@@ -2157,7 +2158,7 @@
 
       try {
         showToast('Waking up...', 'success');
-        await window.pocketAgent.restartAgent();
+        await window.pocketAgent.agent.restart();
         deactivateReboot();
         showToast('I\'m back!', 'success');
       } catch (err) {
@@ -2218,7 +2219,7 @@
 
         // Save locally (broadcasts to chat window automatically)
         input.value = raw;
-        await window.pocketAgent.setSetting('chat.username', raw);
+        await window.pocketAgent.settings.set('chat.username', raw);
         settings['chat.username'] = raw;
         showToast('Username saved!', 'success');
       } catch (err) {
@@ -2230,7 +2231,7 @@
     async function saveChatAdminKey() {
       try {
         const adminKey = document.getElementById('chat.adminKey').value.trim();
-        await window.pocketAgent.setSetting('chat.adminKey', adminKey);
+        await window.pocketAgent.settings.set('chat.adminKey', adminKey);
         settings['chat.adminKey'] = adminKey;
         showToast('Admin key saved!', 'success');
         activateReboot();
@@ -2291,7 +2292,7 @@
         }
 
         // Validate token in background (attempts refresh if expired)
-        window.pocketAgent.validateOAuth().then(result => {
+        window.pocketAgent.auth.validateOAuth().then(result => {
           if (result.valid) {
             statusBadge.className = 'auth-badge oauth';
             statusBadge.textContent = 'Connected';
@@ -2348,7 +2349,7 @@
       btn.textContent = 'Opening...';
 
       try {
-        const result = await window.pocketAgent.startOAuth();
+        const result = await window.pocketAgent.auth.startOAuth();
         if (result.success) {
           document.getElementById('oauth-code-section').classList.remove('hidden');
           document.getElementById('oauth-code').focus();
@@ -2376,7 +2377,7 @@
       submitBtn.textContent = 'Verifying...';
 
       try {
-        const result = await window.pocketAgent.completeOAuth(code);
+        const result = await window.pocketAgent.auth.completeOAuth(code);
         if (result.success) {
           showToast('Connected!', 'success');
           document.getElementById('oauth-code-section').classList.add('hidden');
@@ -2416,10 +2417,10 @@
       button.textContent = 'Validating...';
 
       try {
-        const result = await window.pocketAgent.validateAnthropicKey(key);
+        const result = await window.pocketAgent.validate.anthropicKey(key);
         if (result.valid) {
-          await window.pocketAgent.setSetting('anthropic.apiKey', key);
-          await window.pocketAgent.setSetting('auth.method', 'api_key');
+          await window.pocketAgent.settings.set('anthropic.apiKey', key);
+          await window.pocketAgent.settings.set('auth.method', 'api_key');
           showToast('Key saved!', 'success');
           activateReboot();
 
@@ -2447,11 +2448,11 @@
       if (!confirm('Are you sure you want to sign out? You will need to re-authenticate.')) return;
 
       try {
-        await window.pocketAgent.setSetting('auth.method', '');
-        await window.pocketAgent.setSetting('auth.oauthToken', '');
-        await window.pocketAgent.setSetting('auth.refreshToken', '');
-        await window.pocketAgent.setSetting('auth.tokenExpiresAt', '');
-        await window.pocketAgent.setSetting('anthropic.apiKey', '');
+        await window.pocketAgent.settings.set('auth.method', '');
+        await window.pocketAgent.settings.set('auth.oauthToken', '');
+        await window.pocketAgent.settings.set('auth.refreshToken', '');
+        await window.pocketAgent.settings.set('auth.tokenExpiresAt', '');
+        await window.pocketAgent.settings.set('anthropic.apiKey', '');
         showToast('See ya!', 'success');
         await loadSettings();
         updateAuthStatus();
@@ -2462,7 +2463,7 @@
 
     // Pocket CLI functions
     let pocketCliInstalledVersion = null;
-    const CLI_IS_WINDOWS = window.pocketAgent.getPlatform() === 'win32';
+    const CLI_IS_WINDOWS = window.pocketAgent.app.getPlatform() === 'win32';
 
     // Platform-aware shell commands for Pocket CLI
     const cliCommands = {
@@ -2501,13 +2502,13 @@
 
       // Check if pocket command exists and get version
       try {
-        const result = await window.pocketAgent.runCommand(cliCommands.which);
+        const result = await window.pocketAgent.shell.runCommand(cliCommands.which);
         if (result && result.trim()) {
           // Try to extract version from binary (macOS only; Windows shows "Installed")
           const versionCmd = cliCommands.version(result.trim());
           if (versionCmd) {
             try {
-              const versionResult = await window.pocketAgent.runCommand(versionCmd);
+              const versionResult = await window.pocketAgent.shell.runCommand(versionCmd);
               if (versionResult && versionResult.trim()) {
                 pocketCliInstalledVersion = versionResult.trim().replace(/^v/, '');
                 versionEl.textContent = `v${pocketCliInstalledVersion}`;
@@ -2562,7 +2563,7 @@
       statusEl.textContent = 'Checking...';
 
       try {
-        const latestJson = await window.pocketAgent.runCommand(cliCommands.fetchLatest);
+        const latestJson = await window.pocketAgent.shell.runCommand(cliCommands.fetchLatest);
         if (latestJson) {
           const release = JSON.parse(latestJson);
           const latestVersion = (release.tag_name || '').replace(/^v/, '');
@@ -2607,7 +2608,7 @@
         statusEl.className = 'status info';
         statusEl.textContent = 'Installing...';
 
-        await window.pocketAgent.runCommand(cliCommands.install);
+        await window.pocketAgent.shell.runCommand(cliCommands.install);
         await initPocketCli();
 
         if (document.getElementById('pocket-cli-status').classList.contains('success')) {
@@ -2639,7 +2640,7 @@
         infoBox.classList.remove('hidden');
         infoText.textContent = 'Downloading and installing latest version...';
 
-        await window.pocketAgent.runCommand(cliCommands.install);
+        await window.pocketAgent.shell.runCommand(cliCommands.install);
         await initPocketCli();
 
         if (document.getElementById('pocket-cli-status').classList.contains('success')) {
@@ -2664,7 +2665,7 @@
 
       try {
         // Detect installed browsers
-        const browsers = await window.pocketAgent.detectInstalledBrowsers();
+        const browsers = await window.pocketAgent.browser.detectInstalled();
 
         // Clear and populate selector
         selector.innerHTML = '<option value="">Select browser...</option>';
@@ -2710,7 +2711,7 @@
       statusEl.textContent = 'Launching...';
 
       try {
-        const result = await window.pocketAgent.launchBrowser(browserId, port);
+        const result = await window.pocketAgent.browser.launch(browserId, port);
 
         if (result.success) {
           statusEl.className = 'status success';
@@ -2720,7 +2721,7 @@
           // Update CDP URL to match port
           const cdpInput = document.getElementById('browser.cdpUrl');
           cdpInput.value = `http://localhost:${port}`;
-          await window.pocketAgent.setSetting('browser.cdpUrl', cdpInput.value);
+          await window.pocketAgent.settings.set('browser.cdpUrl', cdpInput.value);
         } else if (result.alreadyRunning) {
           statusEl.className = 'status warning';
           statusEl.textContent = 'Browser running';
@@ -2753,7 +2754,7 @@
       statusEl.textContent = 'Testing...';
 
       try {
-        const result = await window.pocketAgent.testBrowserConnection(cdpUrl);
+        const result = await window.pocketAgent.browser.testConnection(cdpUrl);
 
         if (result.connected) {
           statusEl.className = 'status success';
@@ -2783,11 +2784,11 @@
     async function initializeUpdates() {
       // Set up status listener
       if (updateStatusCleanup) updateStatusCleanup();
-      updateStatusCleanup = window.pocketAgent.onUpdateStatus(handleUpdateStatus);
+      updateStatusCleanup = window.pocketAgent.updater.onStatus(handleUpdateStatus);
 
       // Get initial status
       try {
-        const status = await window.pocketAgent.getUpdateStatus();
+        const status = await window.pocketAgent.updater.getStatus();
         handleUpdateStatus(status);
       } catch (err) {
         console.error('Failed to get update status:', err);
@@ -2886,7 +2887,7 @@
       btn.textContent = 'Checking...';
 
       try {
-        await window.pocketAgent.checkForUpdates();
+        await window.pocketAgent.updater.checkForUpdates();
       } catch (err) {
         showToast('Failed to check for updates: ' + err.message, 'error');
         btn.disabled = false;
@@ -2900,7 +2901,7 @@
       btn.textContent = 'Starting...';
 
       try {
-        const result = await window.pocketAgent.downloadUpdate();
+        const result = await window.pocketAgent.updater.download();
         if (!result.success) {
           showToast(result.error || 'Download failed', 'error');
         }
@@ -2918,7 +2919,7 @@
       btn.textContent = 'Installing...';
 
       try {
-        await window.pocketAgent.installUpdate();
+        await window.pocketAgent.updater.install();
         // App will restart, so this won't return
       } catch (err) {
         showToast('Failed to install update: ' + err.message, 'error');
@@ -2958,12 +2959,12 @@
 
     async function initSkinPicker() {
       try {
-        themesCache = await window.pocketAgent.getThemes();
-        currentSkinId = await window.pocketAgent.getSkin();
+        themesCache = await window.pocketAgent.themes.list();
+        currentSkinId = await window.pocketAgent.themes.getSkin();
         renderSkinGrid();
 
         // Listen for skin changes from other windows
-        window.pocketAgent.onSkinChanged((skinId) => {
+        window.pocketAgent.themes.onSkinChanged((skinId) => {
           currentSkinId = skinId;
           renderSkinGrid();
           applyTheme(skinId);
@@ -3005,7 +3006,7 @@
       currentSkinId = skinId;
       renderSkinGrid();
       applyTheme(skinId);
-      await window.pocketAgent.setSetting('ui.skin', skinId);
+      await window.pocketAgent.settings.set('ui.skin', skinId);
     }
 
     function applyTheme(skinId) {
