@@ -792,21 +792,32 @@
     }
 
     .message.error {
-      background: rgba(239, 68, 68, 0.06);
-      border: 1px solid rgba(239, 68, 68, 0.2);
+      align-self: flex-start;
+      background: var(--assistant-bubble);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 6px;
       color: var(--text-primary);
+      position: relative;
+      transition: transform 0.2s ease, border-color 0.2s ease;
     }
 
-    .message.error .error-label {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
+    .message.error:hover {
+      transform: translateY(-1px);
+      border-color: var(--text-muted);
+    }
+
+    .message.error::after {
+      content: 'error';
+      position: absolute;
+      top: -8px;
+      left: 8px;
+      font-size: 9px;
       font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--error);
-      margin-bottom: 4px;
+      letter-spacing: 0.3px;
+      color: #ffffff;
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      padding: 2px 6px;
+      border-radius: 4px;
     }
 
     .message.error .error-body {
@@ -820,13 +831,6 @@
       font-size: 11px;
       color: var(--text-muted);
       font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-    }
-
-    .message.error .error-report {
-      margin-top: 8px;
-      font-size: 12px;
-      color: var(--text-muted);
-      font-style: italic;
     }
 
     /* Queued message state - greyed out until processing */
@@ -2035,6 +2039,13 @@
       font-size: 14px;
       line-height: 1.5;
       word-wrap: break-word;
+      box-shadow: 0 4px 14px rgba(168, 85, 247, 0.25);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .message.global-chat-self:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(168, 85, 247, 0.35);
     }
 
     .message.global-chat-other {
@@ -2046,6 +2057,13 @@
       font-size: 14px;
       line-height: 1.5;
       word-wrap: break-word;
+      border: 1px solid var(--border);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .message.global-chat-other:hover {
+      transform: translateY(-1px);
+      border-color: var(--text-muted);
     }
 
     .admin-username {
@@ -2453,6 +2471,10 @@
 
     .message.global-chat-admin {
       border-left: 2px solid #f59e0b;
+    }
+
+    .message.global-chat-self.global-chat-admin {
+      border-left: none;
     }
 
     /* Admin gear menu in global chat header */
@@ -5776,23 +5798,18 @@
 
     function formatErrorContent(text) {
       const escaped = escapeHtml(text);
-      // Separate report hint if present
+      // Strip report hint — badge is enough context
       const reportHint = 'If this keeps happening, send this error to the developer.';
-      const hasReportHint = escaped.includes(reportHint);
-      const mainText = hasReportHint ? escaped.split(reportHint)[0].trim() : escaped;
+      const mainText = escaped.replace(reportHint, '').trim();
 
       // Extract error code if present: [error_code]
       const codeMatch = mainText.match(/\[([a-z_]+)\]/);
       const errorCode = codeMatch ? codeMatch[1] : null;
       const body = codeMatch ? mainText.replace(/\s*\[[a-z_]+\]/, '').trim() : mainText;
 
-      let html = '<div class="error-label">error</div>';
-      html += `<div class="error-body">${body}</div>`;
+      let html = `<div class="error-body">${body}</div>`;
       if (errorCode) {
         html += `<div class="error-code">${errorCode}</div>`;
-      }
-      if (hasReportHint) {
-        html += `<div class="error-report">${reportHint}</div>`;
       }
       return html;
     }
