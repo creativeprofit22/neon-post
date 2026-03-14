@@ -448,7 +448,7 @@
     .inline-icon { vertical-align: middle; margin-right: 4px; }
   </style>
   <script>
-    (function(){function _apply(p){var r=document.documentElement;if(!p){['bg-primary','bg-secondary','bg-tertiary','border','text-primary','text-secondary','text-muted','accent','accent-secondary','accent-hover','error','success','warning','orange','user-bubble','user-bubble-solid','assistant-bubble'].forEach(function(k){r.style.removeProperty('--'+k)});return}Object.keys(p).forEach(function(k){r.style.setProperty('--'+k,p[k])})}window.addEventListener('DOMContentLoaded',function(){if(!window.pocketAgent)return;Promise.all([window.pocketAgent.getThemes(),window.pocketAgent.getSkin()]).then(function(res){var themes=res[0],skinId=res[1],t=themes[skinId];if(t)_apply(t.palette);window.pocketAgent.onSkinChanged(function(id){var th=themes[id];if(th)_apply(th.palette)})}).catch(function(){})})})();
+    (function(){function _apply(p){var r=document.documentElement;if(!p){['bg-primary','bg-secondary','bg-tertiary','border','text-primary','text-secondary','text-muted','accent','accent-secondary','accent-hover','error','success','warning','orange','user-bubble','user-bubble-solid','assistant-bubble'].forEach(function(k){r.style.removeProperty('--'+k)});return}Object.keys(p).forEach(function(k){r.style.setProperty('--'+k,p[k])})}window.addEventListener('DOMContentLoaded',function(){if(!window.pocketAgent)return;Promise.all([window.pocketAgent.themes.list(),window.pocketAgent.themes.getSkin()]).then(function(res){var themes=res[0],skinId=res[1],t=themes[skinId];if(t)_apply(t.palette);window.pocketAgent.themes.onSkinChanged(function(id){var th=themes[id];if(th)_apply(th.palette)})}).catch(function(){})})})();
   </script>
 </head>
 <body>
@@ -703,9 +703,9 @@
     // === Agent Name ===
     async function loadAgentName() {
       try {
-        const name = await window.pocketAgent.getSetting('personalize.agentName');
+        const name = await window.pocketAgent.settings.get('personalize.agentName');
         document.getElementById('agent-name-input').value = name || 'Frankie';
-        const description = await window.pocketAgent.getSetting('personalize.description');
+        const description = await window.pocketAgent.settings.get('personalize.description');
         document.getElementById('agent-description').value = description || '';
       } catch (error) {
         console.error('Error loading agent name:', error);
@@ -716,8 +716,8 @@
       const name = document.getElementById('agent-name-input').value.trim() || 'Frankie';
       const description = document.getElementById('agent-description').value.trim();
       try {
-        await window.pocketAgent.setSetting('personalize.agentName', name);
-        await window.pocketAgent.setSetting('personalize.description', description);
+        await window.pocketAgent.settings.set('personalize.agentName', name);
+        await window.pocketAgent.settings.set('personalize.description', description);
         showToast('Saved! Reboot me to apply', 'success');
         activateReboot();
       } catch (error) {
@@ -729,7 +729,7 @@
     // === Personality ===
     async function loadPersonality() {
       try {
-        const personality = await window.pocketAgent.getSetting('personalize.personality');
+        const personality = await window.pocketAgent.settings.get('personalize.personality');
         document.getElementById('personality-editor').value = personality || '';
       } catch (error) {
         console.error('Error loading personality:', error);
@@ -739,7 +739,7 @@
     async function savePersonality() {
       const content = document.getElementById('personality-editor').value;
       try {
-        await window.pocketAgent.setSetting('personalize.personality', content);
+        await window.pocketAgent.settings.set('personalize.personality', content);
         showToast('Saved! Reboot me to apply', 'success');
         activateReboot();
       } catch (error) {
@@ -751,9 +751,9 @@
     // === World (Goals, Struggles, Fun Facts) ===
     async function loadWorld() {
       try {
-        const goals = await window.pocketAgent.getSetting('personalize.goals');
-        const struggles = await window.pocketAgent.getSetting('personalize.struggles');
-        const funFacts = await window.pocketAgent.getSetting('personalize.funFacts');
+        const goals = await window.pocketAgent.settings.get('personalize.goals');
+        const struggles = await window.pocketAgent.settings.get('personalize.struggles');
+        const funFacts = await window.pocketAgent.settings.get('personalize.funFacts');
         document.getElementById('world-goals').value = goals || '';
         document.getElementById('world-struggles').value = struggles || '';
         document.getElementById('world-funfacts').value = funFacts || '';
@@ -764,9 +764,9 @@
 
     async function saveWorld() {
       try {
-        await window.pocketAgent.setSetting('personalize.goals', document.getElementById('world-goals').value);
-        await window.pocketAgent.setSetting('personalize.struggles', document.getElementById('world-struggles').value);
-        await window.pocketAgent.setSetting('personalize.funFacts', document.getElementById('world-funfacts').value);
+        await window.pocketAgent.settings.set('personalize.goals', document.getElementById('world-goals').value);
+        await window.pocketAgent.settings.set('personalize.struggles', document.getElementById('world-struggles').value);
+        await window.pocketAgent.settings.set('personalize.funFacts', document.getElementById('world-funfacts').value);
         showToast('Saved! Reboot me to apply', 'success');
         activateReboot();
       } catch (error) {
@@ -778,7 +778,7 @@
     // === System Prompt ===
     async function loadSystemPrompt() {
       try {
-        const content = await window.pocketAgent.getSystemPrompt();
+        const content = await window.pocketAgent.customize.getSystemPrompt();
         document.getElementById('system-prompt-display').textContent = content || '(agent not initialized)';
       } catch (error) {
         console.error('Error loading system prompt:', error);
@@ -807,7 +807,7 @@
       if (btn && btn.disabled) return;
       showToast('Rebooting...', 'success');
       try {
-        await window.pocketAgent.restartAgent();
+        await window.pocketAgent.agent.restart();
         deactivateReboot();
         showToast('Back online!', 'success');
       } catch (error) {
@@ -832,7 +832,7 @@
 
     async function loadTimezones() {
       try {
-        const timezones = await window.pocketAgent.getTimezones();
+        const timezones = await window.pocketAgent.location.getTimezones();
         const select = document.getElementById('profile-timezone');
         const grouped = {};
         timezones.forEach(tz => {
@@ -859,11 +859,11 @@
     async function loadProfile() {
       try {
         for (const field of profileFields) {
-          const value = await window.pocketAgent.getSetting(`profile.${field}`);
+          const value = await window.pocketAgent.settings.get(`profile.${field}`);
           const input = document.getElementById(`profile-${field}`);
           if (input) input.value = value || '';
         }
-        const birthday = await window.pocketAgent.getSetting('profile.birthday');
+        const birthday = await window.pocketAgent.settings.get('profile.birthday');
         if (birthday) {
           const match = birthday.match(/^([A-Za-z]+)\s+(\d{1,2})$/);
           if (match) {
@@ -883,12 +883,12 @@
       try {
         for (const field of profileFields) {
           const input = document.getElementById(`profile-${field}`);
-          if (input) await window.pocketAgent.setSetting(`profile.${field}`, input.value);
+          if (input) await window.pocketAgent.settings.set(`profile.${field}`, input.value);
         }
         const month = document.getElementById('profile-birthday-month').value;
         const day = document.getElementById('profile-birthday-day').value;
         const birthday = month && day ? `${month} ${day}` : '';
-        await window.pocketAgent.setSetting('profile.birthday', birthday);
+        await window.pocketAgent.settings.set('profile.birthday', birthday);
         status.textContent = 'Saved! Reboot me to apply';
         showToast('Got it! Reboot me to apply', 'success');
         activateReboot();
@@ -911,7 +911,7 @@
 
         locationLookupTimeout = setTimeout(async () => {
           try {
-            const results = await window.pocketAgent.lookupLocation(query);
+            const results = await window.pocketAgent.location.lookup(query);
             if (results.length === 0) { dropdown.classList.remove('show'); return; }
 
             dropdown.innerHTML = results.map(r => `

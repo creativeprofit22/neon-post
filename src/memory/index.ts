@@ -1,144 +1,100 @@
 import Database from 'better-sqlite3';
 import {
-  initEmbeddings,
-  hasEmbeddings,
-  embed,
-  cosineSimilarity,
-  serializeEmbedding,
-  deserializeEmbedding,
-} from './embeddings';
+  type Message,
+  type SmartContextOptions,
+  type SmartContext,
+  type SummarizerFn,
+  saveMessage as _saveMessage,
+  getRecentMessages as _getRecentMessages,
+  getMessageCount as _getMessageCount,
+  getSmartContext as _getSmartContext,
+  embedMessage as _embedMessage,
+  embedRecentMessages as _embedRecentMessages,
+} from './messages';
+import {
+  type DailyLog,
+  getDailyLog as _getDailyLog,
+  appendToDailyLog as _appendToDailyLog,
+  getDailyLogsSince as _getDailyLogsSince,
+  getDailyLogsContext as _getDailyLogsContext,
+} from './daily-logs';
+import {
+  createSoulCache,
+  setSoulAspect as _setSoulAspect,
+  getSoulAspect as _getSoulAspect,
+  getAllSoulAspects as _getAllSoulAspects,
+  deleteSoulAspect as _deleteSoulAspect,
+  deleteSoulAspectById as _deleteSoulAspectById,
+  getSoulContext as _getSoulContext,
+} from './soul';
+import type { SoulCache, SoulAspect } from './soul';
+import {
+  type CronJob,
+  saveCronJob as _saveCronJob,
+  getCronJobs as _getCronJobs,
+  setCronJobEnabled as _setCronJobEnabled,
+  deleteCronJob as _deleteCronJob,
+} from './cron-jobs';
+import {
+  type TelegramChatSession,
+  linkTelegramChat as _linkTelegramChat,
+  unlinkTelegramChat as _unlinkTelegramChat,
+  getSessionForChat as _getSessionForChat,
+  getChatForSession as _getChatForSession,
+  getAllTelegramChatSessions as _getAllTelegramChatSessions,
+} from './telegram-sessions';
+import {
+  createFactsCache,
+  initializeEmbeddings as _initializeEmbeddings,
+  embedMissingFacts as _embedMissingFacts,
+  saveFact as _saveFact,
+  getAllFacts as _getAllFacts,
+  getFactsForContext as _getFactsForContext,
+  deleteFact as _deleteFact,
+  deleteFactBySubject as _deleteFactBySubject,
+  searchFactsHybrid as _searchFactsHybrid,
+  searchFacts as _searchFacts,
+  getFactsByCategory as _getFactsByCategory,
+  getFactCategories as _getFactCategories,
+} from './facts';
+import type { FactsCache, Fact, SearchResult } from './facts';
+import {
+  type Session,
+  createSession as _createSession,
+  getSession as _getSession,
+  getSessionByName as _getSessionByName,
+  getSessions as _getSessions,
+  getSessionWorkingDirectory as _getSessionWorkingDirectory,
+  setSessionWorkingDirectory as _setSessionWorkingDirectory,
+  renameSession as _renameSession,
+  deleteSession as _deleteSession,
+  touchSession as _touchSession,
+  getSessionMessageCount as _getSessionMessageCount,
+  getSessionMode as _getSessionMode,
+  setSessionMode as _setSessionMode,
+  getSdkSessionId as _getSdkSessionId,
+  setSdkSessionId as _setSdkSessionId,
+  clearSdkSessionId as _clearSdkSessionId,
+} from './sessions';
 
 // Types
-export interface Session {
-  id: string;
-  name: string;
-  mode?: 'general' | 'coder';
-  working_directory?: string | null;
-  created_at: string;
-  updated_at: string;
-  telegram_linked?: boolean;
-  telegram_group_name?: string | null;
-}
-
-export interface Message {
-  id: number;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: string;
-  token_count?: number;
-  session_id?: string;
-  metadata?: Record<string, unknown>;
-}
-
-export interface Fact {
-  id: number;
-  category: string;
-  subject: string;
-  content: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CronJob {
-  id: number;
-  name: string;
-  schedule_type?: string;
-  schedule: string | null;
-  run_at?: string | null;
-  interval_ms?: number | null;
-  prompt: string;
-  channel: string;
-  enabled: boolean;
-  delete_after_run?: boolean;
-  context_messages?: number;
-  next_run_at?: string | null;
-  session_id?: string | null;
-  job_type?: 'routine' | 'reminder';
-}
-
-export interface SmartContextOptions {
-  recentMessageLimit: number; // Number of recent messages to include
-  rollingSummaryInterval: number; // Create summaries every N messages
-  semanticRetrievalCount: number; // Number of semantically relevant messages to retrieve
-  currentQuery?: string; // Current user query for semantic search
-}
-
-export interface SmartContext {
-  recentMessages: Array<{ role: string; content: string; timestamp?: string }>;
-  rollingSummary: string | null;
-  relevantMessages: Array<{
-    role: string;
-    content: string;
-    timestamp?: string;
-    similarity?: number;
-  }>;
-  totalTokens: number;
-  stats: {
-    totalMessages: number;
-    summarizedMessages: number;
-    recentCount: number;
-    relevantCount: number;
-    newSummaryCreated: boolean; // True if a new rolling summary was created this turn
-  };
-}
-
-export interface SearchResult {
-  fact: Fact;
-  score: number;
-  vectorScore: number;
-  keywordScore: number;
-}
-
-export interface DailyLog {
-  id: number;
-  date: string;
-  content: string;
-  updated_at: string;
-}
-
-export interface TelegramChatSession {
-  chat_id: number;
-  session_id: string;
-  group_name: string | null;
-  created_at: string;
-}
-
-export interface SoulAspect {
-  id: number;
-  aspect: string;
-  content: string;
-  created_at: string;
-  updated_at: string;
-}
-
-// Summarizer function type - injected to avoid circular dependency with agent
-export type SummarizerFn = (messages: Message[]) => Promise<string>;
-
-// Token estimation: ~4 characters per token
-const CHARS_PER_TOKEN = 4;
-
-// Search weights
-const VECTOR_WEIGHT = 0.7;
-const KEYWORD_WEIGHT = 0.3;
-const MIN_SCORE_THRESHOLD = 0.35;
-const MAX_SEARCH_RESULTS = 6;
-
-function estimateTokens(text: string): number {
-  return Math.ceil(text.length / CHARS_PER_TOKEN);
-}
+export type { Session } from './sessions';
+export type { Message, SmartContextOptions, SmartContext, SummarizerFn } from './messages';
+export type { Fact, SearchResult } from './facts';
+export type { CronJob } from './cron-jobs';
+export type { DailyLog } from './daily-logs';
+export type { TelegramChatSession } from './telegram-sessions';
+export type { SoulAspect } from './soul';
 
 export class MemoryManager {
   private db: Database.Database;
   private summarizer?: SummarizerFn;
-  private embeddingsReady: boolean = false;
 
-  // Cache for facts context (invalidated on fact changes)
-  private factsContextCache: string | null = null;
-  private factsContextCacheValid: boolean = false;
+  // Cache for facts context + embeddings state — owned by FactsRepository
+  private factsCache: FactsCache = createFactsCache();
 
-  // Cache for soul context (invalidated on soul changes)
-  private soulContextCache: string | null = null;
-  private soulContextCacheValid: boolean = false;
+  // Cache for soul context (invalidated on soul changes) — owned by SoulRepository
+  private soulCache: SoulCache = createSoulCache();
 
   constructor(dbPath: string) {
     this.db = new Database(dbPath);
@@ -585,74 +541,12 @@ export class MemoryManager {
    * Initialize embeddings with OpenAI API key
    */
   initializeEmbeddings(openaiApiKey: string): void {
-    initEmbeddings(openaiApiKey);
-    this.embeddingsReady = true;
-    console.log('[Memory] Embeddings initialized');
+    _initializeEmbeddings(openaiApiKey, this.factsCache);
 
     // Embed any facts that don't have embeddings
-    this.embedMissingFacts().catch((err) => {
+    _embedMissingFacts(this.db).catch((err) => {
       console.error('[Memory] Failed to embed missing facts:', err);
     });
-  }
-
-  /**
-   * Embed facts that don't have embeddings yet
-   */
-  private async embedMissingFacts(): Promise<void> {
-    if (!hasEmbeddings()) return;
-
-    const factsWithoutEmbeddings = this.db
-      .prepare(
-        `
-      SELECT f.id, f.category, f.subject, f.content
-      FROM facts f
-      LEFT JOIN chunks c ON f.id = c.fact_id
-      WHERE c.id IS NULL
-    `
-      )
-      .all() as Fact[];
-
-    if (factsWithoutEmbeddings.length === 0) return;
-
-    console.log(`[Memory] Embedding ${factsWithoutEmbeddings.length} facts...`);
-
-    // Process in parallel batches of 5 to avoid rate limits
-    const batchSize = 5;
-    for (let i = 0; i < factsWithoutEmbeddings.length; i += batchSize) {
-      const batch = factsWithoutEmbeddings.slice(i, i + batchSize);
-      await Promise.all(batch.map((fact) => this.embedFact(fact)));
-    }
-
-    console.log('[Memory] Finished embedding facts');
-  }
-
-  /**
-   * Generate and store embedding for a fact
-   */
-  private async embedFact(fact: Fact): Promise<void> {
-    if (!hasEmbeddings()) return;
-
-    try {
-      // Combine fact fields for embedding
-      const textToEmbed = `${fact.category}: ${fact.subject} - ${fact.content}`;
-      const embedding = await embed(textToEmbed);
-      const embeddingBuffer = serializeEmbedding(embedding);
-
-      // Delete existing chunk for this fact
-      this.db.prepare('DELETE FROM chunks WHERE fact_id = ?').run(fact.id);
-
-      // Insert new chunk with embedding
-      this.db
-        .prepare(
-          `
-        INSERT INTO chunks (fact_id, content, embedding)
-        VALUES (?, ?, ?)
-      `
-        )
-        .run(fact.id, textToEmbed, embeddingBuffer);
-    } catch (err) {
-      console.error(`[Memory] Failed to embed fact ${fact.id}:`, err);
-    }
   }
 
   /**
@@ -664,252 +558,56 @@ export class MemoryManager {
 
   // ============ SESSION METHODS ============
 
-  /**
-   * Create a new session
-   * @throws Error if session name already exists
-   */
   createSession(
     name: string,
     mode: 'general' | 'coder' = 'coder',
     workingDirectory?: string | null
   ): Session {
-    // Check for duplicate name
-    const existing = this.getSessionByName(name);
-    if (existing) {
-      throw new Error(`Session name "${name}" already exists`);
-    }
-
-    const id = `session-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    this.db
-      .prepare(
-        `
-      INSERT INTO sessions (id, name, mode, working_directory, created_at, updated_at)
-      VALUES (?, ?, ?, ?, (strftime('%Y-%m-%dT%H:%M:%fZ')), (strftime('%Y-%m-%dT%H:%M:%fZ')))
-    `
-      )
-      .run(id, name, mode, workingDirectory ?? null);
-
-    return this.getSession(id)!;
+    return _createSession(this.db, name, mode, workingDirectory);
   }
 
-  /**
-   * Get a session by name (exact match)
-   */
   getSessionByName(name: string): Session | null {
-    const row = this.db
-      .prepare(
-        `
-      SELECT id, name, mode, working_directory, created_at, updated_at
-      FROM sessions
-      WHERE name = ?
-    `
-      )
-      .get(name) as Session | undefined;
-
-    return row || null;
+    return _getSessionByName(this.db, name);
   }
 
-  /**
-   * Get a session by ID
-   */
   getSession(id: string): Session | null {
-    const row = this.db
-      .prepare(
-        `
-      SELECT id, name, mode, working_directory, created_at, updated_at
-      FROM sessions
-      WHERE id = ?
-    `
-      )
-      .get(id) as Session | undefined;
-
-    return row || null;
+    return _getSession(this.db, id);
   }
 
-  /**
-   * Get all sessions, ordered by most recent activity
-   * Includes telegram link status
-   */
   getSessions(): Session[] {
-    interface SessionRow {
-      id: string;
-      name: string;
-      mode: string | null;
-      working_directory: string | null;
-      created_at: string;
-      updated_at: string;
-      telegram_linked: number;
-      telegram_group_name: string | null;
-    }
-    const rows = this.db
-      .prepare(
-        `
-      SELECT
-        s.id,
-        s.name,
-        s.mode,
-        s.working_directory,
-        s.created_at,
-        s.updated_at,
-        CASE WHEN t.chat_id IS NOT NULL THEN 1 ELSE 0 END as telegram_linked,
-        t.group_name as telegram_group_name
-      FROM sessions s
-      LEFT JOIN telegram_chat_sessions t ON s.id = t.session_id
-      GROUP BY s.id
-      ORDER BY s.updated_at DESC
-    `
-      )
-      .all() as SessionRow[];
-    return rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      mode: (row.mode as 'general' | 'coder') || 'coder',
-      working_directory: row.working_directory,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      telegram_linked: !!row.telegram_linked,
-      telegram_group_name: row.telegram_group_name,
-    }));
+    return _getSessions(this.db);
   }
 
-  /**
-   * Get the working directory for a session (null means use root workspace)
-   */
   getSessionWorkingDirectory(sessionId: string): string | null {
-    const row = this.db
-      .prepare('SELECT working_directory FROM sessions WHERE id = ?')
-      .get(sessionId) as { working_directory: string | null } | undefined;
-    return row?.working_directory ?? null;
+    return _getSessionWorkingDirectory(this.db, sessionId);
   }
 
-  /**
-   * Set the working directory for a session
-   */
   setSessionWorkingDirectory(sessionId: string, workingDirectory: string | null): void {
-    this.db
-      .prepare(
-        `
-      UPDATE sessions SET working_directory = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ'))
-      WHERE id = ?
-    `
-      )
-      .run(workingDirectory, sessionId);
+    _setSessionWorkingDirectory(this.db, sessionId, workingDirectory);
   }
 
-  /**
-   * Rename a session, optionally updating the working directory
-   * @throws Error if new name already exists
-   */
   renameSession(id: string, name: string, workingDirectory?: string): boolean {
-    // Check for duplicate name (excluding self)
-    const existing = this.getSessionByName(name);
-    if (existing && existing.id !== id) {
-      throw new Error(`Session name "${name}" already exists`);
-    }
-
-    if (workingDirectory !== undefined) {
-      const result = this.db
-        .prepare(
-          `
-        UPDATE sessions SET name = ?, working_directory = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ'))
-        WHERE id = ?
-      `
-        )
-        .run(name, workingDirectory, id);
-      return result.changes > 0;
-    }
-
-    const result = this.db
-      .prepare(
-        `
-      UPDATE sessions SET name = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ'))
-      WHERE id = ?
-    `
-      )
-      .run(name, id);
-
-    return result.changes > 0;
+    return _renameSession(this.db, id, name, workingDirectory);
   }
 
-  /**
-   * Delete a session and all its related data
-   */
   deleteSession(id: string): boolean {
-    // Delete all related data first (due to foreign key constraints)
-    // Order matters: delete child records before parent records
-
-    // Delete message embeddings for messages in this session
-    this.db
-      .prepare(
-        `
-      DELETE FROM message_embeddings
-      WHERE message_id IN (SELECT id FROM messages WHERE session_id = ?)
-    `
-      )
-      .run(id);
-
-    // Delete messages and summaries
-    this.db.prepare('DELETE FROM messages WHERE session_id = ?').run(id);
-    this.db.prepare('DELETE FROM summaries WHERE session_id = ?').run(id);
-    this.db.prepare('DELETE FROM rolling_summaries WHERE session_id = ?').run(id);
-
-    // Delete session-scoped items (calendar, tasks, cron jobs)
-    this.db.prepare('DELETE FROM calendar_events WHERE session_id = ?').run(id);
-    this.db.prepare('DELETE FROM tasks WHERE session_id = ?').run(id);
-    this.db.prepare('DELETE FROM cron_jobs WHERE session_id = ?').run(id);
-
-    // Delete telegram chat session mapping
-    this.db.prepare('DELETE FROM telegram_chat_sessions WHERE session_id = ?').run(id);
-
-    // Finally delete the session itself
-    const result = this.db.prepare('DELETE FROM sessions WHERE id = ?').run(id);
-
-    console.log(`[Memory] Deleted session ${id}: ${result.changes > 0 ? 'success' : 'not found'}`);
-    return result.changes > 0;
+    return _deleteSession(this.db, id);
   }
 
-  /**
-   * Touch session (update updated_at timestamp)
-   */
   touchSession(id: string): void {
-    this.db
-      .prepare(`UPDATE sessions SET updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ')) WHERE id = ?`)
-      .run(id);
+    _touchSession(this.db, id);
   }
 
-  /**
-   * Get session message count
-   */
   getSessionMessageCount(sessionId: string): number {
-    const row = this.db
-      .prepare('SELECT COUNT(*) as c FROM messages WHERE session_id = ?')
-      .get(sessionId) as { c: number };
-    return row.c;
+    return _getSessionMessageCount(this.db, sessionId);
   }
 
-  /**
-   * Get the mode for a session (defaults to 'coder' for legacy sessions)
-   */
   getSessionMode(sessionId: string): 'general' | 'coder' {
-    const row = this.db.prepare('SELECT mode FROM sessions WHERE id = ?').get(sessionId) as
-      | { mode: string | null }
-      | undefined;
-    return (row?.mode as 'general' | 'coder') || 'coder';
+    return _getSessionMode(this.db, sessionId);
   }
 
-  /**
-   * Set the mode for a session (only allowed when session has no messages)
-   */
   setSessionMode(sessionId: string, mode: 'general' | 'coder'): boolean {
-    const result = this.db
-      .prepare(
-        `
-      UPDATE sessions SET mode = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ'))
-      WHERE id = ?
-    `
-      )
-      .run(mode, sessionId);
-    return result.changes > 0;
+    return _setSessionMode(this.db, sessionId, mode);
   }
 
   // ============ TELEGRAM CHAT SESSION METHODS ============
@@ -918,180 +616,53 @@ export class MemoryManager {
    * Link a Telegram chat to a session
    */
   linkTelegramChat(chatId: number, sessionId: string, groupName?: string): boolean {
-    try {
-      this.db
-        .prepare(
-          `
-        INSERT INTO telegram_chat_sessions (chat_id, session_id, group_name)
-        VALUES (?, ?, ?)
-        ON CONFLICT(chat_id) DO UPDATE SET
-          session_id = excluded.session_id,
-          group_name = excluded.group_name
-      `
-        )
-        .run(chatId, sessionId, groupName || null);
-      return true;
-    } catch (err) {
-      console.error('[Memory] Failed to link Telegram chat:', err);
-      return false;
-    }
+    return _linkTelegramChat(this.db, chatId, sessionId, groupName);
   }
 
   /**
    * Unlink a Telegram chat from its session
    */
   unlinkTelegramChat(chatId: number): boolean {
-    const result = this.db
-      .prepare('DELETE FROM telegram_chat_sessions WHERE chat_id = ?')
-      .run(chatId);
-    return result.changes > 0;
+    return _unlinkTelegramChat(this.db, chatId);
   }
 
   /**
    * Get the session ID for a Telegram chat
    */
   getSessionForChat(chatId: number): string | null {
-    const row = this.db
-      .prepare(
-        `
-      SELECT session_id FROM telegram_chat_sessions WHERE chat_id = ?
-    `
-      )
-      .get(chatId) as { session_id: string } | undefined;
-    return row?.session_id || null;
+    return _getSessionForChat(this.db, chatId);
   }
 
   /**
    * Get the Telegram chat ID for a session
    */
   getChatForSession(sessionId: string): number | null {
-    const row = this.db
-      .prepare(
-        `
-      SELECT chat_id FROM telegram_chat_sessions WHERE session_id = ?
-    `
-      )
-      .get(sessionId) as { chat_id: number } | undefined;
-    return row?.chat_id || null;
+    return _getChatForSession(this.db, sessionId);
   }
 
   /**
    * Get all Telegram chat to session mappings
    */
   getAllTelegramChatSessions(): TelegramChatSession[] {
-    return this.db
-      .prepare(
-        `
-      SELECT chat_id, session_id, group_name, created_at
-      FROM telegram_chat_sessions
-      ORDER BY created_at DESC
-    `
-      )
-      .all() as TelegramChatSession[];
+    return _getAllTelegramChatSessions(this.db);
   }
 
   // ============ DAILY LOG METHODS ============
 
-  /**
-   * Get today's date in YYYY-MM-DD format
-   */
-  private getTodayDate(): string {
-    return new Date().toISOString().split('T')[0];
-  }
-
-  /**
-   * Get a daily log by date (defaults to today)
-   */
   getDailyLog(date?: string): DailyLog | null {
-    const targetDate = date || this.getTodayDate();
-    const row = this.db
-      .prepare(
-        `
-      SELECT id, date, content, updated_at
-      FROM daily_logs
-      WHERE date = ?
-    `
-      )
-      .get(targetDate) as DailyLog | undefined;
-
-    return row || null;
+    return _getDailyLog(this.db, date);
   }
 
-  /**
-   * Append an entry to today's daily log
-   * Creates the log if it doesn't exist
-   */
   appendToDailyLog(entry: string): DailyLog {
-    const today = this.getTodayDate();
-    const timestamp = new Date().toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-    const formattedEntry = `[${timestamp}] ${entry}`;
-
-    const existing = this.getDailyLog(today);
-
-    if (existing) {
-      // Append to existing log
-      const newContent = existing.content + '\n' + formattedEntry;
-      this.db
-        .prepare(
-          `
-        UPDATE daily_logs
-        SET content = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ'))
-        WHERE date = ?
-      `
-        )
-        .run(newContent, today);
-    } else {
-      // Create new log for today
-      this.db
-        .prepare(
-          `
-        INSERT INTO daily_logs (date, content, updated_at)
-        VALUES (?, ?, (strftime('%Y-%m-%dT%H:%M:%fZ')))
-      `
-        )
-        .run(today, formattedEntry);
-    }
-
-    return this.getDailyLog(today)!;
+    return _appendToDailyLog(this.db, entry);
   }
 
-  /**
-   * Get daily logs from the last N calendar days
-   */
   getDailyLogsSince(days: number = 3): DailyLog[] {
-    return this.db
-      .prepare(
-        `
-      SELECT id, date, content, updated_at
-      FROM daily_logs
-      WHERE date >= date('now', ?)
-      ORDER BY date DESC
-    `
-      )
-      .all(`-${days} days`) as DailyLog[];
+    return _getDailyLogsSince(this.db, days);
   }
 
-  /**
-   * Get daily logs as formatted context string for the agent
-   */
   getDailyLogsContext(days: number = 3): string {
-    const logs = this.getDailyLogsSince(days);
-    if (logs.length === 0) {
-      return '';
-    }
-
-    const lines: string[] = ['## Recent Daily Logs'];
-    for (const log of logs.reverse()) {
-      // Show oldest first
-      const dateLabel = log.date === this.getTodayDate() ? 'Today' : log.date;
-      lines.push(`\n### ${dateLabel}`);
-      lines.push(log.content);
-    }
-
-    return lines.join('\n');
+    return _getDailyLogsContext(this.db, days);
   }
 
   // ============ MESSAGE METHODS ============
@@ -1102,750 +673,71 @@ export class MemoryManager {
     sessionId: string = 'default',
     metadata?: Record<string, unknown>
   ): number {
-    const tokenCount = estimateTokens(content);
-    const metadataJson = metadata ? JSON.stringify(metadata) : null;
-    const stmt = this.db.prepare(`
-      INSERT INTO messages (role, content, token_count, session_id, metadata)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-    const result = stmt.run(role, content, tokenCount, sessionId, metadataJson);
-
-    // Touch session to update activity timestamp
-    this.touchSession(sessionId);
-
-    return result.lastInsertRowid as number;
+    return _saveMessage(this.db, role, content, sessionId, metadata);
   }
 
   getRecentMessages(limit: number = 50, sessionId: string = 'default'): Message[] {
-    const stmt = this.db.prepare(`
-      SELECT id, role, content, timestamp, token_count, session_id, metadata
-      FROM messages
-      WHERE session_id = ?
-      ORDER BY id DESC
-      LIMIT ?
-    `);
-    const rows = stmt.all(sessionId, limit) as Array<Message & { metadata: string | null }>;
-    return rows.reverse().map((row) => ({
-      ...row,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
-    }));
+    return _getRecentMessages(this.db, limit, sessionId);
   }
 
   getMessageCount(sessionId?: string): number {
-    if (sessionId) {
-      const stmt = this.db.prepare('SELECT COUNT(*) as count FROM messages WHERE session_id = ?');
-      const row = stmt.get(sessionId) as { count: number };
-      return row.count;
-    }
-    const stmt = this.db.prepare('SELECT COUNT(*) as count FROM messages');
-    const row = stmt.get() as { count: number };
-    return row.count;
+    return _getMessageCount(this.db, sessionId);
   }
 
-  /**
-   * Get smart context using rolling summaries, recent messages, and semantic retrieval.
-   * This is more efficient than loading all messages into context.
-   */
   async getSmartContext(
     sessionId: string = 'default',
     options: SmartContextOptions
   ): Promise<SmartContext> {
-    const { recentMessageLimit, rollingSummaryInterval, semanticRetrievalCount, currentQuery } =
-      options;
-
-    // 1. Get total message count
-    const totalMessages = this.getMessageCount(sessionId);
-
-    // 2. Get recent messages (last N messages)
-    const recentMessagesQuery = this.db
-      .prepare(
-        `
-      SELECT id, role, content, timestamp, token_count
-      FROM messages
-      WHERE session_id = ?
-      ORDER BY id DESC
-      LIMIT ?
-    `
-      )
-      .all(sessionId, recentMessageLimit) as Message[];
-
-    const recentMessages = recentMessagesQuery.reverse(); // Oldest first
-    const oldestRecentId = recentMessages[0]?.id || 0;
-
-    // 3. Get or create rolling summary for older messages
-    let rollingSummary: string | null = null;
-    let newSummaryCreated = false;
-    const summarizedMessages = totalMessages - recentMessages.length;
-
-    if (summarizedMessages > 0 && oldestRecentId > 1) {
-      const summaryResult = await this.getOrCreateRollingSummary(
-        oldestRecentId,
-        sessionId,
-        rollingSummaryInterval
-      );
-      rollingSummary = summaryResult.summary;
-      newSummaryCreated = summaryResult.newSummaryCreated;
-    }
-
-    // 4. Get semantically relevant messages (if embeddings available and query provided)
-    let relevantMessages: Array<{
-      role: string;
-      content: string;
-      timestamp?: string;
-      similarity?: number;
-    }> = [];
-    if (semanticRetrievalCount > 0 && currentQuery && this.embeddingsReady) {
-      relevantMessages = await this.searchRelevantMessages(
-        currentQuery,
-        sessionId,
-        semanticRetrievalCount,
-        recentMessages.map((m) => m.id) // Exclude recent messages
-      );
-    }
-
-    // 5. Calculate total tokens
-    let totalTokens = 0;
-    for (const msg of recentMessages) {
-      totalTokens += msg.token_count || estimateTokens(msg.content);
-    }
-    if (rollingSummary) {
-      totalTokens += estimateTokens(rollingSummary);
-    }
-    for (const msg of relevantMessages) {
-      totalTokens += estimateTokens(msg.content);
-    }
-
-    console.log(
-      `[Memory] Smart context: ${recentMessages.length} recent, ${summarizedMessages} summarized, ${relevantMessages.length} relevant (${totalTokens} tokens)`
-    );
-
-    return {
-      recentMessages: recentMessages.map((m) => ({
-        role: m.role,
-        content: m.content,
-        timestamp: m.timestamp,
-      })),
-      rollingSummary,
-      relevantMessages,
-      totalTokens,
-      stats: {
-        totalMessages,
-        summarizedMessages,
-        recentCount: recentMessages.length,
-        relevantCount: relevantMessages.length,
-        newSummaryCreated,
-      },
-    };
+    return _getSmartContext(this.db, sessionId, options, {
+      summarizer: this.summarizer,
+      embeddingsReady: this.factsCache.embeddingsReady,
+    });
   }
 
-  /**
-   * Get or create a rolling summary for messages before the given ID.
-   * Creates incremental summaries every N messages.
-   * Returns both the summary and whether a new summary was created this turn.
-   */
-  private async getOrCreateRollingSummary(
-    beforeMessageId: number,
-    sessionId: string,
-    interval: number
-  ): Promise<{ summary: string | null; newSummaryCreated: boolean }> {
-    // Check for existing rolling summary that covers up to beforeMessageId-1
-    const existingRow = this.db
-      .prepare(
-        `
-      SELECT content, end_message_id FROM rolling_summaries
-      WHERE session_id = ? AND end_message_id <= ?
-      ORDER BY end_message_id DESC
-      LIMIT 1
-    `
-      )
-      .get(sessionId, beforeMessageId - 1) as
-      | { content: string; end_message_id: number }
-      | undefined;
-
-    const existingSummary = existingRow ? { content: existingRow.content } : undefined;
-    const lastSummarizedId = existingRow?.end_message_id || 0;
-
-    // Get messages that need summarizing (between last summary and beforeMessageId)
-    // Limit to 500 to prevent loading unbounded message history into memory
-    const unsummarizedMessages = this.db
-      .prepare(
-        `
-      SELECT id, role, content, timestamp
-      FROM messages
-      WHERE session_id = ? AND id > ? AND id < ?
-      ORDER BY id ASC
-      LIMIT 500
-    `
-      )
-      .all(sessionId, lastSummarizedId, beforeMessageId) as Message[];
-
-    // Calculate token count for unsummarized messages
-    const unsummarizedTokens = unsummarizedMessages.reduce(
-      (sum, m) => sum + estimateTokens(m.content),
-      0
-    );
-
-    // Token threshold for triggering summarization (prevents token blowup from long messages)
-    const TOKEN_THRESHOLD = 15000;
-
-    // Trigger summarization if either: enough messages OR too many tokens
-    const shouldSummarize =
-      this.summarizer &&
-      (unsummarizedMessages.length >= interval || unsummarizedTokens >= TOKEN_THRESHOLD);
-
-    if (shouldSummarize && unsummarizedMessages.length > 0) {
-      console.log(
-        `[Memory] Triggering summarization: ${unsummarizedMessages.length} messages, ${unsummarizedTokens} tokens (threshold: ${interval} msgs or ${TOKEN_THRESHOLD} tokens)`
-      );
-      const newSummary = await this.createRollingSummary(
-        unsummarizedMessages,
-        sessionId,
-        existingSummary?.content
-      );
-
-      // Store the new rolling summary
-      const startId = unsummarizedMessages[0].id;
-      const endId = unsummarizedMessages[unsummarizedMessages.length - 1].id;
-
-      this.db
-        .prepare(
-          `
-        INSERT INTO rolling_summaries (session_id, start_message_id, end_message_id, content, token_count)
-        VALUES (?, ?, ?, ?, ?)
-      `
-        )
-        .run(sessionId, startId, endId, newSummary, estimateTokens(newSummary));
-
-      console.log(`[Memory] Created rolling summary for messages ${startId}-${endId}`);
-
-      // Combine with existing summary
-      if (existingSummary?.content) {
-        return { summary: `${existingSummary.content}\n\n${newSummary}`, newSummaryCreated: true };
-      }
-      return { summary: newSummary, newSummaryCreated: true };
-    }
-
-    // Return existing summary combined with basic summary of recent unsummarized
-    if (existingSummary?.content) {
-      if (unsummarizedMessages.length > 0) {
-        const basicSummary = this.createBasicSummary(unsummarizedMessages);
-        return {
-          summary: `${existingSummary.content}\n\n${basicSummary}`,
-          newSummaryCreated: false,
-        };
-      }
-      return { summary: existingSummary.content, newSummaryCreated: false };
-    }
-
-    // No existing summary - create basic summary if we have messages
-    if (unsummarizedMessages.length > 0) {
-      return { summary: this.createBasicSummary(unsummarizedMessages), newSummaryCreated: false };
-    }
-
-    return { summary: null, newSummaryCreated: false };
-  }
-
-  /**
-   * Create a rolling summary from messages, optionally incorporating a previous summary.
-   */
-  private async createRollingSummary(
-    messages: Message[],
-    sessionId: string,
-    previousSummary?: string
-  ): Promise<string> {
-    if (!this.summarizer) {
-      return this.createBasicSummary(messages);
-    }
-
-    try {
-      // If there's a previous summary, include it as context
-      const messagesWithContext = previousSummary
-        ? [
-            {
-              id: 0,
-              role: 'system' as const,
-              content: `[Previous summary]\n${previousSummary}`,
-              timestamp: '',
-            },
-            ...messages,
-          ]
-        : messages;
-
-      const summary = await this.summarizer(messagesWithContext);
-      console.log(
-        `[Memory] Created rolling summary for session ${sessionId} (${messages.length} messages, ${estimateTokens(summary)} tokens)`
-      );
-      return summary;
-    } catch (error) {
-      console.error('[Memory] Rolling summary failed, using basic summary:', error);
-      return this.createBasicSummary(messages);
-    }
-  }
-
-  /**
-   * Search for semantically relevant past messages using embeddings.
-   */
-  private async searchRelevantMessages(
-    query: string,
-    sessionId: string,
-    limit: number,
-    excludeIds: number[]
-  ): Promise<Array<{ role: string; content: string; timestamp?: string; similarity: number }>> {
-    if (!hasEmbeddings()) {
-      return [];
-    }
-
-    try {
-      const queryEmbedding = await embed(query);
-
-      // Get message embeddings (excluding recent messages)
-      const placeholders = excludeIds.length > 0 ? excludeIds.map(() => '?').join(',') : '0';
-      const params = excludeIds.length > 0 ? [sessionId, ...excludeIds] : [sessionId];
-      const embeddings = this.db
-        .prepare(
-          `
-        SELECT me.message_id, me.embedding, m.role, m.content, m.timestamp
-        FROM message_embeddings me
-        JOIN messages m ON me.message_id = m.id
-        WHERE m.session_id = ? AND m.id NOT IN (${placeholders})
-        ORDER BY m.id DESC
-        LIMIT 200
-      `
-        )
-        .all(...params) as Array<{
-        message_id: number;
-        embedding: Buffer;
-        role: string;
-        content: string;
-        timestamp: string;
-      }>;
-
-      if (embeddings.length === 0) {
-        return [];
-      }
-
-      // Calculate similarities
-      const scored = embeddings.map((e) => ({
-        role: e.role,
-        content: e.content,
-        timestamp: e.timestamp,
-        similarity: cosineSimilarity(queryEmbedding, deserializeEmbedding(e.embedding)),
-      }));
-
-      // Sort by similarity and take top N
-      scored.sort((a, b) => b.similarity - a.similarity);
-      const relevant = scored.slice(0, limit).filter((m) => m.similarity > 0.3);
-
-      if (relevant.length > 0) {
-        console.log(
-          `[Memory] Found ${relevant.length} relevant messages (top similarity: ${relevant[0].similarity.toFixed(3)})`
-        );
-      }
-
-      return relevant;
-    } catch (error) {
-      console.error('[Memory] Semantic search failed:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Embed a message and store in message_embeddings table.
-   * Called after saving a message to enable future semantic search.
-   */
   async embedMessage(messageId: number): Promise<void> {
-    if (!hasEmbeddings()) {
-      return;
-    }
-
-    try {
-      const message = this.db
-        .prepare(
-          `
-        SELECT content FROM messages WHERE id = ?
-      `
-        )
-        .get(messageId) as { content: string } | undefined;
-
-      if (!message) return;
-
-      const embedding = await embed(message.content);
-      const embeddingBuffer = serializeEmbedding(embedding);
-
-      this.db
-        .prepare(
-          `
-        INSERT OR REPLACE INTO message_embeddings (message_id, embedding)
-        VALUES (?, ?)
-      `
-        )
-        .run(messageId, embeddingBuffer);
-    } catch (error) {
-      console.error(`[Memory] Failed to embed message ${messageId}:`, error);
-    }
+    return _embedMessage(this.db, messageId);
   }
 
-  /**
-   * Embed recent messages that don't have embeddings yet.
-   * Called periodically to backfill embeddings.
-   */
   async embedRecentMessages(sessionId: string = 'default', limit: number = 50): Promise<number> {
-    if (!hasEmbeddings()) {
-      return 0;
-    }
-
-    const unembeddedMessages = this.db
-      .prepare(
-        `
-      SELECT m.id, m.content
-      FROM messages m
-      LEFT JOIN message_embeddings me ON m.id = me.message_id
-      WHERE m.session_id = ? AND me.id IS NULL
-      ORDER BY m.id DESC
-      LIMIT ?
-    `
-      )
-      .all(sessionId, limit) as Array<{ id: number; content: string }>;
-
-    // Process in sequential batches of 5 to avoid rate limits
-    const batchSize = 5;
-    let embedded = 0;
-    for (let i = 0; i < unembeddedMessages.length; i += batchSize) {
-      const batch = unembeddedMessages.slice(i, i + batchSize);
-      await Promise.all(
-        batch.map(async (msg) => {
-          try {
-            const embedding = await embed(msg.content);
-            const embeddingBuffer = serializeEmbedding(embedding);
-
-            this.db
-              .prepare(
-                `
-              INSERT OR REPLACE INTO message_embeddings (message_id, embedding)
-              VALUES (?, ?)
-            `
-              )
-              .run(msg.id, embeddingBuffer);
-
-            embedded++;
-          } catch (error) {
-            console.error(`[Memory] Failed to embed message ${msg.id}:`, error);
-          }
-        })
-      );
-    }
-
-    if (embedded > 0) {
-      console.log(`[Memory] Embedded ${embedded} messages for session ${sessionId}`);
-    }
-
-    return embedded;
-  }
-
-  private createBasicSummary(messages: Message[]): string {
-    const userMessages = messages.filter((m) => m.role === 'user');
-    const topics = new Set<string>();
-
-    for (const msg of userMessages.slice(-20)) {
-      const topic = msg.content.slice(0, 100).replace(/\n/g, ' ');
-      topics.add(topic);
-    }
-
-    const topicList = Array.from(topics).slice(0, 10);
-    return `Previous conversation (${messages.length} messages) covered:\n${topicList.map((t) => `- ${t}...`).join('\n')}`;
+    return _embedRecentMessages(this.db, sessionId, limit);
   }
 
   // ============ FACT METHODS ============
 
-  /**
-   * Save a fact to long-term memory (with embedding)
-   */
   saveFact(category: string, subject: string, content: string): number {
-    const existing = this.db
-      .prepare(
-        `
-      SELECT id FROM facts WHERE category = ? AND subject = ?
-    `
-      )
-      .get(category, subject) as { id: number } | undefined;
-
-    let factId: number;
-
-    if (existing) {
-      this.db
-        .prepare(
-          `
-        UPDATE facts SET content = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ')) WHERE id = ?
-      `
-        )
-        .run(content, existing.id);
-      factId = existing.id;
-    } else {
-      const stmt = this.db.prepare(`
-        INSERT INTO facts (category, subject, content)
-        VALUES (?, ?, ?)
-      `);
-      const result = stmt.run(category, subject, content);
-      factId = result.lastInsertRowid as number;
-    }
-
-    // Invalidate facts context cache
-    this.factsContextCacheValid = false;
-
-    // Embed the fact asynchronously
-    if (hasEmbeddings()) {
-      const fact: Fact = { id: factId, category, subject, content, created_at: '', updated_at: '' };
-      this.embedFact(fact).catch((err) => {
-        console.error(`[Memory] Failed to embed fact ${factId}:`, err);
-      });
-    }
-
-    return factId;
+    return _saveFact(this.db, category, subject, content, this.factsCache);
   }
 
   getAllFacts(): Fact[] {
-    const stmt = this.db.prepare(`
-      SELECT id, category, subject, content, created_at, updated_at
-      FROM facts
-      ORDER BY category, subject
-    `);
-    return stmt.all() as Fact[];
+    return _getAllFacts(this.db);
   }
 
   getFactsForContext(): string {
-    // Return cached result if valid (avoids repeated DB queries on every message)
-    if (this.factsContextCacheValid && this.factsContextCache !== null) {
-      return this.factsContextCache;
-    }
-
-    const facts = this.getAllFacts();
-    if (facts.length === 0) {
-      this.factsContextCache = '';
-      this.factsContextCacheValid = true;
-      return '';
-    }
-
-    const byCategory = new Map<string, Fact[]>();
-    for (const fact of facts) {
-      const list = byCategory.get(fact.category) || [];
-      list.push(fact);
-      byCategory.set(fact.category, list);
-    }
-
-    const lines: string[] = ['## Known Facts'];
-    for (const [category, categoryFacts] of byCategory) {
-      lines.push(`\n### ${category}`);
-      for (const fact of categoryFacts) {
-        if (fact.subject) {
-          lines.push(`- **${fact.subject}**: ${fact.content}`);
-        } else {
-          lines.push(`- ${fact.content}`);
-        }
-      }
-    }
-
-    const result = lines.join('\n');
-    this.factsContextCache = result;
-    this.factsContextCacheValid = true;
-    return result;
+    return _getFactsForContext(this.db, this.factsCache);
   }
 
   deleteFact(id: number): boolean {
-    // Chunks will be deleted by CASCADE
-    const stmt = this.db.prepare('DELETE FROM facts WHERE id = ?');
-    const result = stmt.run(id);
-    if (result.changes > 0) {
-      this.factsContextCacheValid = false; // Invalidate cache
-    }
-    return result.changes > 0;
+    return _deleteFact(this.db, id, this.factsCache);
   }
 
   deleteFactBySubject(category: string, subject: string): boolean {
-    const stmt = this.db.prepare('DELETE FROM facts WHERE category = ? AND subject = ?');
-    const result = stmt.run(category, subject);
-    if (result.changes > 0) {
-      this.factsContextCacheValid = false; // Invalidate cache
-    }
-    return result.changes > 0;
+    return _deleteFactBySubject(this.db, category, subject, this.factsCache);
   }
 
-  /**
-   * Hybrid semantic + keyword search for facts
-   */
   async searchFactsHybrid(query: string): Promise<SearchResult[]> {
-    const results: Map<number, SearchResult> = new Map();
-
-    // Determine weights based on whether embeddings are available
-    const embeddingsAvailable = hasEmbeddings();
-    const vectorWeight = embeddingsAvailable ? VECTOR_WEIGHT : 0;
-    const keywordWeight = embeddingsAvailable ? KEYWORD_WEIGHT : 1.0; // 100% weight when no embeddings
-    const scoreThreshold = embeddingsAvailable ? MIN_SCORE_THRESHOLD : 0.15; // Lower threshold for keyword-only
-
-    // 1. Vector search (if embeddings available)
-    if (embeddingsAvailable) {
-      try {
-        const queryEmbedding = await embed(query);
-
-        // Limit chunks to prevent loading entire table into memory
-        const chunks = this.db
-          .prepare(
-            `
-          SELECT c.fact_id, c.embedding, f.id, f.category, f.subject, f.content, f.created_at, f.updated_at
-          FROM chunks c
-          JOIN facts f ON c.fact_id = f.id
-          WHERE c.embedding IS NOT NULL
-          ORDER BY c.created_at DESC
-          LIMIT 500
-        `
-          )
-          .all() as Array<{
-          fact_id: number;
-          embedding: Buffer;
-          id: number;
-          category: string;
-          subject: string;
-          content: string;
-          created_at: string;
-          updated_at: string;
-        }>;
-
-        for (const chunk of chunks) {
-          const chunkEmbedding = deserializeEmbedding(chunk.embedding);
-          // Validate embedding before computing similarity
-          if (
-            !chunkEmbedding ||
-            chunkEmbedding.length === 0 ||
-            chunkEmbedding.length !== queryEmbedding.length
-          ) {
-            continue; // Skip invalid embeddings
-          }
-          const similarity = cosineSimilarity(queryEmbedding, chunkEmbedding);
-
-          const fact: Fact = {
-            id: chunk.id,
-            category: chunk.category,
-            subject: chunk.subject,
-            content: chunk.content,
-            created_at: chunk.created_at,
-            updated_at: chunk.updated_at,
-          };
-
-          results.set(chunk.id, {
-            fact,
-            score: similarity * vectorWeight,
-            vectorScore: similarity,
-            keywordScore: 0,
-          });
-        }
-      } catch (err) {
-        console.error('[Memory] Vector search failed:', err);
-      }
-    }
-
-    // 2. Keyword search using FTS5
-    try {
-      // Escape special FTS5 characters and create search query
-      const escapedQuery = query.replace(/['"]/g, '').trim();
-      if (escapedQuery) {
-        const ftsResults = this.db
-          .prepare(
-            `
-          SELECT f.id, f.category, f.subject, f.content, f.created_at, f.updated_at,
-                 bm25(facts_fts) as rank
-          FROM facts_fts
-          JOIN facts f ON facts_fts.rowid = f.id
-          WHERE facts_fts MATCH ?
-          ORDER BY rank
-          LIMIT 20
-        `
-          )
-          .all(`"${escapedQuery}" OR ${escapedQuery.split(/\s+/).join(' OR ')}`) as Array<
-          Fact & { rank: number }
-        >;
-
-        // Normalize keyword scores (BM25 returns negative values, lower is better)
-        const maxRank = Math.max(...ftsResults.map((r) => Math.abs(r.rank)), 1);
-
-        for (const ftsResult of ftsResults) {
-          const normalizedScore = 1 - Math.abs(ftsResult.rank) / maxRank;
-          const existing = results.get(ftsResult.id);
-
-          if (existing) {
-            existing.keywordScore = normalizedScore;
-            existing.score += normalizedScore * keywordWeight;
-          } else {
-            const fact: Fact = {
-              id: ftsResult.id,
-              category: ftsResult.category,
-              subject: ftsResult.subject,
-              content: ftsResult.content,
-              created_at: ftsResult.created_at,
-              updated_at: ftsResult.updated_at,
-            };
-
-            results.set(ftsResult.id, {
-              fact,
-              score: normalizedScore * keywordWeight,
-              vectorScore: 0,
-              keywordScore: normalizedScore,
-            });
-          }
-        }
-      }
-    } catch (err) {
-      console.error('[Memory] Keyword search failed:', err);
-    }
-
-    // 3. Sort by score and filter
-    const sortedResults = Array.from(results.values())
-      .filter((r) => r.score >= scoreThreshold)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, MAX_SEARCH_RESULTS);
-
-    return sortedResults;
+    return _searchFactsHybrid(this.db, query);
   }
 
-  /**
-   * Simple search (fallback, no embeddings)
-   */
   searchFacts(query: string, category?: string): Fact[] {
-    const searchPattern = `%${query}%`;
-
-    if (category) {
-      const stmt = this.db.prepare(`
-        SELECT id, category, subject, content, created_at, updated_at
-        FROM facts
-        WHERE category = ? AND (content LIKE ? OR subject LIKE ?)
-        ORDER BY updated_at DESC
-      `);
-      return stmt.all(category, searchPattern, searchPattern) as Fact[];
-    }
-
-    const stmt = this.db.prepare(`
-      SELECT id, category, subject, content, created_at, updated_at
-      FROM facts
-      WHERE content LIKE ? OR subject LIKE ? OR category LIKE ?
-      ORDER BY updated_at DESC
-    `);
-    return stmt.all(searchPattern, searchPattern, searchPattern) as Fact[];
+    return _searchFacts(this.db, query, category);
   }
 
   getFactsByCategory(category: string): Fact[] {
-    const stmt = this.db.prepare(`
-      SELECT id, category, subject, content, created_at, updated_at
-      FROM facts
-      WHERE category = ?
-      ORDER BY subject, updated_at DESC
-    `);
-    return stmt.all(category) as Fact[];
+    return _getFactsByCategory(this.db, category);
   }
 
   getFactCategories(): string[] {
-    const stmt = this.db.prepare(`
-      SELECT DISTINCT category FROM facts ORDER BY category
-    `);
-    const rows = stmt.all() as { category: string }[];
-    return rows.map((r) => r.category);
+    return _getFactCategories(this.db);
   }
 
   // ============ CRON JOB METHODS ============
@@ -1857,60 +749,19 @@ export class MemoryManager {
     channel: string = 'default',
     sessionId: string = 'default'
   ): number {
-    const stmt = this.db.prepare(`
-      INSERT INTO cron_jobs (name, schedule, prompt, channel, session_id)
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(name) DO UPDATE SET
-        schedule = excluded.schedule,
-        prompt = excluded.prompt,
-        channel = excluded.channel,
-        session_id = excluded.session_id
-    `);
-    const result = stmt.run(name, schedule, prompt, channel, sessionId);
-    return result.lastInsertRowid as number;
+    return _saveCronJob(this.db, name, schedule, prompt, channel, sessionId);
   }
 
   getCronJobs(enabledOnly: boolean = true): CronJob[] {
-    const query = enabledOnly
-      ? 'SELECT * FROM cron_jobs WHERE enabled = 1'
-      : 'SELECT * FROM cron_jobs';
-    const stmt = this.db.prepare(query);
-    const rows = stmt.all() as Array<{
-      id: number;
-      name: string;
-      schedule_type: string;
-      schedule: string | null;
-      run_at: string | null;
-      interval_ms: number | null;
-      prompt: string;
-      channel: string;
-      enabled: number;
-      delete_after_run: number;
-      context_messages: number;
-      next_run_at: string | null;
-      session_id: string | null;
-      job_type: string | null;
-    }>;
-    return rows.map((r) => ({
-      ...r,
-      enabled: r.enabled === 1,
-      delete_after_run: r.delete_after_run === 1,
-      job_type: (r.job_type || 'routine') as 'routine' | 'reminder',
-    }));
+    return _getCronJobs(this.db, enabledOnly);
   }
 
   setCronJobEnabled(name: string, enabled: boolean): boolean {
-    const stmt = this.db.prepare(`
-      UPDATE cron_jobs SET enabled = ? WHERE name = ?
-    `);
-    const result = stmt.run(enabled ? 1 : 0, name);
-    return result.changes > 0;
+    return _setCronJobEnabled(this.db, name, enabled);
   }
 
   deleteCronJob(name: string): boolean {
-    const stmt = this.db.prepare('DELETE FROM cron_jobs WHERE name = ?');
-    const result = stmt.run(name);
-    return result.changes > 0;
+    return _deleteCronJob(this.db, name);
   }
 
   // ============ UTILITY METHODS ============
@@ -1980,151 +831,42 @@ export class MemoryManager {
 
   // ============ SDK SESSION PERSISTENCE ============
 
-  /**
-   * Get the SDK session ID for a given app session
-   */
   getSdkSessionId(sessionId: string): string | null {
-    const row = this.db
-      .prepare('SELECT sdk_session_id FROM sessions WHERE id = ?')
-      .get(sessionId) as { sdk_session_id: string | null } | undefined;
-    return row?.sdk_session_id ?? null;
+    return _getSdkSessionId(this.db, sessionId);
   }
 
-  /**
-   * Store the SDK session ID for a given app session
-   */
   setSdkSessionId(sessionId: string, sdkSessionId: string): void {
-    this.db
-      .prepare('UPDATE sessions SET sdk_session_id = ? WHERE id = ?')
-      .run(sdkSessionId, sessionId);
+    _setSdkSessionId(this.db, sessionId, sdkSessionId);
   }
 
-  /**
-   * Clear the SDK session ID for a given app session (forces fresh start)
-   */
   clearSdkSessionId(sessionId: string): void {
-    this.db.prepare('UPDATE sessions SET sdk_session_id = NULL WHERE id = ?').run(sessionId);
+    _clearSdkSessionId(this.db, sessionId);
   }
 
   // ============ SOUL METHODS ============
 
-  /**
-   * Set or update a soul aspect
-   */
   setSoulAspect(aspect: string, content: string): number {
-    const existing = this.db
-      .prepare(
-        `
-      SELECT id FROM soul WHERE aspect = ?
-    `
-      )
-      .get(aspect) as { id: number } | undefined;
-
-    let aspectId: number;
-
-    if (existing) {
-      this.db
-        .prepare(
-          `
-        UPDATE soul SET content = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ')) WHERE id = ?
-      `
-        )
-        .run(content, existing.id);
-      aspectId = existing.id;
-    } else {
-      const stmt = this.db.prepare(`
-        INSERT INTO soul (aspect, content)
-        VALUES (?, ?)
-      `);
-      const result = stmt.run(aspect, content);
-      aspectId = result.lastInsertRowid as number;
-    }
-
-    // Invalidate soul context cache
-    this.soulContextCacheValid = false;
-
-    return aspectId;
+    return _setSoulAspect(this.db, aspect, content, this.soulCache);
   }
 
-  /**
-   * Get a specific soul aspect
-   */
   getSoulAspect(aspect: string): SoulAspect | null {
-    const row = this.db
-      .prepare(
-        `
-      SELECT id, aspect, content, created_at, updated_at
-      FROM soul
-      WHERE aspect = ?
-    `
-      )
-      .get(aspect) as SoulAspect | undefined;
-
-    return row || null;
+    return _getSoulAspect(this.db, aspect);
   }
 
-  /**
-   * Get all soul aspects
-   */
   getAllSoulAspects(): SoulAspect[] {
-    const stmt = this.db.prepare(`
-      SELECT id, aspect, content, created_at, updated_at
-      FROM soul
-      ORDER BY aspect
-    `);
-    return stmt.all() as SoulAspect[];
+    return _getAllSoulAspects(this.db);
   }
 
-  /**
-   * Delete a soul aspect
-   */
   deleteSoulAspect(aspect: string): boolean {
-    const stmt = this.db.prepare('DELETE FROM soul WHERE aspect = ?');
-    const result = stmt.run(aspect);
-    if (result.changes > 0) {
-      this.soulContextCacheValid = false; // Invalidate cache
-    }
-    return result.changes > 0;
+    return _deleteSoulAspect(this.db, aspect, this.soulCache);
   }
 
-  /**
-   * Delete a soul aspect by ID
-   */
   deleteSoulAspectById(id: number): boolean {
-    const stmt = this.db.prepare('DELETE FROM soul WHERE id = ?');
-    const result = stmt.run(id);
-    if (result.changes > 0) {
-      this.soulContextCacheValid = false; // Invalidate cache
-    }
-    return result.changes > 0;
+    return _deleteSoulAspectById(this.db, id, this.soulCache);
   }
 
-  /**
-   * Get soul aspects formatted for context injection
-   */
   getSoulContext(): string {
-    // Return cached result if valid
-    if (this.soulContextCacheValid && this.soulContextCache !== null) {
-      return this.soulContextCache;
-    }
-
-    const aspects = this.getAllSoulAspects();
-    if (aspects.length === 0) {
-      this.soulContextCache = '';
-      this.soulContextCacheValid = true;
-      return '';
-    }
-
-    const lines: string[] = ['## Soul'];
-    for (const aspect of aspects) {
-      lines.push(`\n### ${aspect.aspect}`);
-      lines.push(aspect.content);
-    }
-
-    const result = lines.join('\n');
-    this.soulContextCache = result;
-    this.soulContextCacheValid = true;
-    return result;
+    return _getSoulContext(this.db, this.soulCache);
   }
 
   close(): void {

@@ -1,13 +1,8 @@
 import {
   app,
-  Tray,
-  Menu,
-  nativeImage,
   BrowserWindow,
-  ipcMain,
   Notification,
   globalShortcut,
-  shell,
   screen,
   powerMonitor,
   powerSaveBlocker,
@@ -18,25 +13,30 @@ import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import { AgentManager } from '../agent';
 import { MemoryManager } from '../memory';
 import { createScheduler, CronScheduler } from '../scheduler';
 import { createTelegramBot, TelegramBot } from '../channels/telegram';
-import { createiOSChannel, destroyiOSChannel, iOSChannel } from '../channels/ios';
-import type { ConnectedDevice, ClientChatMessage } from '../channels/ios/types';
-import { transcribeAudio } from '../utils/transcribe';
-import { SettingsManager, SETTINGS_SCHEMA } from '../settings';
-import { THEMES } from '../settings/themes';
-import { SYSTEM_GUIDELINES } from '../config/system-guidelines';
+import { createiOSChannel, iOSChannel } from '../channels/ios';
+import { SettingsManager } from '../settings';
 import { DEFAULT_COMMANDS } from '../config/commands';
-import { loadWorkflowCommands, loadWorkflowCommandsFromDir } from '../config/commands-loader';
 import { getBrowserManager } from '../browser';
-import { isMacOS, getPermissionsStatus, openPermissionSettings } from '../permissions';
-import type { PermissionType } from '../permissions';
 import { initializeUpdater, setupUpdaterIPC, setSettingsWindow } from './updater';
-import cityTimezones from 'city-timezones';
+import { createWindow, getWindow } from './windows';
+import { fixPathForPackagedApp } from './node-paths';
+import { setupBirthdayCronJobs } from './birthday';
+import { createTray, updateTrayMenu, initTray } from './tray';
+import {
+  registerAgentIPC,
+  registerSessionsIPC,
+  registerSettingsIPC,
+  registerFactsIPC,
+  registerCronIPC,
+  registerIosIPC,
+  registerMiscIPC,
+  wireIosChannelHandlers,
+} from './ipc';
+import type { IPCDependencies } from './ipc';
 
 // Handle EPIPE errors gracefully (happens when stdout pipe is closed)
 process.stdout?.on('error', (err: Error & { code?: string }) => {
@@ -51,277 +51,30 @@ process.on('uncaughtException', (err) => {
   process.exit(1);
 });
 
-const IS_WINDOWS = process.platform === 'win32';
-const IS_MACOS = process.platform === 'darwin';
-const HOME_DIR = process.env.HOME || process.env.USERPROFILE || '';
+// IS_WINDOWS and HOME_DIR moved to src/main/ipc/misc-ipc.ts
 
-/**
- * Scan a directory for version subdirectories containing a bin/ folder.
- * Used by nvm, n, and nvm-windows to find installed Node versions.
- */
-function scanVersionBins(versionsDir: string, binSubdir = 'bin'): string[] {
-  const paths: string[] = [];
-  try {
-    if (fs.existsSync(versionsDir)) {
-      for (const entry of fs.readdirSync(versionsDir)) {
-        const binPath = path.join(versionsDir, entry, binSubdir);
-        if (fs.existsSync(binPath)) {
-          paths.push(binPath);
-        }
-      }
-    }
-  } catch {
-    // Ignore errors reading directory
-  }
-  return paths;
-}
+// Fix PATH for packaged apps — platform-aware (must run early, at module load)
+fixPathForPackagedApp();
 
-/**
- * Detect Node.js paths from all common Unix version managers.
- * Covers: nvm, fnm, volta, asdf, nodenv, n, mise
- */
-function detectNodeManagerPaths(): string[] {
-  const paths: string[] = [];
-
-  // nvm: ~/.nvm/versions/node/*/bin
-  paths.push(...scanVersionBins(path.join(HOME_DIR, '.nvm/versions/node')));
-
-  // fnm: ~/.fnm/aliases/default/bin or ~/.local/share/fnm/aliases/default/bin
-  const fnmPaths = [
-    path.join(HOME_DIR, '.fnm/aliases/default/bin'),
-    path.join(HOME_DIR, '.local/share/fnm/aliases/default/bin'),
-  ];
-  for (const p of fnmPaths) {
-    if (fs.existsSync(p)) paths.push(p);
-  }
-
-  // volta: ~/.volta/bin
-  const voltaBin = path.join(HOME_DIR, '.volta/bin');
-  if (fs.existsSync(voltaBin)) paths.push(voltaBin);
-
-  // asdf: ~/.asdf/shims
-  const asdfShims = path.join(HOME_DIR, '.asdf/shims');
-  if (fs.existsSync(asdfShims)) paths.push(asdfShims);
-
-  // nodenv: ~/.nodenv/shims
-  const nodenvShims = path.join(HOME_DIR, '.nodenv/shims');
-  if (fs.existsSync(nodenvShims)) paths.push(nodenvShims);
-
-  // n: /usr/local/n/versions/node/*/bin, also $N_PREFIX/bin
-  paths.push(...scanVersionBins('/usr/local/n/versions/node'));
-  const nPrefix = process.env.N_PREFIX;
-  if (nPrefix) {
-    const nPrefixBin = path.join(nPrefix, 'bin');
-    if (fs.existsSync(nPrefixBin)) paths.push(nPrefixBin);
-  }
-
-  // mise: ~/.local/share/mise/shims
-  const miseShims = path.join(HOME_DIR, '.local/share/mise/shims');
-  if (fs.existsSync(miseShims)) paths.push(miseShims);
-
-  return paths;
-}
-
-/**
- * Detect Node.js paths from common Windows version managers.
- * Covers: nvm-windows, fnm, volta, scoop, chocolatey, nodist
- */
-function detectWindowsNodePaths(): string[] {
-  const paths: string[] = [];
-  const appData = process.env.APPDATA || path.join(HOME_DIR, 'AppData', 'Roaming');
-  const localAppData = process.env.LOCALAPPDATA || path.join(HOME_DIR, 'AppData', 'Local');
-
-  // nvm-windows: %APPDATA%\nvm\* (version directories contain node.exe directly)
-  paths.push(...scanVersionBins(path.join(appData, 'nvm'), '.'));
-
-  // fnm: %APPDATA%\fnm\aliases\default
-  const fnmDefault = path.join(appData, 'fnm', 'aliases', 'default');
-  if (fs.existsSync(fnmDefault)) paths.push(fnmDefault);
-
-  // volta: %APPDATA%\Volta\bin or %LOCALAPPDATA%\Volta\bin
-  const voltaPaths = [path.join(appData, 'Volta', 'bin'), path.join(localAppData, 'Volta', 'bin')];
-  for (const p of voltaPaths) {
-    if (fs.existsSync(p)) paths.push(p);
-  }
-
-  // scoop: ~/scoop/shims
-  const scoopShims = path.join(HOME_DIR, 'scoop', 'shims');
-  if (fs.existsSync(scoopShims)) paths.push(scoopShims);
-
-  // chocolatey: C:\ProgramData\chocolatey\bin
-  const chocoBin = 'C:\\ProgramData\\chocolatey\\bin';
-  if (fs.existsSync(chocoBin)) paths.push(chocoBin);
-
-  // nodist: %APPDATA%\nodist\bin
-  const nodistBin = path.join(appData, 'nodist', 'bin');
-  if (fs.existsSync(nodistBin)) paths.push(nodistBin);
-
-  return paths;
-}
-
-// Cache detected paths at module load
-const cachedNodeManagerPaths = IS_WINDOWS ? detectWindowsNodePaths() : detectNodeManagerPaths();
-
-// Fix PATH for packaged apps — platform-aware
-if (app.isPackaged) {
-  if (IS_WINDOWS) {
-    // Windows: ensure common tool directories are on PATH
-    const winPaths = [
-      path.join(HOME_DIR, 'AppData', 'Roaming', 'npm'),
-      path.join(HOME_DIR, '.local', 'bin'),
-      'C:\\Program Files\\nodejs',
-      'C:\\Program Files\\Git\\cmd',
-      ...cachedNodeManagerPaths,
-    ].join(';');
-    process.env.PATH = winPaths + ';' + (process.env.PATH || '');
-  } else {
-    // macOS / Linux: node/npm binaries aren't in PATH when launched from Finder
-    const fixedPath = [
-      '/opt/homebrew/bin', // Apple Silicon Homebrew
-      '/usr/local/bin', // Intel Homebrew / standard location
-      '/usr/bin',
-      '/bin',
-      '/usr/sbin',
-      '/sbin',
-      ...cachedNodeManagerPaths, // All version managers (nvm, fnm, volta, asdf, etc.)
-      HOME_DIR + '/.local/bin',
-    ].join(':');
-    process.env.PATH = fixedPath + ':' + (process.env.PATH || '');
-  }
-  if (cachedNodeManagerPaths.length > 0) {
-    console.log('[Main] Detected Node paths:', cachedNodeManagerPaths.join(', '));
-  }
-  console.log('[Main] Fixed PATH for packaged app');
-}
-
-// Month name mapping for birthday parsing
-const MONTHS: Record<string, number> = {
-  january: 1,
-  jan: 1,
-  february: 2,
-  feb: 2,
-  march: 3,
-  mar: 3,
-  april: 4,
-  apr: 4,
-  may: 5,
-  june: 6,
-  jun: 6,
-  july: 7,
-  jul: 7,
-  august: 8,
-  aug: 8,
-  september: 9,
-  sep: 9,
-  sept: 9,
-  october: 10,
-  oct: 10,
-  november: 11,
-  nov: 11,
-  december: 12,
-  dec: 12,
-};
-
-/**
- * Parse a birthday string into month and day
- * Supports formats like: "March 15", "15 March", "3/15", "03-15", "March 15th"
- */
-function parseBirthday(birthday: string): { month: number; day: number } | null {
-  if (!birthday || !birthday.trim()) return null;
-
-  const cleaned = birthday.trim().toLowerCase();
-
-  // Try "Month Day" or "Month Dayth/st/nd/rd" format (e.g., "March 15" or "March 15th")
-  const monthDayMatch = cleaned.match(/^([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?$/);
-  if (monthDayMatch) {
-    const month = MONTHS[monthDayMatch[1]];
-    const day = parseInt(monthDayMatch[2], 10);
-    if (month && day >= 1 && day <= 31) {
-      return { month, day };
-    }
-  }
-
-  // Try "Day Month" format (e.g., "15 March" or "15th March")
-  const dayMonthMatch = cleaned.match(/^(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]+)$/);
-  if (dayMonthMatch) {
-    const day = parseInt(dayMonthMatch[1], 10);
-    const month = MONTHS[dayMonthMatch[2]];
-    if (month && day >= 1 && day <= 31) {
-      return { month, day };
-    }
-  }
-
-  // Try numeric formats: "3/15", "03/15", "3-15", "03-15"
-  const numericMatch = cleaned.match(/^(\d{1,2})[/-](\d{1,2})$/);
-  if (numericMatch) {
-    const first = parseInt(numericMatch[1], 10);
-    const second = parseInt(numericMatch[2], 10);
-    // Assume MM/DD format (US style)
-    if (first >= 1 && first <= 12 && second >= 1 && second <= 31) {
-      return { month: first, day: second };
-    }
-  }
-
-  return null;
-}
-
-/**
- * Set up birthday cron jobs when birthday is configured
- */
-async function setupBirthdayCronJobs(birthday: string): Promise<void> {
-  if (!scheduler) return;
-
-  const jobNameMidnight = 'birthday_midnight';
-  const jobNameNoon = 'birthday_noon';
-
-  // Always delete existing birthday jobs first (including legacy names with underscore prefix)
-  scheduler.deleteJob(jobNameMidnight);
-  scheduler.deleteJob(jobNameNoon);
-  scheduler.deleteJob('_birthday_midnight');
-  scheduler.deleteJob('_birthday_noon');
-
-  const parsed = parseBirthday(birthday);
-  if (!parsed) {
-    console.log('[Birthday] No valid birthday to schedule');
-    return;
-  }
-
-  const { month, day } = parsed;
-  const userName = SettingsManager.get('profile.name') || 'the user';
-
-  // Cron format: minute hour day month day-of-week
-  // Midnight: 0 0 DAY MONTH *
-  // Noon: 0 12 DAY MONTH *
-  const cronMidnight = `0 0 ${day} ${month} *`;
-  const cronNoon = `0 12 ${day} ${month} *`;
-
-  const promptMidnight = `It's ${userName}'s birthday! The clock just struck midnight. Send them a warm, heartfelt birthday message to start their special day. Be genuine and celebratory - this is the first birthday wish of their day!`;
-
-  const promptNoon = `It's ${userName}'s birthday and it's now midday! Send them another wonderful birthday message. Make this one even more special and celebratory than the morning one - wish them an amazing rest of their birthday, mention hoping their day has been great so far, and express how much you appreciate them.`;
-
-  // Create the jobs (routing broadcasts to all configured channels)
-  await scheduler.createJob(jobNameMidnight, cronMidnight, promptMidnight, 'desktop');
-  await scheduler.createJob(jobNameNoon, cronNoon, promptNoon, 'desktop');
-
-  console.log(`[Birthday] Scheduled birthday reminders for ${month}/${day} (${userName})`);
-}
-
-let tray: Tray | null = null;
 let memory: MemoryManager | null = null;
 let scheduler: CronScheduler | null = null;
 let telegramBot: TelegramBot | null = null;
 let iosChannel: iOSChannel | null = null;
-let chatWindow: BrowserWindow | null = null;
-let cronWindow: BrowserWindow | null = null;
-let settingsWindow: BrowserWindow | null = null;
-let setupWindow: BrowserWindow | null = null;
-let customizeWindow: BrowserWindow | null = null;
-let factsWindow: BrowserWindow | null = null;
-let soulWindow: BrowserWindow | null = null;
-let dailyLogsWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
 let trayUpdateInterval: ReturnType<typeof setInterval> | null = null;
 let modelChangedHandler: ((model: string) => void) | null = null;
+
+// Window IDs for the registry
+const WIN = {
+  CHAT: 'chat',
+  CRON: 'cron',
+  SETTINGS: 'settings',
+  SETUP: 'setup',
+  CUSTOMIZE: 'customize',
+  FACTS: 'facts',
+  DAILY_LOGS: 'dailyLogs',
+  SOUL: 'soul',
+} as const;
 
 /**
  * Get the agent's isolated workspace directory.
@@ -373,30 +126,6 @@ function createSessionDirectory(sessionName: string): string {
   }
 
   return sessionDir;
-}
-
-/**
- * Rename a session directory on disk.
- * Returns the new absolute path, or null if the target already exists.
- */
-function renameSessionDirectory(oldPath: string, newName: string): string | null {
-  const parentDir = path.dirname(oldPath);
-  const newPath = path.join(parentDir, newName);
-
-  if (fs.existsSync(newPath)) {
-    console.warn(`[Main] Cannot rename session directory: target exists: ${newPath}`);
-    return null;
-  }
-
-  if (fs.existsSync(oldPath)) {
-    fs.renameSync(oldPath, newPath);
-    console.log(`[Main] Renamed session directory: ${oldPath} -> ${newPath}`);
-  } else {
-    // Old directory doesn't exist — create the new one fresh
-    return createSessionDirectory(newName);
-  }
-
-  return newPath;
 }
 
 /**
@@ -608,202 +337,6 @@ function ensureAgentWorkspace(): string {
   return workspace;
 }
 
-// ============ Tray Setup ============
-
-async function createTray(): Promise<void> {
-  const iconPath = path.join(__dirname, '../../assets/tray-icon.png');
-  const iconPath2x = path.join(__dirname, '../../assets/tray-icon@2x.png');
-  let icon: Electron.NativeImage;
-
-  try {
-    // Load both 1x and 2x versions for retina support
-    const icon1x = nativeImage.createFromPath(iconPath);
-    const icon2x = nativeImage.createFromPath(iconPath2x);
-
-    if (!icon1x.isEmpty() && !icon2x.isEmpty()) {
-      // Create a multi-resolution image
-      icon = nativeImage.createEmpty();
-      const traySize = IS_WINDOWS ? 16 : 22;
-      const traySize2x = IS_WINDOWS ? 32 : 44;
-      icon.addRepresentation({
-        scaleFactor: 1,
-        width: traySize,
-        height: traySize,
-        buffer: icon1x.resize({ width: traySize, height: traySize }).toPNG(),
-      });
-      icon.addRepresentation({
-        scaleFactor: 2,
-        width: traySize2x,
-        height: traySize2x,
-        buffer: icon2x.resize({ width: traySize2x, height: traySize2x }).toPNG(),
-      });
-      if (IS_MACOS) icon.setTemplateImage(true); // macOS menu bar only
-    } else if (!icon1x.isEmpty()) {
-      icon = icon1x.resize({ width: IS_WINDOWS ? 16 : 22, height: IS_WINDOWS ? 16 : 22 });
-      if (IS_MACOS) icon.setTemplateImage(true);
-    } else {
-      icon = createDefaultIcon();
-    }
-  } catch {
-    icon = createDefaultIcon();
-  }
-
-  tray = new Tray(icon);
-  tray.setToolTip('Pocket Agent');
-
-  // Double-click opens chat
-  tray.on('double-click', () => {
-    openChatWindow();
-  });
-
-  updateTrayMenu();
-}
-
-function createDefaultIcon(): Electron.NativeImage {
-  // Create a 16x16 robot face icon for macOS menu bar
-  const size = 16;
-  const canvas = Buffer.alloc(size * size * 4);
-
-  // Helper to set a pixel white
-  const setPixel = (x: number, y: number) => {
-    if (x >= 0 && x < size && y >= 0 && y < size) {
-      const i = (y * size + x) * 4;
-      canvas[i] = 255; // R
-      canvas[i + 1] = 255; // G
-      canvas[i + 2] = 255; // B
-      canvas[i + 3] = 255; // A
-    }
-  };
-
-  // Helper to draw a filled rectangle
-  const fillRect = (x1: number, y1: number, x2: number, y2: number) => {
-    for (let y = y1; y <= y2; y++) {
-      for (let x = x1; x <= x2; x++) {
-        setPixel(x, y);
-      }
-    }
-  };
-
-  // Draw robot face (centered in 16x16)
-  // Head outline - rounded rectangle (rows 2-13, cols 3-12)
-  // Top edge
-  fillRect(4, 2, 11, 2);
-  // Bottom edge
-  fillRect(4, 13, 11, 13);
-  // Left edge
-  fillRect(3, 3, 3, 12);
-  // Right edge
-  fillRect(12, 3, 12, 12);
-  // Corners
-  setPixel(4, 3);
-  setPixel(11, 3);
-  setPixel(4, 12);
-  setPixel(11, 12);
-
-  // Antenna
-  setPixel(7, 0);
-  setPixel(8, 0);
-  setPixel(7, 1);
-  setPixel(8, 1);
-
-  // Eyes (2x2 squares)
-  fillRect(5, 5, 6, 7); // Left eye
-  fillRect(9, 5, 10, 7); // Right eye
-
-  // Mouth (horizontal line)
-  fillRect(5, 10, 10, 11);
-
-  const icon = nativeImage.createFromBuffer(canvas, { width: size, height: size });
-  icon.setTemplateImage(true); // For macOS menu bar
-  return icon;
-}
-
-// Cached tray menu icon — built once, reused on every updateTrayMenu() call
-let cachedMenuIcon: Electron.NativeImage | undefined;
-function getMenuIcon(): Electron.NativeImage | undefined {
-  if (cachedMenuIcon !== undefined) return cachedMenuIcon;
-  try {
-    const menuIconPath = path.join(__dirname, '../../assets/tray-icon@2x.png');
-    const rawIcon = nativeImage.createFromPath(menuIconPath);
-    if (!rawIcon.isEmpty()) {
-      cachedMenuIcon = nativeImage.createEmpty();
-      cachedMenuIcon.addRepresentation({
-        scaleFactor: 1,
-        width: 16,
-        height: 16,
-        buffer: rawIcon.resize({ width: 16, height: 16 }).toPNG(),
-      });
-      cachedMenuIcon.addRepresentation({
-        scaleFactor: 2,
-        width: 32,
-        height: 32,
-        buffer: rawIcon.resize({ width: 32, height: 32 }).toPNG(),
-      });
-      cachedMenuIcon.setTemplateImage(true);
-    }
-  } catch {
-    cachedMenuIcon = undefined;
-  }
-  return cachedMenuIcon;
-}
-
-function updateTrayMenu(): void {
-  if (!tray) return;
-
-  const stats = AgentManager.getStats();
-
-  const statusText = AgentManager.isInitialized()
-    ? `Messages: ${stats?.messageCount || 0} | Facts: ${stats?.factCount || 0}`
-    : 'Not initialized';
-
-  const menuIcon = getMenuIcon();
-
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: `Pocket Agent v${app.getVersion()}`,
-      enabled: false,
-      icon: menuIcon,
-    },
-    { type: 'separator' },
-    {
-      label: 'Chat',
-      click: () => openChatWindow(),
-      accelerator: 'Alt+Z',
-    },
-    { type: 'separator' },
-    {
-      label: statusText,
-      enabled: false,
-    },
-    { type: 'separator' },
-    {
-      label: 'Tweaks...',
-      click: () => openSettingsWindow(),
-      accelerator: 'CmdOrCtrl+,',
-    },
-    {
-      label: 'Check for Updates...',
-      click: () => openSettingsWindow('updates'),
-    },
-    { type: 'separator' },
-    {
-      label: 'Reboot',
-      click: async () => {
-        await restartAgent();
-        showNotification('Pocket Agent', 'Back online! ✨');
-      },
-    },
-    { type: 'separator' },
-    {
-      label: 'Bye!',
-      click: () => app.quit(),
-      accelerator: 'CmdOrCtrl+Q',
-    },
-  ]);
-
-  tray.setContextMenu(contextMenu);
-}
-
 // ============ Splash Screen ============
 
 function showSplashScreen(): void {
@@ -862,434 +395,109 @@ function closeSplashScreen(): void {
 // ============ Windows ============
 
 function openChatWindow(): void {
-  console.log('[Main] Opening chat window...');
-  if (chatWindow && !chatWindow.isDestroyed()) {
-    console.log('[Main] Chat window already exists, focusing');
-    chatWindow.focus();
-    return;
-  }
-
-  // Load saved window bounds
-  const savedBoundsJson = SettingsManager.get('window.chatBounds');
-  let windowOptions: Electron.BrowserWindowConstructorOptions = {
+  createWindow({
+    id: WIN.CHAT,
+    title: 'Pocket Agent',
+    htmlFile: 'chat.html',
     width: 600,
     height: 800,
-    title: 'Pocket Agent',
-    backgroundColor: '#0a0a0b',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-    show: false,
-  };
-
-  // Apply saved bounds if available
-  if (savedBoundsJson) {
-    try {
-      const savedBounds = JSON.parse(savedBoundsJson);
-      if (savedBounds.x !== undefined) windowOptions.x = savedBounds.x;
-      if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
-      if (savedBounds.width) windowOptions.width = savedBounds.width;
-      if (savedBounds.height) windowOptions.height = savedBounds.height;
-      console.log('[Main] Restored chat window bounds:', savedBounds);
-    } catch {
-      console.warn('[Main] Failed to parse saved window bounds');
-    }
-  }
-
-  chatWindow = new BrowserWindow(windowOptions);
-
-  chatWindow.loadFile(path.join(__dirname, '../../ui/chat.html'));
-
-  chatWindow.once('ready-to-show', () => {
-    chatWindow?.show();
-  });
-
-  // Save window bounds when moved, resized, or closed
-  const saveBounds = () => {
-    if (chatWindow && !chatWindow.isDestroyed()) {
-      const bounds = chatWindow.getBounds();
-      SettingsManager.set('window.chatBounds', JSON.stringify(bounds));
-    }
-  };
-
-  chatWindow.on('moved', saveBounds);
-  chatWindow.on('resized', saveBounds);
-  chatWindow.on('close', saveBounds);
-
-  chatWindow.on('closed', () => {
-    chatWindow = null;
+    boundsKey: 'window.chatBounds',
   });
 }
 
 function openCronWindow(): void {
-  if (cronWindow && !cronWindow.isDestroyed()) {
-    cronWindow.focus();
-    return;
-  }
-
-  const savedBoundsJson = SettingsManager.get('window.cronBounds');
-  let windowOptions: Electron.BrowserWindowConstructorOptions = {
+  createWindow({
+    id: WIN.CRON,
+    title: 'My Routines - Pocket Agent',
+    htmlFile: 'cron.html',
     width: 700,
     height: 500,
-    title: 'My Routines - Pocket Agent',
-    backgroundColor: '#0a0a0b',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-    show: false,
-  };
-
-  if (savedBoundsJson) {
-    try {
-      const savedBounds = JSON.parse(savedBoundsJson);
-      if (savedBounds.x !== undefined) windowOptions.x = savedBounds.x;
-      if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
-      if (savedBounds.width) windowOptions.width = savedBounds.width;
-      if (savedBounds.height) windowOptions.height = savedBounds.height;
-    } catch {
-      /* ignore */
-    }
-  }
-
-  cronWindow = new BrowserWindow(windowOptions);
-
-  cronWindow.loadFile(path.join(__dirname, '../../ui/cron.html'));
-
-  cronWindow.once('ready-to-show', () => {
-    cronWindow?.show();
-  });
-
-  const saveBounds = () => {
-    if (cronWindow && !cronWindow.isDestroyed()) {
-      SettingsManager.set('window.cronBounds', JSON.stringify(cronWindow.getBounds()));
-    }
-  };
-  cronWindow.on('moved', saveBounds);
-  cronWindow.on('resized', saveBounds);
-  cronWindow.on('close', saveBounds);
-
-  cronWindow.on('closed', () => {
-    cronWindow = null;
+    boundsKey: 'window.cronBounds',
   });
 }
 
 function openSettingsWindow(tab?: string): void {
-  if (settingsWindow && !settingsWindow.isDestroyed()) {
-    settingsWindow.focus();
-    // If a specific tab is requested, navigate to it
-    if (tab) {
-      settingsWindow.webContents.send('navigate-tab', tab);
-    }
+  // If already open, focus and optionally navigate to tab
+  const existing = getWindow(WIN.SETTINGS);
+  if (existing) {
+    existing.focus();
+    if (tab) existing.webContents.send('navigate-tab', tab);
     return;
   }
 
-  const savedBoundsJson = SettingsManager.get('window.settingsBounds');
-  let windowOptions: Electron.BrowserWindowConstructorOptions = {
+  const win = createWindow({
+    id: WIN.SETTINGS,
+    title: 'Tweaks - Pocket Agent',
+    htmlFile: 'settings.html',
     width: 700,
     height: 600,
-    title: 'Tweaks - Pocket Agent',
-    backgroundColor: '#0a0a0b',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-    show: false,
-  };
-
-  if (savedBoundsJson) {
-    try {
-      const savedBounds = JSON.parse(savedBoundsJson);
-      if (savedBounds.x !== undefined) windowOptions.x = savedBounds.x;
-      if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
-      if (savedBounds.width) windowOptions.width = savedBounds.width;
-      if (savedBounds.height) windowOptions.height = savedBounds.height;
-    } catch {
-      /* ignore */
-    }
-  }
-
-  settingsWindow = new BrowserWindow(windowOptions);
-
-  const hash = tab ? `#${tab}` : '';
-  settingsWindow.loadFile(path.join(__dirname, '../../ui/settings.html'), { hash });
-
-  settingsWindow.once('ready-to-show', () => {
-    settingsWindow?.show();
-  });
-
-  const saveBounds = () => {
-    if (settingsWindow && !settingsWindow.isDestroyed()) {
-      SettingsManager.set('window.settingsBounds', JSON.stringify(settingsWindow.getBounds()));
-    }
-  };
-  settingsWindow.on('moved', saveBounds);
-  settingsWindow.on('resized', saveBounds);
-  settingsWindow.on('close', saveBounds);
-
-  settingsWindow.on('closed', () => {
-    setSettingsWindow(null);
-    settingsWindow = null;
+    boundsKey: 'window.settingsBounds',
+    hash: tab ? tab : undefined,
+    onClosed: () => setSettingsWindow(null),
   });
 
   // Connect updater to settings window for status updates
-  setSettingsWindow(settingsWindow);
+  setSettingsWindow(win);
 }
 
 function openSetupWindow(): void {
-  if (setupWindow && !setupWindow.isDestroyed()) {
-    setupWindow.focus();
-    return;
-  }
-
-  setupWindow = new BrowserWindow({
+  createWindow({
+    id: WIN.SETUP,
+    title: 'Welcome!',
+    htmlFile: 'setup.html',
     width: 520,
     height: 580,
-    title: 'Welcome!',
-    backgroundColor: '#0a0a0b',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
+    extraOptions: { resizable: false, minimizable: false, closable: true },
+    onClosed: () => {
+      // After setup is closed, check if we can initialize
+      if (SettingsManager.hasRequiredKeys() && !AgentManager.isInitialized()) {
+        initializeAgent();
+      }
     },
-    show: false,
-    resizable: false,
-    minimizable: false,
-    closable: true,
-  });
-
-  setupWindow.loadFile(path.join(__dirname, '../../ui/setup.html'));
-
-  setupWindow.once('ready-to-show', () => {
-    setupWindow?.show();
-  });
-
-  setupWindow.on('closed', () => {
-    setupWindow = null;
-    // After setup is closed, check if we can initialize
-    if (SettingsManager.hasRequiredKeys() && !AgentManager.isInitialized()) {
-      initializeAgent();
-    }
   });
 }
 
 function openCustomizeWindow(): void {
-  if (customizeWindow && !customizeWindow.isDestroyed()) {
-    customizeWindow.focus();
-    return;
-  }
-
-  const savedBoundsJson = SettingsManager.get('window.customizeBounds');
-  let windowOptions: Electron.BrowserWindowConstructorOptions = {
+  createWindow({
+    id: WIN.CUSTOMIZE,
+    title: 'Make It Yours - Pocket Agent',
+    htmlFile: 'customize.html',
     width: 800,
     height: 650,
-    title: 'Make It Yours - Pocket Agent',
-    backgroundColor: '#0a0a0b',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-    show: false,
-  };
-
-  if (savedBoundsJson) {
-    try {
-      const savedBounds = JSON.parse(savedBoundsJson);
-      if (savedBounds.x !== undefined) windowOptions.x = savedBounds.x;
-      if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
-      if (savedBounds.width) windowOptions.width = savedBounds.width;
-      if (savedBounds.height) windowOptions.height = savedBounds.height;
-    } catch {
-      /* ignore */
-    }
-  }
-
-  customizeWindow = new BrowserWindow(windowOptions);
-
-  customizeWindow.loadFile(path.join(__dirname, '../../ui/customize.html'));
-
-  customizeWindow.once('ready-to-show', () => {
-    customizeWindow?.show();
-  });
-
-  const saveBounds = () => {
-    if (customizeWindow && !customizeWindow.isDestroyed()) {
-      SettingsManager.set('window.customizeBounds', JSON.stringify(customizeWindow.getBounds()));
-    }
-  };
-  customizeWindow.on('moved', saveBounds);
-  customizeWindow.on('resized', saveBounds);
-  customizeWindow.on('close', saveBounds);
-
-  customizeWindow.on('closed', () => {
-    customizeWindow = null;
+    boundsKey: 'window.customizeBounds',
   });
 }
 
 function openFactsWindow(): void {
-  if (factsWindow && !factsWindow.isDestroyed()) {
-    factsWindow.focus();
-    return;
-  }
-
-  const savedBoundsJson = SettingsManager.get('window.factsBounds');
-  let windowOptions: Electron.BrowserWindowConstructorOptions = {
+  createWindow({
+    id: WIN.FACTS,
+    title: 'My Brain - Pocket Agent',
+    htmlFile: 'facts.html',
     width: 700,
     height: 550,
-    title: 'My Brain - Pocket Agent',
-    backgroundColor: '#0a0a0b',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-    show: false,
-  };
-
-  if (savedBoundsJson) {
-    try {
-      const savedBounds = JSON.parse(savedBoundsJson);
-      if (savedBounds.x !== undefined) windowOptions.x = savedBounds.x;
-      if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
-      if (savedBounds.width) windowOptions.width = savedBounds.width;
-      if (savedBounds.height) windowOptions.height = savedBounds.height;
-    } catch {
-      /* ignore */
-    }
-  }
-
-  factsWindow = new BrowserWindow(windowOptions);
-
-  factsWindow.loadFile(path.join(__dirname, '../../ui/facts.html'));
-
-  factsWindow.once('ready-to-show', () => {
-    factsWindow?.show();
-  });
-
-  const saveBounds = () => {
-    if (factsWindow && !factsWindow.isDestroyed()) {
-      SettingsManager.set('window.factsBounds', JSON.stringify(factsWindow.getBounds()));
-    }
-  };
-  factsWindow.on('moved', saveBounds);
-  factsWindow.on('resized', saveBounds);
-  factsWindow.on('close', saveBounds);
-
-  factsWindow.on('closed', () => {
-    factsWindow = null;
+    boundsKey: 'window.factsBounds',
   });
 }
 
 function openDailyLogsWindow(): void {
-  if (dailyLogsWindow && !dailyLogsWindow.isDestroyed()) {
-    dailyLogsWindow.focus();
-    return;
-  }
-
-  const savedBoundsJson = SettingsManager.get('window.dailyLogsBounds');
-  let windowOptions: Electron.BrowserWindowConstructorOptions = {
+  createWindow({
+    id: WIN.DAILY_LOGS,
+    title: 'Daily Logs - Pocket Agent',
+    htmlFile: 'daily-logs.html',
     width: 700,
     height: 550,
-    title: 'Daily Logs - Pocket Agent',
-    backgroundColor: '#0a0a0b',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-    show: false,
-  };
-
-  if (savedBoundsJson) {
-    try {
-      const savedBounds = JSON.parse(savedBoundsJson);
-      if (savedBounds.x !== undefined) windowOptions.x = savedBounds.x;
-      if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
-      if (savedBounds.width) windowOptions.width = savedBounds.width;
-      if (savedBounds.height) windowOptions.height = savedBounds.height;
-    } catch {
-      /* ignore */
-    }
-  }
-
-  dailyLogsWindow = new BrowserWindow(windowOptions);
-
-  dailyLogsWindow.loadFile(path.join(__dirname, '../../ui/daily-logs.html'));
-
-  dailyLogsWindow.once('ready-to-show', () => {
-    dailyLogsWindow?.show();
-  });
-
-  const saveBounds = () => {
-    if (dailyLogsWindow && !dailyLogsWindow.isDestroyed()) {
-      SettingsManager.set('window.dailyLogsBounds', JSON.stringify(dailyLogsWindow.getBounds()));
-    }
-  };
-  dailyLogsWindow.on('moved', saveBounds);
-  dailyLogsWindow.on('resized', saveBounds);
-  dailyLogsWindow.on('close', saveBounds);
-
-  dailyLogsWindow.on('closed', () => {
-    dailyLogsWindow = null;
+    boundsKey: 'window.dailyLogsBounds',
   });
 }
 
 function openSoulWindow(): void {
-  if (soulWindow && !soulWindow.isDestroyed()) {
-    soulWindow.focus();
-    return;
-  }
-
-  const savedBoundsJson = SettingsManager.get('window.soulBounds');
-  let windowOptions: Electron.BrowserWindowConstructorOptions = {
+  createWindow({
+    id: WIN.SOUL,
+    title: 'My Approach - Pocket Agent',
+    htmlFile: 'soul.html',
     width: 700,
     height: 550,
-    title: 'My Approach - Pocket Agent',
-    backgroundColor: '#0a0a0b',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-    show: false,
-  };
-
-  if (savedBoundsJson) {
-    try {
-      const savedBounds = JSON.parse(savedBoundsJson);
-      if (savedBounds.x !== undefined) windowOptions.x = savedBounds.x;
-      if (savedBounds.y !== undefined) windowOptions.y = savedBounds.y;
-      if (savedBounds.width) windowOptions.width = savedBounds.width;
-      if (savedBounds.height) windowOptions.height = savedBounds.height;
-    } catch {
-      /* ignore */
-    }
-  }
-
-  soulWindow = new BrowserWindow(windowOptions);
-
-  soulWindow.loadFile(path.join(__dirname, '../../ui/soul.html'));
-
-  soulWindow.once('ready-to-show', () => {
-    soulWindow?.show();
-  });
-
-  const saveBounds = () => {
-    if (soulWindow && !soulWindow.isDestroyed()) {
-      SettingsManager.set('window.soulBounds', JSON.stringify(soulWindow.getBounds()));
-    }
-  };
-  soulWindow.on('moved', saveBounds);
-  soulWindow.on('resized', saveBounds);
-  soulWindow.on('close', saveBounds);
-
-  soulWindow.on('closed', () => {
-    soulWindow = null;
+    boundsKey: 'window.soulBounds',
   });
 }
 
@@ -1301,1307 +509,48 @@ function showNotification(title: string, body: string): void {
 
 // ============ IPC Handlers ============
 
+/**
+ * Build the shared dependency container for IPC modules.
+ * Uses getter functions so modules always read the latest mutable global values.
+ */
+function buildIPCDeps(): IPCDependencies {
+  return {
+    getMemory: () => memory,
+    getScheduler: () => scheduler,
+    getTelegramBot: () => telegramBot,
+    getIosChannel: () => iosChannel,
+    setIosChannel: (ch) => {
+      iosChannel = ch;
+    },
+    setTelegramBot: (bot) => {
+      telegramBot = bot;
+    },
+    updateTrayMenu,
+    initializeAgent,
+    restartAgent,
+    ensureCoderWorkingDirectory,
+    openChatWindow,
+    openSettingsWindow,
+    openCronWindow,
+    openCustomizeWindow,
+    openFactsWindow,
+    openDailyLogsWindow,
+    openSoulWindow,
+    openSetupWindow,
+    closeSplashScreen,
+    WIN,
+  };
+}
+
 function setupIPC(): void {
-  // Splash screen completion
-  ipcMain.on('splash-complete', () => {
-    console.log('[Main] Splash complete, showing main app');
-    closeSplashScreen();
-
-    // Check for first run
-    if (SettingsManager.isFirstRun()) {
-      console.log('[Main] First run detected, showing setup wizard');
-      openSetupWindow();
-    } else {
-      openChatWindow();
-    }
-  });
-
-  // Chat messages with status streaming
-  ipcMain.handle('agent:send', async (event, message: string, sessionId?: string) => {
-    console.log(`[IPC] agent:send received sessionId: ${sessionId}`);
-
-    // Auto-initialize agent if not yet initialized (handles race conditions and late key setup)
-    if (!AgentManager.isInitialized()) {
-      if (SettingsManager.hasRequiredKeys()) {
-        console.log('[IPC] Agent not initialized, initializing now...');
-        await initializeAgent();
-      }
-      if (!AgentManager.isInitialized()) {
-        return {
-          success: false,
-          error: 'No API keys configured. Please add your key in Settings > LLM.',
-        };
-      }
-    }
-
-    // Set up status listener to forward to renderer
-    const effectiveSessionId = sessionId || 'default';
-    const statusHandler = (status: {
-      type: string;
-      sessionId?: string;
-      toolName?: string;
-      toolInput?: string;
-      message?: string;
-    }) => {
-      // Only forward status events for this session (or events without sessionId for backward compat)
-      if (status.sessionId && status.sessionId !== effectiveSessionId) return;
-
-      // Send status update to the chat window that initiated the request
-      const webContents = event.sender;
-      if (!webContents.isDestroyed()) {
-        webContents.send('agent:status', status);
-      }
-    };
-
-    AgentManager.on('status', statusHandler);
-
-    try {
-      // Lazy working directory creation: only create when first message is sent in coder mode
-      ensureCoderWorkingDirectory(effectiveSessionId);
-
-      const result = await AgentManager.processMessage(message, 'desktop', sessionId || 'default');
-      updateTrayMenu();
-
-      // Sync to Telegram (Desktop -> Telegram) - only to the linked chat for this session
-      const linkedChatId = memory?.getChatForSession(effectiveSessionId);
-      console.log(
-        '[Main] Checking telegram sync - bot exists:',
-        !!telegramBot,
-        'session:',
-        effectiveSessionId,
-        'linked chat:',
-        linkedChatId
-      );
-      if (telegramBot && linkedChatId && result.response) {
-        console.log('[Main] Syncing desktop message to Telegram chat:', linkedChatId);
-        telegramBot
-          .syncToChat(message, result.response, linkedChatId, result.media)
-          .catch((err) => {
-            console.error('[Main] Failed to sync desktop message to Telegram:', err);
-          });
-      }
-
-      // Sync to iOS (Desktop -> iOS) — skip if response is empty (e.g. aborted)
-      if (iosChannel && result.response) {
-        iosChannel.syncFromDesktop(message, result.response, effectiveSessionId, result.media);
-      }
-
-      // If response is empty (e.g. aborted/stopped), signal stop instead of empty bubble
-      if (!result.response) {
-        return { success: true, stopped: true };
-      }
-
-      return {
-        success: true,
-        response: result.response,
-        tokensUsed: result.tokensUsed,
-        suggestedPrompt: result.suggestedPrompt,
-        wasCompacted: result.wasCompacted,
-        media: result.media,
-        planPending: result.planPending,
-      };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      return { success: false, error: errorMsg };
-    } finally {
-      AgentManager.off('status', statusHandler);
-    }
-  });
-
-  ipcMain.handle('agent:history', async (_, limit: number = 50, sessionId?: string) => {
-    return AgentManager.getRecentMessages(limit, sessionId || 'default');
-  });
-
-  ipcMain.handle('agent:stats', async (_, sessionId?: string) => {
-    return AgentManager.getStats(sessionId);
-  });
-
-  ipcMain.handle('agent:clear', async (_, sessionId?: string) => {
-    if (sessionId) {
-      AgentManager.clearQueue(sessionId);
-    }
-    AgentManager.clearConversation(sessionId);
-    if (sessionId) {
-      AgentManager.clearSdkSessionMapping(sessionId);
-    }
-    updateTrayMenu();
-    // Notify iOS app to clear its messages
-    if (iosChannel && sessionId) {
-      iosChannel.broadcast({ type: 'session:cleared', sessionId });
-    }
-    return { success: true };
-  });
-
-  // Sessions
-  ipcMain.handle('sessions:list', async () => {
-    return memory?.getSessions() || [];
-  });
-
-  ipcMain.handle('sessions:create', async (_, name: string) => {
-    try {
-      // Use the current global mode as default for new sessions
-      // Don't create working directory yet — it's created lazily on first message
-      // so users can switch modes before committing
-      const mode = AgentManager.getMode();
-      console.log(
-        `[Sessions] Creating session "${name}" mode=${mode} workingDirectory=null (deferred)`
-      );
-      const session = memory?.createSession(name, mode, null);
-      // Notify iOS of updated session list
-      if (iosChannel) {
-        iosChannel.broadcast({
-          type: 'sessions',
-          sessions: memory?.getSessions() || [],
-          activeSessionId: '',
-        });
-      }
-      return { success: true, session };
-    } catch (err) {
-      return { success: false, error: (err as Error).message };
-    }
-  });
-
-  ipcMain.handle('sessions:rename', async (_, id: string, name: string) => {
-    try {
-      // Check if session has a working directory that needs renaming
-      const session = memory?.getSession(id);
-      let newWorkingDirectory: string | undefined;
-      console.log(
-        `[Sessions] Renaming session ${id} to "${name}" | current working_directory=${session?.working_directory || 'null'}`
-      );
-
-      if (session?.working_directory) {
-        const newPath = renameSessionDirectory(session.working_directory, name);
-        if (!newPath) {
-          console.log(`[Sessions] Rename blocked: directory "${name}" already exists`);
-          return { success: false, error: `Cannot rename: directory "${name}" already exists` };
-        }
-        newWorkingDirectory = newPath;
-        console.log(
-          `[Sessions] Directory renamed: ${session.working_directory} -> ${newPath} | closing SDK session`
-        );
-        // Close persistent SDK session since cwd changed
-        AgentManager.clearSdkSessionMapping(id);
-      }
-
-      const success = memory?.renameSession(id, name, newWorkingDirectory) ?? false;
-      // Notify iOS of updated session list
-      if (success && iosChannel) {
-        iosChannel.broadcast({
-          type: 'sessions',
-          sessions: memory?.getSessions() || [],
-          activeSessionId: '',
-        });
-      }
-      return { success };
-    } catch (err) {
-      return { success: false, error: (err as Error).message };
-    }
-  });
-
-  ipcMain.handle('sessions:delete', async (_, id: string) => {
-    // Close persistent session (kills subprocess + bg tasks) and clear queue
-    AgentManager.clearQueue(id);
-    AgentManager.clearSdkSessionMapping(id); // Also closes persistent session
-    const success = memory?.deleteSession(id) ?? false;
-    // Notify iOS of updated session list
-    if (success && iosChannel) {
-      iosChannel.broadcast({
-        type: 'sessions',
-        sessions: memory?.getSessions() || [],
-        activeSessionId: '',
-      });
-    }
-    return { success };
-  });
-
-  ipcMain.handle('agent:stop', async (_, sessionId?: string) => {
-    const stopped = AgentManager.stopQuery(sessionId);
-    // Broadcast done status directly to iOS so it clears the thinking indicator
-    if (stopped && sessionId && iosChannel) {
-      iosChannel.broadcast({ type: 'status', status: 'done', sessionId });
-    }
-    return { success: stopped };
-  });
-
-  // Agent mode (General / Coder)
-  ipcMain.handle('agent:setMode', async (_, mode: string) => {
-    if (mode !== 'general' && mode !== 'coder') {
-      return { success: false, error: 'Invalid mode' };
-    }
-    AgentManager.setMode(mode);
-    SettingsManager.set('agent.mode', mode);
-    // Broadcast to chat window
-    if (chatWindow && !chatWindow.isDestroyed()) {
-      chatWindow.webContents.send('agent:modeChanged', mode);
-    }
-    return { success: true };
-  });
-
-  ipcMain.handle('agent:getMode', async () => {
-    return AgentManager.getMode();
-  });
-
-  // Per-session mode (locked after first message)
-  ipcMain.handle('agent:getSessionMode', async (_, sessionId: string) => {
-    return memory?.getSessionMode(sessionId) || 'coder';
-  });
-
-  ipcMain.handle('agent:setSessionMode', async (_, sessionId: string, mode: string) => {
-    if (mode !== 'general' && mode !== 'coder') {
-      return { success: false, error: 'Invalid mode' };
-    }
-    // Only allow mode change if session has no messages
-    const msgCount = memory?.getSessionMessageCount(sessionId) || 0;
-    if (msgCount > 0) {
-      return { success: false, error: 'Cannot change mode after messages have been sent' };
-    }
-
-    const session = memory?.getSession(sessionId);
-    console.log(
-      `[Sessions] Mode switch: session=${sessionId} "${session?.name}" ${session?.mode}->${mode} | current working_directory=${session?.working_directory || 'null'}`
-    );
-
-    // Don't create working directory on mode switch — it's created lazily on first message.
-    // When switching to general: clear working directory (keep directory on disk)
-    if (mode === 'general' && session?.working_directory) {
-      console.log(
-        `[Sessions] Clearing working directory (kept on disk): ${session.working_directory}`
-      );
-      memory?.setSessionWorkingDirectory(sessionId, null);
-    }
-
-    // Close persistent SDK session in both cases (cwd may have changed)
-    AgentManager.clearSdkSessionMapping(sessionId);
-
-    const success = memory?.setSessionMode(sessionId, mode) ?? false;
-    return { success };
-  });
-
-  // iOS mobile companion
-  ipcMain.handle('ios:pairing-code', async (_, regenerate?: boolean) => {
-    if (!iosChannel) return { error: 'iOS channel not enabled' };
-    if (regenerate) {
-      iosChannel.regeneratePairingCode();
-    }
-    return {
-      code: iosChannel.getPairingCode(),
-      instanceId: iosChannel.getInstanceId(),
-      mode: iosChannel.getMode(),
-    };
-  });
-
-  ipcMain.handle('ios:devices', async () => {
-    if (!iosChannel) return [];
-    return iosChannel.getConnectedDevices();
-  });
-
-  ipcMain.handle('ios:info', async () => {
-    if (!iosChannel) return { enabled: false };
-    return {
-      enabled: true,
-      instanceId: iosChannel.getInstanceId(),
-      mode: iosChannel.getMode(),
-      relayUrl: iosChannel.getRelayUrl(),
-    };
-  });
-
-  ipcMain.handle('ios:toggle', async (_, enabled: boolean) => {
-    try {
-      if (enabled && !iosChannel) {
-        iosChannel = createiOSChannel();
-        if (iosChannel) {
-          // Wire up handlers (same as initialization)
-          iosChannel.setMessageHandler(
-            async (client: { device: ConnectedDevice }, message: ClientChatMessage) => {
-              let messageText = message.text;
-              if (message.audio?.data) {
-                console.log(
-                  `[Main] iOS voice note received (${message.audio.duration}s, ${Math.round(message.audio.data.length / 1024)}KB base64)`
-                );
-                const audioBuffer = Buffer.from(message.audio.data, 'base64');
-                const transcription = await transcribeAudio(
-                  audioBuffer,
-                  message.audio.format || 'm4a'
-                );
-                if (transcription.success && transcription.text) {
-                  messageText = transcription.text;
-                  console.log(`[Main] Transcribed: "${messageText.substring(0, 80)}..."`);
-                } else {
-                  console.warn('[Main] Voice transcription failed:', transcription.error);
-                  if (!message.text) {
-                    throw new Error(
-                      `Voice transcription failed: ${transcription.error || 'Unknown error'}. Please try again or type your message.`
-                    );
-                  }
-                }
-              }
-              // Forward status events to desktop UI during iOS-initiated queries
-              const iosSessionId = message.sessionId;
-              const desktopStatusHandler = (status: { type: string; sessionId?: string }) => {
-                if (status.sessionId && status.sessionId !== iosSessionId) return;
-                if (chatWindow && !chatWindow.isDestroyed()) {
-                  chatWindow.webContents.send('agent:status', status);
-                }
-              };
-              AgentManager.on('status', desktopStatusHandler);
-              ensureCoderWorkingDirectory(message.sessionId);
-              let result;
-              try {
-                result = await AgentManager.processMessage(messageText, 'ios', message.sessionId);
-              } finally {
-                AgentManager.off('status', desktopStatusHandler);
-              }
-              if (chatWindow && !chatWindow.isDestroyed() && result.response) {
-                chatWindow.webContents.send('ios:message', {
-                  userMessage: messageText,
-                  response: result.response,
-                  sessionId: message.sessionId,
-                  deviceId: client.device.deviceId,
-                });
-              }
-              const linkedChatId = memory?.getChatForSession(message.sessionId);
-              if (telegramBot && linkedChatId) {
-                telegramBot
-                  .syncToChat(messageText, result.response, linkedChatId, result.media)
-                  .catch(() => {});
-              }
-              if (result.response && iosChannel) {
-                iosChannel
-                  .sendPushNotifications('Pocket Agent', result.response, {
-                    sessionId: message.sessionId,
-                    type: 'response',
-                  })
-                  .catch(() => {});
-              }
-              return {
-                response: result.response,
-                tokensUsed: result.tokensUsed,
-                media: result.media,
-                planPending: result.planPending,
-              };
-            }
-          );
-          iosChannel.setSessionsHandler(() => {
-            const sessions = memory?.getSessions() || [];
-            return sessions.map((s: { id: string; name: string; updated_at?: string }) => ({
-              id: s.id,
-              name: s.name,
-              updatedAt: s.updated_at || new Date().toISOString(),
-            }));
-          });
-          iosChannel.setHistoryHandler((sessionId, limit) => {
-            const messages = AgentManager.getRecentMessages(limit, sessionId);
-            return messages.map((m) => ({
-              role: m.role,
-              content: m.content,
-              timestamp: m.timestamp,
-              metadata: m.metadata,
-            }));
-          });
-          iosChannel.setStatusForwarder((sessionId, handler) => {
-            const statusHandler = (status: Record<string, unknown>) => {
-              if (status.sessionId && status.sessionId !== sessionId) return;
-              handler({
-                type: 'status',
-                status: status.type as string,
-                sessionId: (status.sessionId as string) || sessionId,
-                message: status.message as string | undefined,
-                toolName: status.toolName as string | undefined,
-                toolInput: status.toolInput as string | undefined,
-                partialText: status.partialText as string | undefined,
-                partialReplace: status.partialReplace as boolean | undefined,
-                agentCount: status.agentCount as number | undefined,
-                teammateName: status.teammateName as string | undefined,
-                taskSubject: status.taskSubject as string | undefined,
-                queuePosition: status.queuePosition as number | undefined,
-                queuedMessage: status.queuedMessage as string | undefined,
-                blockedReason: status.blockedReason as string | undefined,
-                isPocketCli: status.isPocketCli as boolean | undefined,
-                backgroundTaskId: status.backgroundTaskId as string | undefined,
-                backgroundTaskDescription: status.backgroundTaskDescription as string | undefined,
-                backgroundTaskCount: status.backgroundTaskCount as number | undefined,
-              });
-            };
-            AgentManager.on('status', statusHandler);
-            return () => AgentManager.off('status', statusHandler);
-          });
-          iosChannel.setModelsHandler(() => {
-            const models: Array<{ id: string; name: string; provider: string }> = [];
-            const authMethod = SettingsManager.get('auth.method');
-            const hasOAuth = authMethod === 'oauth' && SettingsManager.get('auth.oauthToken');
-            const hasAnthropicKey = SettingsManager.get('anthropic.apiKey');
-            if (hasOAuth || hasAnthropicKey) {
-              models.push(
-                { id: 'claude-opus-4-6', name: 'Opus 4.6', provider: 'anthropic' },
-                { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6', provider: 'anthropic' },
-                { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5', provider: 'anthropic' }
-              );
-            }
-            const hasMoonshotKey = SettingsManager.get('moonshot.apiKey');
-            if (hasMoonshotKey) {
-              models.push({ id: 'kimi-k2.5', name: 'Kimi K2.5', provider: 'moonshot' });
-            }
-            const hasGlmKey = SettingsManager.get('glm.apiKey');
-            if (hasGlmKey) {
-              models.push(
-                { id: 'glm-5', name: 'GLM 5', provider: 'glm' },
-                { id: 'glm-4.7', name: 'GLM 4.7', provider: 'glm' }
-              );
-            }
-            return { models, activeModelId: AgentManager.getModel() };
-          });
-          iosChannel.setModelSwitchHandler((modelId: string) => {
-            AgentManager.setModel(modelId);
-          });
-          iosChannel.setStopHandler((sessionId: string) => {
-            return AgentManager.stopQuery(sessionId);
-          });
-          iosChannel.setClearHandler((sessionId: string) => {
-            AgentManager.clearQueue(sessionId);
-            AgentManager.clearConversation(sessionId);
-            AgentManager.clearSdkSessionMapping(sessionId);
-            updateTrayMenu();
-            chatWindow?.webContents.send('session:cleared', sessionId);
-            console.log(`[Main] Fresh start from iOS (session: ${sessionId})`);
-          });
-          iosChannel.setFactsHandler(() => AgentManager.getAllFacts());
-          iosChannel.setFactsDeleteHandler((id) => {
-            memory?.deleteFact(id);
-            return true;
-          });
-          iosChannel.setDailyLogsHandler((days) => memory?.getDailyLogsSince(days || 3) || []);
-          iosChannel.setSoulHandler(() => memory?.getAllSoulAspects() || []);
-          iosChannel.setSoulDeleteHandler((id) => {
-            memory?.deleteSoulAspectById(id);
-            return true;
-          });
-          iosChannel.setCustomizeGetHandler(() => ({
-            agentName: SettingsManager.get('personalize.agentName') || 'Frankie',
-            description: SettingsManager.get('personalize.description') || '',
-            personality: SettingsManager.get('personalize.personality') || '',
-            goals: SettingsManager.get('personalize.goals') || '',
-            struggles: SettingsManager.get('personalize.struggles') || '',
-            funFacts: SettingsManager.get('personalize.funFacts') || '',
-            systemGuidelines: SYSTEM_GUIDELINES,
-            profile: {
-              name: SettingsManager.get('profile.name') || '',
-              occupation: SettingsManager.get('profile.occupation') || '',
-              location: SettingsManager.get('profile.location') || '',
-              timezone: SettingsManager.get('profile.timezone') || '',
-              birthday: SettingsManager.get('profile.birthday') || '',
-            },
-          }));
-          iosChannel.setCustomizeSaveHandler((data) => {
-            if (data.agentName !== undefined)
-              SettingsManager.set('personalize.agentName', data.agentName);
-            if (data.description !== undefined)
-              SettingsManager.set('personalize.description', data.description);
-            if (data.personality !== undefined)
-              SettingsManager.set('personalize.personality', data.personality);
-            if (data.goals !== undefined) SettingsManager.set('personalize.goals', data.goals);
-            if (data.struggles !== undefined)
-              SettingsManager.set('personalize.struggles', data.struggles);
-            if (data.funFacts !== undefined)
-              SettingsManager.set('personalize.funFacts', data.funFacts);
-            if (data.profile) {
-              if (data.profile.name !== undefined)
-                SettingsManager.set('profile.name', data.profile.name);
-              if (data.profile.occupation !== undefined)
-                SettingsManager.set('profile.occupation', data.profile.occupation);
-              if (data.profile.location !== undefined)
-                SettingsManager.set('profile.location', data.profile.location);
-              if (data.profile.timezone !== undefined)
-                SettingsManager.set('profile.timezone', data.profile.timezone);
-              if (data.profile.birthday !== undefined)
-                SettingsManager.set('profile.birthday', data.profile.birthday);
-            }
-          });
-          iosChannel.setRoutinesListHandler(() => scheduler?.getAllJobs() || []);
-          iosChannel.setRoutinesCreateHandler(
-            async (name, schedule, prompt, channel, sessionId) => {
-              return (
-                (await scheduler?.createJob(name, schedule, prompt, channel, sessionId)) || false
-              );
-            }
-          );
-          iosChannel.setRoutinesDeleteHandler((name) => scheduler?.deleteJob(name) || false);
-          iosChannel.setRoutinesToggleHandler(
-            (name, enabled) => scheduler?.setJobEnabled(name, enabled) || false
-          );
-          iosChannel.setRoutinesRunHandler(async (name) => {
-            try {
-              await scheduler?.runJobNow(name);
-              return { success: true };
-            } catch (e) {
-              return { success: false, error: String(e) };
-            }
-          });
-          iosChannel.setAppInfoHandler(() => ({ version: app.getVersion(), name: 'Pocket Agent' }));
-          iosChannel.setSkinHandler((skinId: string) => {
-            SettingsManager.set('ui.skin', skinId);
-            const allWindows = [
-              chatWindow,
-              settingsWindow,
-              cronWindow,
-              factsWindow,
-              customizeWindow,
-              soulWindow,
-              dailyLogsWindow,
-            ];
-            for (const win of allWindows) {
-              if (win && !win.isDestroyed()) {
-                win.webContents.send('skin:changed', skinId);
-              }
-            }
-          });
-          iosChannel.setModeGetHandler((sessionId: string) => {
-            const mode = memory?.getSessionMode(sessionId) || 'coder';
-            const msgCount = memory?.getSessionMessageCount(sessionId) || 0;
-            return { mode, locked: msgCount > 0 };
-          });
-          iosChannel.setModeSwitchHandler((sessionId: string, mode: string) => {
-            if (mode !== 'general' && mode !== 'coder') {
-              const current = memory?.getSessionMode(sessionId) || 'coder';
-              return { mode: current, locked: true, error: 'Invalid mode' };
-            }
-            const msgCount = memory?.getSessionMessageCount(sessionId) || 0;
-            if (msgCount > 0) {
-              const current = memory?.getSessionMode(sessionId) || 'coder';
-              return {
-                mode: current,
-                locked: true,
-                error: 'Cannot change mode after messages have been sent',
-              };
-            }
-            memory?.setSessionMode(sessionId, mode as 'general' | 'coder');
-            // Also update global default for new sessions
-            AgentManager.setMode(mode);
-            SettingsManager.set('agent.mode', mode);
-            if (chatWindow && !chatWindow.isDestroyed()) {
-              chatWindow.webContents.send('agent:modeChanged', mode);
-            }
-            return { mode, locked: false };
-          });
-          iosChannel.setWorkflowsHandler((sessionId: string) => {
-            const sessionMode = memory?.getSessionMode(sessionId) || 'coder';
-            const sessionWorkDir = memory?.getSessionWorkingDirectory(sessionId);
-            if (sessionMode === 'coder' && sessionWorkDir) {
-              const sessionCommandsDir = path.join(sessionWorkDir, '.claude', 'commands');
-              if (fs.existsSync(sessionCommandsDir)) {
-                return loadWorkflowCommandsFromDir(sessionCommandsDir).map((c) => ({
-                  name: c.name,
-                  description: c.description,
-                  content: c.content,
-                }));
-              }
-            }
-            return loadWorkflowCommands().map((c) => ({
-              name: c.name,
-              description: c.description,
-              content: c.content,
-            }));
-          });
-          iosChannel.setChatInfoHandler(() => ({
-            username: SettingsManager.get('chat.username') || '',
-            adminKey: SettingsManager.get('chat.adminKey') || '',
-          }));
-          await iosChannel.start();
-          console.log(`[Main] iOS channel started (${iosChannel.getMode()} mode)`);
-        }
-      } else if (!enabled && iosChannel) {
-        await iosChannel.stop();
-        destroyiOSChannel();
-        iosChannel = null;
-        console.log('[Main] iOS channel stopped');
-      }
-      return { success: true };
-    } catch (error) {
-      console.error('[Main] iOS toggle error:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-    }
-  });
-
-  // Facts
-  ipcMain.handle('facts:list', async () => {
-    return AgentManager.getAllFacts();
-  });
-
-  ipcMain.handle('facts:search', async (_, query: string) => {
-    return AgentManager.searchFacts(query);
-  });
-
-  ipcMain.handle('facts:categories', async () => {
-    return memory?.getFactCategories() || [];
-  });
-
-  ipcMain.handle('facts:delete', async (_, id: number) => {
-    if (!memory) return { success: false };
-    const success = memory.deleteFact(id);
-    return { success };
-  });
-
-  // Soul (Self-Knowledge)
-  ipcMain.handle('soul:list', async () => {
-    if (!memory) return [];
-    return memory.getAllSoulAspects();
-  });
-
-  ipcMain.handle('soul:get', async (_, aspect: string) => {
-    if (!memory) return null;
-    return memory.getSoulAspect(aspect);
-  });
-
-  ipcMain.handle('soul:delete', async (_, id: number) => {
-    if (!memory) return { success: false };
-    const success = memory.deleteSoulAspectById(id);
-    return { success };
-  });
-
-  ipcMain.handle('app:openFacts', async () => {
-    openFactsWindow();
-  });
-
-  ipcMain.handle('app:openDailyLogs', async () => {
-    openDailyLogsWindow();
-  });
-
-  ipcMain.handle('dailyLogs:list', async () => {
-    return AgentManager.getDailyLogsSince(3);
-  });
-
-  ipcMain.handle('app:openSoul', async () => {
-    openSoulWindow();
-  });
-
-  ipcMain.handle('app:openCustomize', async () => {
-    openCustomizeWindow();
-  });
-
-  ipcMain.handle('app:openRoutines', async () => {
-    openCronWindow();
-  });
-
-  ipcMain.handle('app:openExternal', async (_, url: string) => {
-    // Only allow http, https, and mailto schemes to prevent arbitrary protocol handler abuse
-    if (!/^https?:\/\//i.test(url) && !/^mailto:/i.test(url)) {
-      console.warn('[Main] Blocked openExternal with disallowed scheme:', url);
-      return;
-    }
-    await shell.openExternal(url);
-  });
-
-  ipcMain.handle('app:openPath', async (_, filePath: string) => {
-    // Security: only allow opening paths within the Pocket-agent documents directory
-    const allowedDir = path.join(app.getPath('documents'), 'Pocket-agent');
-    const resolvedPath = path.resolve(filePath);
-    if (!resolvedPath.startsWith(allowedDir)) {
-      console.warn('[Main] Blocked openPath outside allowed directory:', filePath);
-      return;
-    }
-    await shell.openPath(resolvedPath);
-  });
-
-  // Open an image in the default viewer — handles both local paths and URLs
-  ipcMain.handle('app:openImage', async (_, src: string) => {
-    try {
-      const mediaDir = path.join(app.getPath('documents'), 'Pocket-agent', 'media');
-      if (src.startsWith('http://') || src.startsWith('https://')) {
-        // Remote URL — download to media dir first
-        if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
-
-        const res = await fetch(src);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const buf = Buffer.from(await res.arrayBuffer());
-
-        const contentType = res.headers.get('content-type') || '';
-        const ext =
-          contentType.includes('jpeg') || contentType.includes('jpg')
-            ? '.jpg'
-            : contentType.includes('gif')
-              ? '.gif'
-              : contentType.includes('webp')
-                ? '.webp'
-                : '.png';
-
-        const filePath = path.join(mediaDir, `img-${Date.now()}${ext}`);
-        fs.writeFileSync(filePath, buf);
-        await shell.openPath(filePath);
-      } else {
-        // Local file path — only allow files within the media directory
-        const resolvedPath = path.resolve(src);
-        if (!resolvedPath.startsWith(mediaDir)) {
-          console.warn('[Main] Blocked openImage outside media directory:', src);
-          return;
-        }
-        await shell.openPath(resolvedPath);
-      }
-    } catch (err) {
-      console.error('[Main] Failed to open image:', err);
-    }
-  });
-
-  // Customize - System prompt (read-only, developer-controlled content only)
-  ipcMain.handle('customize:getSystemPrompt', async () => {
-    return AgentManager.getDeveloperPrompt() || '';
-  });
-
-  // Location and timezone lookup
-  ipcMain.handle('location:lookup', async (_, query: string) => {
-    if (!query || query.length < 2) return [];
-
-    const results = cityTimezones.lookupViaCity(query);
-    // Return top 10 results with city, country, and timezone
-    return results
-      .slice(0, 10)
-      .map((r: { city: string; country: string; timezone: string; province?: string }) => ({
-        city: r.city,
-        country: r.country,
-        province: r.province || '',
-        timezone: r.timezone,
-        display: r.province ? `${r.city}, ${r.province}, ${r.country}` : `${r.city}, ${r.country}`,
-      }));
-  });
-
-  ipcMain.handle('timezone:list', async () => {
-    // Get all IANA timezones
-    try {
-      const timezones = Intl.supportedValuesOf('timeZone');
-      return timezones;
-    } catch {
-      // Fallback for older environments
-      return [
-        'America/New_York',
-        'America/Chicago',
-        'America/Denver',
-        'America/Los_Angeles',
-        'America/Toronto',
-        'America/Vancouver',
-        'America/Mexico_City',
-        'America/Sao_Paulo',
-        'Europe/London',
-        'Europe/Paris',
-        'Europe/Berlin',
-        'Europe/Rome',
-        'Europe/Madrid',
-        'Europe/Amsterdam',
-        'Europe/Stockholm',
-        'Europe/Moscow',
-        'Asia/Tokyo',
-        'Asia/Shanghai',
-        'Asia/Hong_Kong',
-        'Asia/Singapore',
-        'Asia/Seoul',
-        'Asia/Bangkok',
-        'Asia/Jakarta',
-        'Asia/Kolkata',
-        'Asia/Dubai',
-        'Asia/Jerusalem',
-        'Australia/Sydney',
-        'Australia/Melbourne',
-        'Australia/Perth',
-        'Pacific/Auckland',
-        'Pacific/Honolulu',
-        'Pacific/Fiji',
-        'Africa/Cairo',
-        'Africa/Johannesburg',
-        'Africa/Lagos',
-      ];
-    }
-  });
-
-  // Cron jobs
-  ipcMain.handle('cron:list', async () => {
-    return scheduler?.getAllJobs() || [];
-  });
-
-  ipcMain.handle(
-    'cron:create',
-    async (
-      _,
-      name: string,
-      schedule: string,
-      prompt: string,
-      channel: string,
-      sessionId: string
-    ) => {
-      const success = await scheduler?.createJob(
-        name,
-        schedule,
-        prompt,
-        channel,
-        sessionId || 'default'
-      );
-      updateTrayMenu();
-      // Notify iOS of updated routines
-      if (iosChannel) {
-        iosChannel.broadcast({ type: 'routines', jobs: scheduler?.getAllJobs() || [] });
-      }
-      return { success };
-    }
-  );
-
-  ipcMain.handle('cron:delete', async (_, name: string) => {
-    const success = scheduler?.deleteJob(name);
-    updateTrayMenu();
-    // Notify iOS of updated routines
-    if (success && iosChannel) {
-      iosChannel.broadcast({ type: 'routines', jobs: scheduler?.getAllJobs() || [] });
-    }
-    return { success };
-  });
-
-  ipcMain.handle('cron:toggle', async (_, name: string, enabled: boolean) => {
-    const success = scheduler?.setJobEnabled(name, enabled);
-    updateTrayMenu();
-    // Notify iOS of updated routines
-    if (success && iosChannel) {
-      iosChannel.broadcast({ type: 'routines', jobs: scheduler?.getAllJobs() || [] });
-    }
-    return { success };
-  });
-
-  ipcMain.handle('cron:run', async (_, name: string) => {
-    const result = await scheduler?.runJobNow(name);
-    return result;
-  });
-
-  ipcMain.handle('cron:history', async (_, limit: number = 20) => {
-    return scheduler?.getHistory(limit) || [];
-  });
-
-  // App info
-  ipcMain.handle('app:getVersion', () => {
-    return app.getVersion();
-  });
-
-  // Settings
-  ipcMain.handle('settings:getAll', async () => {
-    return SettingsManager.getAllSafe();
-  });
-
-  ipcMain.handle('settings:getThemes', async () => {
-    return THEMES;
-  });
-
-  ipcMain.handle('settings:getSkin', async () => {
-    return SettingsManager.get('ui.skin') || 'default';
-  });
-
-  // Keys that are encrypted but must be accessible from the renderer
-  const RENDERER_ALLOWED_ENCRYPTED_KEYS = new Set(['chat.adminKey']);
-
-  ipcMain.handle('settings:get', async (_, key: string) => {
-    // Block encrypted settings from being sent to renderer (except explicitly allowed ones)
-    const def = SETTINGS_SCHEMA.find((s) => s.key === key);
-    if (def?.encrypted && !RENDERER_ALLOWED_ENCRYPTED_KEYS.has(key)) {
-      const value = SettingsManager.get(key);
-      return value ? '••••••••' : '';
-    }
-    return SettingsManager.get(key);
-  });
-
-  ipcMain.handle('settings:set', async (_, key: string, value: string) => {
-    try {
-      SettingsManager.set(key, value);
-
-      // Auto-setup birthday cron jobs when birthday is set
-      if (key === 'profile.birthday') {
-        await setupBirthdayCronJobs(value);
-      }
-
-      // Notify iOS when model changes
-      if (key === 'agent.model' && iosChannel) {
-        iosChannel.broadcast({
-          type: 'models',
-          models: getAvailableModels(),
-          activeModelId: value,
-        });
-      }
-
-      // Notify iOS when mode changes (desktop toggle)
-      if (key === 'agent.mode' && iosChannel) {
-        iosChannel.broadcast({ type: 'mode', mode: value, locked: false });
-      }
-
-      // Broadcast skin change to all open windows + iOS
-      if (key === 'ui.skin') {
-        const allWindows = [
-          chatWindow,
-          settingsWindow,
-          cronWindow,
-          factsWindow,
-          customizeWindow,
-          soulWindow,
-          dailyLogsWindow,
-        ];
-        for (const win of allWindows) {
-          if (win && !win.isDestroyed()) {
-            win.webContents.send('skin:changed', value);
-          }
-        }
-        // Push skin change to connected iOS devices
-        if (iosChannel) {
-          iosChannel.broadcast({ type: 'skin:changed', skinId: value });
-        }
-      }
-
-      // Broadcast chat username change to chat window — no restart required
-      if (key === 'chat.username' && chatWindow && !chatWindow.isDestroyed()) {
-        chatWindow.webContents.send('chat:usernameChanged', value);
-      }
-
-      // Instant Telegram toggle — no restart required
-      if (key === 'telegram.enabled') {
-        const enabled = value === 'true' || value === '1';
-        if (enabled) {
-          const token = SettingsManager.get('telegram.botToken');
-          if (!telegramBot && token) {
-            telegramBot = createTelegramBot();
-            if (telegramBot) {
-              telegramBot.setOnMessageCallback((data) => {
-                if (chatWindow && !chatWindow.isDestroyed()) {
-                  chatWindow.webContents.send('telegram:message', {
-                    userMessage: data.userMessage,
-                    response: data.response,
-                    chatId: data.chatId,
-                    sessionId: data.sessionId,
-                    hasAttachment: data.hasAttachment,
-                    attachmentType: data.attachmentType,
-                    wasCompacted: data.wasCompacted,
-                    media: data.media,
-                  });
-                }
-              });
-              telegramBot.setOnSessionLinkCallback(() => {
-                if (chatWindow && !chatWindow.isDestroyed()) {
-                  chatWindow.webContents.send('sessions:changed');
-                }
-              });
-              await telegramBot.start();
-              if (scheduler) scheduler.setTelegramBot(telegramBot);
-              console.log('[Main] Telegram started (live toggle)');
-            }
-          }
-        } else {
-          if (telegramBot) {
-            await telegramBot.stop();
-            telegramBot = null;
-            if (scheduler) scheduler.setTelegramBot(null);
-            console.log('[Main] Telegram stopped (live toggle)');
-          }
-        }
-      }
-
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-    }
-  });
-
-  ipcMain.handle('settings:delete', async (_, key: string) => {
-    const success = SettingsManager.delete(key);
-    return { success };
-  });
-
-  ipcMain.handle('settings:schema', async (_, category?: string) => {
-    return SettingsManager.getSchema(category);
-  });
-
-  ipcMain.handle('settings:isFirstRun', async () => {
-    return SettingsManager.isFirstRun();
-  });
-
-  ipcMain.handle('settings:initializeKeychain', async () => {
-    return SettingsManager.initializeKeychain();
-  });
-
-  ipcMain.handle('settings:validateAnthropic', async (_, key: string) => {
-    return SettingsManager.validateAnthropicKey(key);
-  });
-
-  ipcMain.handle('settings:validateOpenAI', async (_, key: string) => {
-    return SettingsManager.validateOpenAIKey(key);
-  });
-
-  ipcMain.handle('settings:validateTelegram', async (_, token: string) => {
-    return SettingsManager.validateTelegramToken(token);
-  });
-
-  ipcMain.handle('settings:validateMoonshot', async (_, key: string) => {
-    return SettingsManager.validateMoonshotKey(key);
-  });
-
-  ipcMain.handle('settings:validateGlm', async (_, key: string) => {
-    return SettingsManager.validateGlmKey(key);
-  });
-
-  // Get available models based on configured API keys
-  function getAvailableModels(): Array<{ id: string; name: string; provider: string }> {
-    const models: Array<{ id: string; name: string; provider: string }> = [];
-    const authMethod = SettingsManager.get('auth.method');
-    const hasOAuth = authMethod === 'oauth' && SettingsManager.get('auth.oauthToken');
-    const hasAnthropicKey = SettingsManager.get('anthropic.apiKey');
-    if (hasOAuth || hasAnthropicKey) {
-      models.push(
-        { id: 'claude-opus-4-6', name: 'Opus 4.6', provider: 'anthropic' },
-        { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6', provider: 'anthropic' },
-        { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5', provider: 'anthropic' }
-      );
-    }
-    const hasMoonshotKey = SettingsManager.get('moonshot.apiKey');
-    if (hasMoonshotKey) {
-      models.push({ id: 'kimi-k2.5', name: 'Kimi K2.5', provider: 'moonshot' });
-    }
-    const hasGlmKey = SettingsManager.get('glm.apiKey');
-    if (hasGlmKey) {
-      models.push(
-        { id: 'glm-5', name: 'GLM 5', provider: 'glm' },
-        { id: 'glm-4.7', name: 'GLM 4.7', provider: 'glm' }
-      );
-    }
-
-    return models;
-  }
-
-  ipcMain.handle('settings:getAvailableModels', async () => {
-    return getAvailableModels();
-  });
-
-  ipcMain.handle('agent:restart', async () => {
-    try {
-      await restartAgent();
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-    }
-  });
-
-  ipcMain.handle('app:openSettings', async (_, tab?: string) => {
-    openSettingsWindow(tab);
-  });
-
-  ipcMain.handle('app:openChat', async () => {
-    openChatWindow();
-  });
-
-  // OAuth flow for Claude subscription
-  ipcMain.handle('auth:startOAuth', async () => {
-    const { ClaudeOAuth } = await import('../auth/oauth');
-    return ClaudeOAuth.startFlow();
-  });
-
-  ipcMain.handle('auth:completeOAuth', async (_, code: string) => {
-    const { ClaudeOAuth } = await import('../auth/oauth');
-    return ClaudeOAuth.completeWithCode(code);
-  });
-
-  ipcMain.handle('auth:cancelOAuth', async () => {
-    const { ClaudeOAuth } = await import('../auth/oauth');
-    ClaudeOAuth.cancelFlow();
-    return { success: true };
-  });
-
-  ipcMain.handle('auth:isOAuthPending', async () => {
-    const { ClaudeOAuth } = await import('../auth/oauth');
-    return ClaudeOAuth.isPending();
-  });
-
-  ipcMain.handle('auth:validateOAuth', async () => {
-    try {
-      const { ClaudeOAuth } = await import('../auth/oauth');
-      // Timeout after 5 seconds to avoid hanging the UI
-      const result = await Promise.race([
-        ClaudeOAuth.getAccessToken().then((token) => ({ valid: token !== null })),
-        new Promise<{ valid: boolean }>((resolve) =>
-          setTimeout(() => resolve({ valid: false }), 5000)
-        ),
-      ]);
-      console.log('[OAuth] Validation result:', result.valid ? 'valid' : 'expired/failed');
-      return result;
-    } catch (error) {
-      console.error('[OAuth] Validation error:', error);
-      return { valid: false };
-    }
-  });
-
-  // Browser control
-  ipcMain.handle('browser:detectInstalled', async () => {
-    const { detectInstalledBrowsers } = await import('../browser/launcher');
-    return detectInstalledBrowsers();
-  });
-
-  ipcMain.handle('browser:launch', async (_, browserId: string, port?: number) => {
-    const { launchBrowser } = await import('../browser/launcher');
-    return launchBrowser(browserId, port || 9222);
-  });
-
-  ipcMain.handle('browser:testConnection', async (_, cdpUrl?: string) => {
-    const { testCdpConnection } = await import('../browser/launcher');
-    return testCdpConnection(cdpUrl || 'http://localhost:9222');
-  });
-
-  // Shell commands — platform-aware shell selection
-  // Allowlisted command prefixes for security (only Pocket CLI operations)
-  const ALLOWED_COMMAND_PREFIXES = IS_WINDOWS
-    ? [
-        '(Get-Command pocket',
-        'Invoke-RestMethod https://api.github.com/repos/KenKaiii/',
-        '$installDir = Join-Path',
-      ]
-    : [
-        'which pocket',
-        'curl -fsSL https://api.github.com/repos/KenKaiii/pocket-agent-cli/',
-        'curl -fsSL https://raw.githubusercontent.com/KenKaiii/pocket-agent-cli/main/scripts/install.sh -o /tmp/pocket-cli-install.sh && sed',
-      ];
-
-  // Validate the `strings` version-check command: must have a safe path and the exact grep suffix
-  const STRINGS_CMD_SUFFIX = ` | grep -E '^v[0-9]+\\.[0-9]+\\.[0-9]+$' | head -1`;
-  function isAllowedStringsCmd(cmd: string): boolean {
-    if (!cmd.startsWith('strings "') || !cmd.endsWith(STRINGS_CMD_SUFFIX)) return false;
-    // Extract the path between quotes
-    const pathPart = cmd.slice('strings "'.length, cmd.length - STRINGS_CMD_SUFFIX.length - 1);
-    // Path must only contain safe characters (alphanumeric, slashes, dots, dashes, underscores)
-    return /^[\w/.-]+$/.test(pathPart);
-  }
-
-  ipcMain.handle('shell:runCommand', async (event, command: string) => {
-    // Security: only allow calls from local file origins (not remote/injected content)
-    const senderUrl = event.sender.getURL();
-    if (!senderUrl.startsWith('file://')) {
-      console.warn('[Shell] Blocked runCommand from non-local origin:', senderUrl);
-      throw new Error('Access denied: shell commands only allowed from local UI');
-    }
-    // Security: only allow known command patterns
-    const isAllowed =
-      ALLOWED_COMMAND_PREFIXES.some((prefix) => command.startsWith(prefix)) ||
-      (!IS_WINDOWS && isAllowedStringsCmd(command));
-    if (!isAllowed) {
-      console.warn('[Shell] Blocked non-allowlisted command:', command.slice(0, 80));
-      throw new Error('Access denied: command not in allowlist');
-    }
-    const execAsync = promisify(exec);
-    const shellOpts: Record<string, unknown> = IS_WINDOWS
-      ? { shell: 'powershell.exe', env: process.env }
-      : {
-          shell: '/bin/bash',
-          env: {
-            ...process.env,
-            PATH: `${process.env.PATH}:/usr/local/bin:/opt/homebrew/bin:${HOME_DIR}/.local/bin`,
-          },
-        };
-    try {
-      const { stdout } = await execAsync(command, shellOpts);
-      return stdout;
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[Shell] Command failed:', errorMsg);
-      throw error;
-    }
-  });
-
-  // Commands (Workflows)
-  ipcMain.handle('commands:list', async (_, sessionId?: string) => {
-    // For coder sessions with a working directory, load commands from the session's
-    // .claude/commands/ directory instead of the root workspace
-    if (sessionId && memory) {
-      const sessionMode = memory.getSessionMode(sessionId);
-      const sessionWorkDir = memory.getSessionWorkingDirectory(sessionId);
-      if (sessionMode === 'coder' && sessionWorkDir) {
-        const sessionCommandsDir = path.join(sessionWorkDir, '.claude', 'commands');
-        if (fs.existsSync(sessionCommandsDir)) {
-          return loadWorkflowCommandsFromDir(sessionCommandsDir);
-        }
-      }
-    }
-    return loadWorkflowCommands();
-  });
-
-  // Read media file as data URI (for displaying agent-generated images in chat)
-  ipcMain.handle('agent:readMedia', async (_, filePath: string) => {
-    try {
-      // Security: only allow reading from the Pocket-agent media directory
-      const mediaDir = path.join(app.getPath('documents'), 'Pocket-agent', 'media');
-      const resolvedPath = path.resolve(filePath);
-      if (!resolvedPath.startsWith(mediaDir)) {
-        throw new Error('Access denied: path outside media directory');
-      }
-
-      const buffer = fs.readFileSync(resolvedPath);
-      const ext = path.extname(resolvedPath).toLowerCase();
-      const mimeMap: Record<string, string> = {
-        '.png': 'image/png',
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.gif': 'image/gif',
-        '.webp': 'image/webp',
-      };
-      const mimeType = mimeMap[ext] || 'image/png';
-      return `data:${mimeType};base64,${buffer.toString('base64')}`;
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[Main] Failed to read media file:', errorMsg);
-      return null;
-    }
-  });
-
-  // File attachments
-  ipcMain.handle('attachment:save', async (_, name: string, dataUrl: string) => {
-    try {
-      // Create attachments directory
-      const attachmentsDir = path.join(app.getPath('userData'), 'attachments');
-      if (!fs.existsSync(attachmentsDir)) {
-        fs.mkdirSync(attachmentsDir, { recursive: true });
-      }
-
-      // Generate unique filename
-      const timestamp = Date.now();
-      const safeName = name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const filePath = path.join(attachmentsDir, `${timestamp}-${safeName}`);
-
-      // Extract base64 data and save
-      const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-      if (!matches) {
-        throw new Error('Invalid data URL format');
-      }
-
-      const buffer = Buffer.from(matches[2], 'base64');
-      fs.writeFileSync(filePath, buffer);
-
-      console.log(`[Attachment] Saved: ${filePath}`);
-      return filePath;
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[Attachment] Save failed:', errorMsg);
-      throw error;
-    }
-  });
-
-  // Extract text from Office documents (docx, pptx, xlsx, odt, odp, ods, rtf)
-  ipcMain.handle('attachment:extract-text', async (_, filePath: string) => {
-    // Security: only allow reading from the attachments directory
-    const attachmentsDir = path.join(app.getPath('userData'), 'attachments');
-    const resolvedPath = path.resolve(filePath);
-    if (!resolvedPath.startsWith(attachmentsDir)) {
-      throw new Error('Access denied: path outside attachments directory');
-    }
-    const { parseOffice } = await import('officeparser');
-    const ast = await parseOffice(resolvedPath);
-    return ast.toText();
-  });
-
-  // Permissions (macOS)
-  ipcMain.handle('permissions:isMacOS', () => {
-    return isMacOS();
-  });
-
-  ipcMain.handle('permissions:checkStatus', (_, types: PermissionType[]) => {
-    return getPermissionsStatus(types);
-  });
-
-  ipcMain.handle('permissions:openSettings', async (_, type: PermissionType) => {
-    await openPermissionSettings(type);
-  });
+  const deps = buildIPCDeps();
+  registerAgentIPC(deps);
+  registerSessionsIPC(deps);
+  registerSettingsIPC(deps);
+  registerFactsIPC(deps);
+  registerCronIPC(deps);
+  registerIosIPC(deps);
+  registerMiscIPC(deps);
 }
 
 // ============ Agent Lifecycle ============
@@ -2699,11 +648,11 @@ async function initializeAgent(): Promise<void> {
     AgentManager.off('model:changed', modelChangedHandler);
   }
   modelChangedHandler = (model: string) => {
-    if (chatWindow && !chatWindow.isDestroyed()) {
-      chatWindow.webContents.send('model:changed', model);
+    if (getWindow(WIN.CHAT)) {
+      getWindow(WIN.CHAT)?.webContents.send('model:changed', model);
     }
-    if (settingsWindow && !settingsWindow.isDestroyed()) {
-      settingsWindow.webContents.send('model:changed', model);
+    if (getWindow(WIN.SETTINGS)) {
+      getWindow(WIN.SETTINGS)?.webContents.send('model:changed', model);
     }
   };
   AgentManager.on('model:changed', modelChangedHandler);
@@ -2717,317 +666,8 @@ async function initializeAgent(): Promise<void> {
       iosChannel = createiOSChannel();
 
       if (iosChannel) {
-        // Handle incoming messages from iOS → Agent
-        iosChannel.setMessageHandler(
-          async (client: { device: ConnectedDevice }, message: ClientChatMessage) => {
-            // Transcribe audio if present (voice note from iOS)
-            let messageText = message.text;
-            if (message.audio?.data) {
-              const audioBuffer = Buffer.from(message.audio.data, 'base64');
-              const transcription = await transcribeAudio(
-                audioBuffer,
-                message.audio.format || 'm4a'
-              );
-              if (transcription.success && transcription.text) {
-                messageText = transcription.text;
-                console.log(
-                  `[Main] Transcribed iOS voice note (${message.audio.duration}s): "${messageText.substring(0, 80)}..."`
-                );
-              } else {
-                console.warn('[Main] Voice transcription failed:', transcription.error);
-                if (!message.text) {
-                  throw new Error(
-                    `Voice transcription failed: ${transcription.error || 'Unknown error'}. Please try again or type your message.`
-                  );
-                }
-              }
-            }
-
-            // Forward status events to desktop UI during iOS-initiated queries
-            const iosSessionId = message.sessionId;
-            const desktopStatusHandler = (status: { type: string; sessionId?: string }) => {
-              if (status.sessionId && status.sessionId !== iosSessionId) return;
-              if (chatWindow && !chatWindow.isDestroyed()) {
-                chatWindow.webContents.send('agent:status', status);
-              }
-            };
-            AgentManager.on('status', desktopStatusHandler);
-            ensureCoderWorkingDirectory(message.sessionId);
-            let result;
-            try {
-              result = await AgentManager.processMessage(messageText, 'ios', message.sessionId);
-            } finally {
-              AgentManager.off('status', desktopStatusHandler);
-            }
-
-            // Sync to desktop UI (skip if response is empty, e.g. aborted)
-            if (chatWindow && !chatWindow.isDestroyed() && result.response) {
-              chatWindow.webContents.send('ios:message', {
-                userMessage: messageText,
-                response: result.response,
-                sessionId: message.sessionId,
-                deviceId: client.device.deviceId,
-              });
-            }
-
-            // Sync to Telegram if linked
-            const linkedChatId = memory?.getChatForSession(message.sessionId);
-            if (telegramBot && linkedChatId) {
-              telegramBot
-                .syncToChat(messageText, result.response, linkedChatId, result.media)
-                .catch((err) => {
-                  console.error('[Main] Failed to sync iOS message to Telegram:', err);
-                });
-            }
-
-            // Push notification for backgrounded/closed iOS devices
-            if (result.response && iosChannel) {
-              iosChannel
-                .sendPushNotifications('Pocket Agent', result.response, {
-                  sessionId: message.sessionId,
-                  type: 'response',
-                })
-                .catch((err) => console.error('[iOS] Push failed:', err));
-            }
-
-            return {
-              response: result.response,
-              tokensUsed: result.tokensUsed,
-              media: result.media,
-              planPending: result.planPending,
-            };
-          }
-        );
-
-        // Handle session list requests
-        iosChannel.setSessionsHandler(() => {
-          const sessions = memory?.getSessions() || [];
-          return sessions.map((s: { id: string; name: string; updated_at?: string }) => ({
-            id: s.id,
-            name: s.name,
-            updatedAt: s.updated_at || new Date().toISOString(),
-          }));
-        });
-
-        // Handle history requests from iOS
-        iosChannel.setHistoryHandler((sessionId, limit) => {
-          const messages = AgentManager.getRecentMessages(limit, sessionId);
-          return messages.map((m) => ({
-            role: m.role,
-            content: m.content,
-            timestamp: m.timestamp,
-            metadata: m.metadata,
-          }));
-        });
-
-        // Forward agent status events to connected iOS clients
-        iosChannel.setStatusForwarder((sessionId, handler) => {
-          const statusHandler = (status: Record<string, unknown>) => {
-            if (status.sessionId && status.sessionId !== sessionId) return;
-            handler({
-              type: 'status',
-              status: status.type as string,
-              sessionId: (status.sessionId as string) || sessionId,
-              message: status.message as string | undefined,
-              toolName: status.toolName as string | undefined,
-              toolInput: status.toolInput as string | undefined,
-              partialText: status.partialText as string | undefined,
-              partialReplace: status.partialReplace as boolean | undefined,
-              agentCount: status.agentCount as number | undefined,
-              teammateName: status.teammateName as string | undefined,
-              taskSubject: status.taskSubject as string | undefined,
-              queuePosition: status.queuePosition as number | undefined,
-              queuedMessage: status.queuedMessage as string | undefined,
-              blockedReason: status.blockedReason as string | undefined,
-              isPocketCli: status.isPocketCli as boolean | undefined,
-              backgroundTaskId: status.backgroundTaskId as string | undefined,
-              backgroundTaskDescription: status.backgroundTaskDescription as string | undefined,
-              backgroundTaskCount: status.backgroundTaskCount as number | undefined,
-            });
-          };
-
-          AgentManager.on('status', statusHandler);
-          return () => AgentManager.off('status', statusHandler);
-        });
-
-        // Handle model list/switch requests from iOS
-        iosChannel.setModelsHandler(() => {
-          const models: Array<{ id: string; name: string; provider: string }> = [];
-          const authMethod = SettingsManager.get('auth.method');
-          const hasOAuth = authMethod === 'oauth' && SettingsManager.get('auth.oauthToken');
-          const hasAnthropicKey = SettingsManager.get('anthropic.apiKey');
-          if (hasOAuth || hasAnthropicKey) {
-            models.push(
-              { id: 'claude-opus-4-6', name: 'Opus 4.6', provider: 'anthropic' },
-              { id: 'claude-sonnet-4-6', name: 'Sonnet 4.6', provider: 'anthropic' },
-              { id: 'claude-haiku-4-5-20251001', name: 'Haiku 4.5', provider: 'anthropic' }
-            );
-          }
-          const hasMoonshotKey = SettingsManager.get('moonshot.apiKey');
-          if (hasMoonshotKey) {
-            models.push({ id: 'kimi-k2.5', name: 'Kimi K2.5', provider: 'moonshot' });
-          }
-          const hasGlmKey = SettingsManager.get('glm.apiKey');
-          if (hasGlmKey) {
-            models.push(
-              { id: 'glm-5', name: 'GLM 5', provider: 'glm' },
-              { id: 'glm-4.7', name: 'GLM 4.7', provider: 'glm' }
-            );
-          }
-          return { models, activeModelId: AgentManager.getModel() };
-        });
-
-        iosChannel.setModelSwitchHandler((modelId: string) => {
-          AgentManager.setModel(modelId);
-        });
-        iosChannel.setStopHandler((sessionId: string) => {
-          return AgentManager.stopQuery(sessionId);
-        });
-        iosChannel.setClearHandler((sessionId: string) => {
-          AgentManager.clearQueue(sessionId);
-          AgentManager.clearConversation(sessionId);
-          AgentManager.clearSdkSessionMapping(sessionId);
-          updateTrayMenu();
-          chatWindow?.webContents.send('session:cleared', sessionId);
-          console.log(`[Main] Fresh start from iOS (session: ${sessionId})`);
-        });
-
-        iosChannel.setFactsHandler(() => AgentManager.getAllFacts());
-        iosChannel.setFactsDeleteHandler((id) => {
-          memory?.deleteFact(id);
-          return true;
-        });
-        iosChannel.setDailyLogsHandler((days) => memory?.getDailyLogsSince(days || 3) || []);
-        iosChannel.setSoulHandler(() => memory?.getAllSoulAspects() || []);
-        iosChannel.setSoulDeleteHandler((id) => {
-          memory?.deleteSoulAspectById(id);
-          return true;
-        });
-        iosChannel.setCustomizeGetHandler(() => ({
-          agentName: SettingsManager.get('personalize.agentName') || 'Frankie',
-          description: SettingsManager.get('personalize.description') || '',
-          personality: SettingsManager.get('personalize.personality') || '',
-          goals: SettingsManager.get('personalize.goals') || '',
-          struggles: SettingsManager.get('personalize.struggles') || '',
-          funFacts: SettingsManager.get('personalize.funFacts') || '',
-          systemGuidelines: SYSTEM_GUIDELINES,
-          profile: {
-            name: SettingsManager.get('profile.name') || '',
-            occupation: SettingsManager.get('profile.occupation') || '',
-            location: SettingsManager.get('profile.location') || '',
-            timezone: SettingsManager.get('profile.timezone') || '',
-            birthday: SettingsManager.get('profile.birthday') || '',
-          },
-        }));
-        iosChannel.setCustomizeSaveHandler((data) => {
-          if (data.agentName !== undefined)
-            SettingsManager.set('personalize.agentName', data.agentName);
-          if (data.description !== undefined)
-            SettingsManager.set('personalize.description', data.description);
-          if (data.personality !== undefined)
-            SettingsManager.set('personalize.personality', data.personality);
-          if (data.goals !== undefined) SettingsManager.set('personalize.goals', data.goals);
-          if (data.struggles !== undefined)
-            SettingsManager.set('personalize.struggles', data.struggles);
-          if (data.funFacts !== undefined)
-            SettingsManager.set('personalize.funFacts', data.funFacts);
-          if (data.profile) {
-            if (data.profile.name !== undefined)
-              SettingsManager.set('profile.name', data.profile.name);
-            if (data.profile.occupation !== undefined)
-              SettingsManager.set('profile.occupation', data.profile.occupation);
-            if (data.profile.location !== undefined)
-              SettingsManager.set('profile.location', data.profile.location);
-            if (data.profile.timezone !== undefined)
-              SettingsManager.set('profile.timezone', data.profile.timezone);
-            if (data.profile.birthday !== undefined)
-              SettingsManager.set('profile.birthday', data.profile.birthday);
-          }
-        });
-        iosChannel.setRoutinesListHandler(() => scheduler?.getAllJobs() || []);
-        iosChannel.setRoutinesCreateHandler(async (name, schedule, prompt, channel, sessionId) => {
-          return (await scheduler?.createJob(name, schedule, prompt, channel, sessionId)) || false;
-        });
-        iosChannel.setRoutinesDeleteHandler((name) => scheduler?.deleteJob(name) || false);
-        iosChannel.setRoutinesToggleHandler(
-          (name, enabled) => scheduler?.setJobEnabled(name, enabled) || false
-        );
-        iosChannel.setRoutinesRunHandler(async (name) => {
-          try {
-            await scheduler?.runJobNow(name);
-            return { success: true };
-          } catch (e) {
-            return { success: false, error: String(e) };
-          }
-        });
-        iosChannel.setAppInfoHandler(() => ({ version: app.getVersion(), name: 'Pocket Agent' }));
-        iosChannel.setSkinHandler((skinId: string) => {
-          SettingsManager.set('ui.skin', skinId);
-          const allWindows = [
-            chatWindow,
-            settingsWindow,
-            cronWindow,
-            factsWindow,
-            customizeWindow,
-            soulWindow,
-            dailyLogsWindow,
-          ];
-          for (const win of allWindows) {
-            if (win && !win.isDestroyed()) {
-              win.webContents.send('skin:changed', skinId);
-            }
-          }
-        });
-        iosChannel.setModeGetHandler((sessionId: string) => {
-          const mode = memory?.getSessionMode(sessionId) || 'coder';
-          const msgCount = memory?.getSessionMessageCount(sessionId) || 0;
-          return { mode, locked: msgCount > 0 };
-        });
-        iosChannel.setModeSwitchHandler((sessionId: string, mode: string) => {
-          if (mode !== 'general' && mode !== 'coder') {
-            const current = memory?.getSessionMode(sessionId) || 'coder';
-            return { mode: current, locked: true, error: 'Invalid mode' };
-          }
-          const msgCount = memory?.getSessionMessageCount(sessionId) || 0;
-          if (msgCount > 0) {
-            const current = memory?.getSessionMode(sessionId) || 'coder';
-            return {
-              mode: current,
-              locked: true,
-              error: 'Cannot change mode after messages have been sent',
-            };
-          }
-          memory?.setSessionMode(sessionId, mode as 'general' | 'coder');
-          AgentManager.setMode(mode);
-          SettingsManager.set('agent.mode', mode);
-          if (chatWindow && !chatWindow.isDestroyed()) {
-            chatWindow.webContents.send('agent:modeChanged', mode);
-          }
-          return { mode, locked: false };
-        });
-        iosChannel.setWorkflowsHandler((sessionId: string) => {
-          const sessionMode = memory?.getSessionMode(sessionId) || 'coder';
-          const sessionWorkDir = memory?.getSessionWorkingDirectory(sessionId);
-          if (sessionMode === 'coder' && sessionWorkDir) {
-            const sessionCommandsDir = path.join(sessionWorkDir, '.claude', 'commands');
-            if (fs.existsSync(sessionCommandsDir)) {
-              return loadWorkflowCommandsFromDir(sessionCommandsDir).map((c) => ({
-                name: c.name,
-                description: c.description,
-                content: c.content,
-              }));
-            }
-          }
-          return loadWorkflowCommands().map((c) => ({
-            name: c.name,
-            description: c.description,
-            content: c.content,
-          }));
-        });
-        iosChannel.setChatInfoHandler(() => ({
-          username: SettingsManager.get('chat.username') || '',
-          adminKey: SettingsManager.get('chat.adminKey') || '',
-        }));
+        // Wire up all iOS channel handlers using the shared helper
+        wireIosChannelHandlers(buildIPCDeps());
 
         await iosChannel.start();
         const mode = iosChannel.getMode();
@@ -3056,20 +696,20 @@ async function initializeAgent(): Promise<void> {
     scheduler.setChatHandler(
       (jobName: string, prompt: string, response: string, sessionId: string) => {
         console.log(`[Scheduler] Sending chat message for job: ${jobName} (session: ${sessionId})`);
-        if (chatWindow && !chatWindow.isDestroyed()) {
-          chatWindow.webContents.send('scheduler:message', {
+        if (getWindow(WIN.CHAT)) {
+          getWindow(WIN.CHAT)?.webContents.send('scheduler:message', {
             jobName,
             prompt,
             response,
             sessionId,
           });
         }
-        if (!chatWindow || chatWindow.isDestroyed()) {
+        if (!getWindow(WIN.CHAT)) {
           openChatWindow();
           setTimeout(() => {
             try {
-              if (chatWindow && !chatWindow.isDestroyed()) {
-                chatWindow.webContents.send('scheduler:message', {
+              if (getWindow(WIN.CHAT)) {
+                getWindow(WIN.CHAT)?.webContents.send('scheduler:message', {
                   jobName,
                   prompt,
                   response,
@@ -3109,7 +749,7 @@ async function initializeAgent(): Promise<void> {
     // Set up birthday reminders if birthday is configured
     const birthday = SettingsManager.get('profile.birthday');
     if (birthday) {
-      await setupBirthdayCronJobs(birthday);
+      await setupBirthdayCronJobs(birthday, scheduler);
     }
   }
 
@@ -3128,8 +768,8 @@ async function initializeAgent(): Promise<void> {
         // Only send to chat window if it's already open - don't force open or notify
         telegramBot.setOnMessageCallback((data) => {
           // Only sync to desktop UI if chat window is already open
-          if (chatWindow && !chatWindow.isDestroyed()) {
-            chatWindow.webContents.send('telegram:message', {
+          if (getWindow(WIN.CHAT)) {
+            getWindow(WIN.CHAT)?.webContents.send('telegram:message', {
               userMessage: data.userMessage,
               response: data.response,
               chatId: data.chatId,
@@ -3145,8 +785,8 @@ async function initializeAgent(): Promise<void> {
 
         // Notify UI when Telegram session links change
         telegramBot.setOnSessionLinkCallback(() => {
-          if (chatWindow && !chatWindow.isDestroyed()) {
-            chatWindow.webContents.send('sessions:changed');
+          if (getWindow(WIN.CHAT)) {
+            getWindow(WIN.CHAT)?.webContents.send('sessions:changed');
           }
         });
 
@@ -3307,6 +947,12 @@ app.whenReady().then(async () => {
     setupIPC();
     setupUpdaterIPC();
     console.log('[Main] Creating tray...');
+    initTray({
+      openChatWindow,
+      openSettingsWindow,
+      restartAgent,
+      showNotification,
+    });
     await createTray();
     console.log('[Main] Tray created');
 

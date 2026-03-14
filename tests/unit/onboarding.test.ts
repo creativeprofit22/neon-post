@@ -72,7 +72,7 @@ const ONBOARDING_PERMISSIONS: PermissionType[] = [
 
 /**
  * Simulate what the setup.html JS does when it calls the IPC:
- *   const statuses = await window.pocketAgent.checkPermissions([...])
+ *   const statuses = await window.pocketAgent.permissions.check([...])
  *
  * This mirrors the main-process handler:
  *   ipcMain.handle('permissions:checkStatus', (_, types) => getPermissionsStatus(types))

@@ -10,7 +10,6 @@
 
 import WebSocket from 'ws';
 import crypto from 'crypto';
-import fs from 'fs';
 import {
   ClientMessage,
   ClientChatMessage,
@@ -49,29 +48,13 @@ import {
 } from './types';
 import { loadWorkflowCommands } from '../../config/commands-loader';
 import { SettingsManager } from '../../settings';
+import { convertMediaToDataUris } from './utils';
 
 const PAIRING_CODE_LENGTH = 6;
 const PAIRING_CODE_EXPIRY_MS = 5 * 60 * 1000;
 const RECONNECT_BASE_DELAY_MS = 3000;
 const RECONNECT_MAX_DELAY_MS = 5 * 60 * 1000; // Cap at 5 minutes
 const PING_INTERVAL_MS = 25000;
-
-/** Convert desktop file paths to data URIs so iOS can display them */
-function convertMediaToDataUris(
-  media?: Array<{ type: string; filePath: string; mimeType: string }>
-): Array<{ type: string; filePath: string; mimeType: string }> | undefined {
-  if (!media || media.length === 0) return media;
-  return media.map((m) => {
-    try {
-      if (!fs.existsSync(m.filePath)) return m;
-      const data = fs.readFileSync(m.filePath);
-      const b64 = data.toString('base64');
-      return { ...m, filePath: `data:${m.mimeType};base64,${b64}` };
-    } catch {
-      return m;
-    }
-  });
-}
 
 interface VirtualClient {
   relayClientId: string;

@@ -7,6 +7,7 @@
 
 import puppeteer, { Browser, Page } from 'puppeteer-core';
 import { BrowserAction, BrowserResult } from './types';
+import { getExtractionScript, getScrollScript, getVisibleTextScript } from './extract-scripts';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -453,61 +454,7 @@ export class CdpTier {
       const selector = action.extractSelector || 'body';
       const extractType = action.extractType || 'structured';
 
-      const result = await page.evaluate(
-        (sel: string, type: string) => {
-          const el = document.querySelector(sel) || document.body;
-
-          switch (type) {
-            case 'text':
-              return { text: (el as HTMLElement).innerText };
-
-            case 'html':
-              return { html: el.innerHTML };
-
-            case 'links':
-              const links: Array<{ href: string; text: string }> = [];
-              el.querySelectorAll('a[href]').forEach((a: Element) => {
-                links.push({
-                  href: (a as HTMLAnchorElement).href,
-                  text: a.textContent?.trim() || '',
-                });
-              });
-              return { links };
-
-            case 'tables':
-              const tables: string[][][] = [];
-              el.querySelectorAll('table').forEach((table: Element) => {
-                const tableData: string[][] = [];
-                table.querySelectorAll('tr').forEach((row: Element) => {
-                  const rowData: string[] = [];
-                  row.querySelectorAll('td, th').forEach((cell: Element) => {
-                    rowData.push(cell.textContent?.trim() || '');
-                  });
-                  if (rowData.length) tableData.push(rowData);
-                });
-                if (tableData.length) tables.push(tableData);
-              });
-              return { tables };
-
-            case 'structured':
-            default:
-              const mainEl =
-                document.querySelector('main, article, [role="main"], .content') || document.body;
-              return {
-                title: document.title,
-                url: window.location.href,
-                description:
-                  document.querySelector('meta[name="description"]')?.getAttribute('content') || '',
-                headings: Array.from(document.querySelectorAll('h1, h2, h3'))
-                  .slice(0, 20)
-                  .map((h) => h.textContent?.trim()),
-                mainContent: (mainEl as HTMLElement).innerText?.slice(0, 3000) || '',
-              };
-          }
-        },
-        selector,
-        extractType
-      );
+      const result = await page.evaluate(getExtractionScript(extractType, selector));
 
       return {
         success: true,
@@ -530,9 +477,7 @@ export class CdpTier {
   private async getVisibleText(): Promise<string> {
     if (!this.page) return '';
 
-    return this.page.evaluate(() => {
-      return document.body.innerText.slice(0, 5000);
-    });
+    return this.page.evaluate(getVisibleTextScript()) as Promise<string>;
   }
 
   /**
@@ -551,42 +496,14 @@ export class CdpTier {
         await page.waitForSelector(selector, { timeout: 5000 });
       }
 
-      const result = await page.evaluate(
-        (dir: string, amt: number, sel: string | null) => {
-          const target = sel ? document.querySelector(sel) : window;
-          if (sel && !target) {
-            return { success: false, error: 'Element not found' };
-          }
-
-          const scrollTarget = target === window ? window : (target as Element);
-
-          switch (dir) {
-            case 'up':
-              scrollTarget.scrollBy(0, -amt);
-              break;
-            case 'down':
-              scrollTarget.scrollBy(0, amt);
-              break;
-            case 'left':
-              scrollTarget.scrollBy(-amt, 0);
-              break;
-            case 'right':
-              scrollTarget.scrollBy(amt, 0);
-              break;
-          }
-
-          return {
-            success: true,
-            scrollY: window.scrollY,
-            scrollX: window.scrollX,
-            scrollHeight: document.documentElement.scrollHeight,
-            scrollWidth: document.documentElement.scrollWidth,
-          };
-        },
-        direction,
-        amount,
-        selector || null
-      );
+      const result = (await page.evaluate(getScrollScript(direction, amount, selector))) as {
+        success: boolean;
+        error?: string;
+        scrollY?: number;
+        scrollX?: number;
+        scrollHeight?: number;
+        scrollWidth?: number;
+      };
 
       if (!result.success) {
         return {

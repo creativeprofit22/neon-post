@@ -229,8 +229,8 @@ describe('Source Code Verification', () => {
     expect(content).toMatch(/import.*getCurrentSessionId.*from/);
   });
 
-  it('main/index.ts status handler should filter by sessionId', () => {
-    const content = fs.readFileSync(path.join(srcDir, 'main/index.ts'), 'utf-8');
+  it('agent-ipc.ts status handler should filter by sessionId', () => {
+    const content = fs.readFileSync(path.join(srcDir, 'main/ipc/agent-ipc.ts'), 'utf-8');
     expect(content).toContain('status.sessionId');
     expect(content).toMatch(/if \(status\.sessionId && status\.sessionId !== effectiveSessionId\) return/);
   });

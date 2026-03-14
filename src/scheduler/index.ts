@@ -3,6 +3,16 @@ import Database from 'better-sqlite3';
 import { AgentManager } from '../agent';
 import { MemoryManager, CronJob } from '../memory';
 import type { TelegramBot } from '../channels/telegram';
+import { matchesCronField } from '../utils/cron';
+import { formatForSqlite, checkCalendarEvents, checkTaskReminders } from './calendar';
+import {
+  stripMarkdown,
+  sendToAllChannels,
+  type NotificationChannels,
+  type NotificationHandler,
+  type ChatHandler,
+  type IOSSyncHandler,
+} from './notifications';
 
 /**
  * Silent acknowledgment token for scheduled tasks.
@@ -10,59 +20,6 @@ import type { TelegramBot } from '../channels/telegram';
  * skips notification - useful for "nothing to report" scenarios.
  */
 export const HEARTBEAT_OK = 'HEARTBEAT_OK';
-
-/**
- * Match a cron field spec against a value.
- * Supports: *, integers, step (asterisk/N or range/step), ranges (N-M), and comma-separated lists.
- */
-function matchesCronField(spec: string, value: number, min: number, max: number): boolean {
-  if (spec === '*') return true;
-
-  return spec.split(',').some((part) => {
-    const [range, stepStr] = part.split('/');
-    const step = stepStr ? parseInt(stepStr, 10) : 1;
-
-    let start: number, end: number;
-    if (range === '*') {
-      start = min;
-      end = max;
-    } else if (range.includes('-')) {
-      const [s, e] = range.split('-');
-      start = parseInt(s, 10);
-      end = parseInt(e, 10);
-    } else {
-      // Single value (no step)
-      if (!stepStr) return value === parseInt(range, 10);
-      start = parseInt(range, 10);
-      end = max;
-    }
-
-    if (value < start || value > end) return false;
-    return (value - start) % step === 0;
-  });
-}
-
-interface CalendarEvent {
-  id: number;
-  title: string;
-  description: string | null;
-  start_time: string;
-  location: string | null;
-  reminder_minutes: number;
-  channel: string;
-  session_id: string | null;
-}
-
-interface Task {
-  id: number;
-  title: string;
-  description: string | null;
-  due_date: string;
-  priority: string;
-  reminder_minutes: number;
-  channel: string;
-  session_id: string | null;
-}
 
 export interface ScheduledJob {
   id: number;
@@ -110,7 +67,24 @@ export class CronScheduler {
   private db: Database.Database | null = null; // Persistent DB connection for reminders
   private isCheckingReminders: boolean = false; // Mutex to prevent overlapping checks
 
+  private onNotification?: NotificationHandler;
+  private onChatMessage?: ChatHandler;
+  private onIOSSync?: IOSSyncHandler;
+
   constructor() {}
+
+  /**
+   * Build the NotificationChannels object from current state.
+   */
+  private getChannels(): NotificationChannels {
+    return {
+      onNotification: this.onNotification,
+      onChatMessage: this.onChatMessage,
+      onIOSSync: this.onIOSSync,
+      telegramBot: this.telegramBot,
+      memory: this.memory,
+    };
+  }
 
   /**
    * Initialize scheduler with memory manager and load jobs
@@ -176,17 +150,9 @@ export class CronScheduler {
   }
 
   /**
-   * Check for calendar events and tasks that need reminders
-   * Uses mutex to prevent overlapping executions
+   * Check for calendar events and tasks that need reminders.
+   * Uses mutex to prevent overlapping executions.
    */
-  /**
-   * Format date for SQLite datetime() function
-   * SQLite is finicky with milliseconds and 'Z' suffix, use clean ISO format
-   */
-  private formatForSqlite(date: Date): string {
-    return date.toISOString().replace(/\.\d{3}Z$/, '');
-  }
-
   private async checkReminders(): Promise<void> {
     if (!this.db) return;
 
@@ -201,83 +167,19 @@ export class CronScheduler {
     try {
       const db = this.db;
       const now = new Date();
-      const nowSqlite = this.formatForSqlite(now);
+      const nowSqlite = formatForSqlite(now);
+      const channels = this.getChannels();
 
-      // Check calendar events
-      const events = db
-        .prepare(
-          `
-        SELECT id, title, description, start_time, location, reminder_minutes, channel, session_id
-        FROM calendar_events
-        WHERE reminded = 0
-          AND datetime(replace(start_time, 'Z', ''), '-' || reminder_minutes || ' minutes') <= datetime(?)
-          AND datetime(replace(start_time, 'Z', '')) > datetime(?)
-      `
-        )
-        .all(nowSqlite, nowSqlite) as CalendarEvent[];
-
-      for (const event of events) {
-        const startTime = new Date(event.start_time);
-        const minutesUntil = Math.round((startTime.getTime() - now.getTime()) / 60000);
-
-        let message = `Upcoming event: "${event.title}"`;
-        if (minutesUntil > 0) {
-          message += ` in ${minutesUntil} minute${minutesUntil === 1 ? '' : 's'}`;
-        } else {
-          message += ' starting now';
-        }
-        if (event.location) {
-          message += ` at ${event.location}`;
-        }
-
-        const sessionId = event.session_id || 'default';
-        await this.sendReminder('calendar', event.title, message, event.channel, sessionId);
-
-        // Mark as reminded
-        db.prepare('UPDATE calendar_events SET reminded = 1 WHERE id = ?').run(event.id);
-        console.log(`[Scheduler] Marked calendar event ${event.id} as reminded`);
+      // Check calendar events (delegated to calendar module)
+      const calendarResults = await checkCalendarEvents(db, now, nowSqlite, channels, this.memory);
+      for (const result of calendarResults) {
+        this.addToHistory(result);
       }
 
-      // Check tasks with due dates
-      const tasks = db
-        .prepare(
-          `
-        SELECT id, title, description, due_date, priority, reminder_minutes, channel, session_id
-        FROM tasks
-        WHERE status != 'completed'
-          AND reminded = 0
-          AND reminder_minutes IS NOT NULL
-          AND due_date IS NOT NULL
-          AND datetime(replace(due_date, 'Z', ''), '-' || reminder_minutes || ' minutes') <= datetime(?)
-          AND datetime(replace(due_date, 'Z', '')) > datetime(?)
-      `
-        )
-        .all(nowSqlite, nowSqlite) as Task[];
-
-      if (tasks.length > 0) {
-        console.log(`[Scheduler] Found ${tasks.length} task(s) due for reminder`);
-      }
-
-      for (const task of tasks) {
-        const dueDate = new Date(task.due_date);
-        const minutesUntil = Math.round((dueDate.getTime() - now.getTime()) / 60000);
-
-        let message = `Task due soon: "${task.title}"`;
-        if (minutesUntil > 0) {
-          message += ` in ${minutesUntil} minute${minutesUntil === 1 ? '' : 's'}`;
-        } else {
-          message += ' due now';
-        }
-        if (task.priority === 'high') {
-          message += ' (High Priority)';
-        }
-
-        const sessionId = task.session_id || 'default';
-        await this.sendReminder('task', task.title, message, task.channel, sessionId);
-
-        // Mark as reminded
-        db.prepare('UPDATE tasks SET reminded = 1 WHERE id = ?').run(task.id);
-        console.log(`[Scheduler] Marked task ${task.id} as reminded`);
+      // Check tasks with due dates (delegated to calendar module)
+      const taskResults = await checkTaskReminders(db, now, nowSqlite, channels, this.memory);
+      for (const result of taskResults) {
+        this.addToHistory(result);
       }
 
       // Check for due cron jobs
@@ -309,7 +211,7 @@ export class CronScheduler {
       job_type: string | null;
     }
 
-    const nowSqlite = this.formatForSqlite(now);
+    const nowSqlite = formatForSqlite(now);
     const dueJobs = db
       .prepare(
         `
@@ -521,7 +423,7 @@ export class CronScheduler {
     jobName: string,
     prompt: string,
     response: string,
-    channel: string,
+    _channel: string,
     sessionId: string = 'default'
   ): Promise<void> {
     // Check for silent acknowledgment - agent has nothing to report
@@ -531,82 +433,27 @@ export class CronScheduler {
       return;
     }
 
-    // Always send to desktop (notification + chat to the correct session)
-    const plainResponse = this.stripMarkdown(response);
-    if (this.onNotification) {
-      this.onNotification('Pocket Agent', plainResponse.slice(0, 200));
+    const channels = this.getChannels();
+    const plainResponse = stripMarkdown(response);
+    if (channels.onNotification) {
+      channels.onNotification('Pocket Agent', plainResponse.slice(0, 200));
     }
-    if (this.onChatMessage) {
-      this.onChatMessage(jobName, prompt, response, sessionId);
-    }
-
-    // Send to iOS devices
-    if (this.onIOSSync) {
-      this.onIOSSync(jobName, prompt, response, sessionId);
-    }
-
-    // Also send to Telegram if configured AND session has a linked chat
-    if (this.telegramBot && this.memory) {
-      const linkedChatId = this.memory.getChatForSession(sessionId);
-      if (linkedChatId) {
-        await this.telegramBot.sendMessage(linkedChatId, response);
-      }
-    }
-  }
-
-  /**
-   * Send a reminder notification.
-   * Always sends to desktop (to the correct session), and also to Telegram if configured.
-   */
-  private async sendReminder(
-    type: 'calendar' | 'task',
-    title: string,
-    message: string,
-    channel: string,
-    sessionId: string = 'default'
-  ): Promise<void> {
-    console.log(`[Scheduler] Sending ${type} reminder: ${title} (session: ${sessionId})`);
-
-    // Save reminder to messages table for persistence and history display
-    if (this.memory) {
-      this.memory.saveMessage('assistant', message, sessionId, {
-        source: 'scheduler',
-        jobName: `${type}_reminder`,
-      });
-    }
-
-    // Always send to desktop (notification + chat to the correct session)
-    if (this.onNotification) {
-      this.onNotification('Pocket Agent', message);
-    }
-    if (this.onChatMessage) {
-      this.onChatMessage(`${type}_reminder`, message, message, sessionId);
+    if (channels.onChatMessage) {
+      channels.onChatMessage(jobName, prompt, response, sessionId);
     }
 
     // Send to iOS devices
-    if (this.onIOSSync) {
-      this.onIOSSync(`${type}_reminder`, message, message, sessionId);
+    if (channels.onIOSSync) {
+      channels.onIOSSync(jobName, prompt, response, sessionId);
     }
 
     // Also send to Telegram if configured AND session has a linked chat
-    if (this.telegramBot && this.memory) {
-      const linkedChatId = this.memory.getChatForSession(sessionId);
+    if (channels.telegramBot && channels.memory) {
+      const linkedChatId = channels.memory.getChatForSession(sessionId);
       if (linkedChatId) {
-        await this.telegramBot.sendMessage(
-          linkedChatId,
-          `${type === 'calendar' ? '📅' : '✓'} ${message}`
-        );
+        await channels.telegramBot.sendMessage(linkedChatId, response);
       }
     }
-
-    // Log to history
-    this.addToHistory({
-      jobName: `${type}:${title}`,
-      response: message,
-      channel,
-      success: true,
-      timestamp: new Date(),
-    });
   }
 
   /**
@@ -754,82 +601,9 @@ export class CronScheduler {
    */
   private async routeResponse(job: ScheduledJob, response: string): Promise<void> {
     const sessionId = job.sessionId || 'default';
+    const channels = this.getChannels();
 
-    // Always send to desktop (chat window + notification)
-    this.emitChatMessage(job.name, job.prompt, response, sessionId);
-    const plainResponse = this.stripMarkdown(response);
-    this.emitDesktopNotification('Pocket Agent', plainResponse.slice(0, 200));
-
-    // Send to iOS devices
-    if (this.onIOSSync) {
-      this.onIOSSync(job.name, job.prompt, response, sessionId);
-    }
-
-    // Also send to Telegram if configured and session has a linked chat
-    if (this.telegramBot && this.memory) {
-      if (job.recipient) {
-        // Send to specific chat (explicitly specified)
-        const chatId = parseInt(job.recipient, 10);
-        if (!isNaN(chatId)) {
-          await this.telegramBot.sendMessage(chatId, `📅 ${job.name}\n\n${response}`);
-        }
-      } else {
-        // Send to session's linked chat if it exists
-        const linkedChatId = this.memory.getChatForSession(sessionId);
-        if (linkedChatId) {
-          await this.telegramBot.sendMessage(linkedChatId, `📅 ${job.name}\n\n${response}`);
-        }
-      }
-    }
-  }
-
-  /**
-   * Emit desktop notification (handled by main process)
-   */
-  private emitDesktopNotification(title: string, body: string): void {
-    if (this.onNotification) {
-      this.onNotification(title, body);
-    }
-  }
-
-  /**
-   * Emit chat message (sends to chat window)
-   */
-  private emitChatMessage(
-    jobName: string,
-    prompt: string,
-    response: string,
-    sessionId: string = 'default'
-  ): void {
-    if (this.onChatMessage) {
-      this.onChatMessage(jobName, prompt, response, sessionId);
-    }
-  }
-
-  /**
-   * Strip markdown formatting for plain text (notifications)
-   */
-  private stripMarkdown(text: string): string {
-    return (
-      text
-        // Remove headers
-        .replace(/^#{1,6}\s+/gm, '')
-        // Remove bold/italic
-        .replace(/\*\*([^*]+)\*\*/g, '$1')
-        .replace(/\*([^*]+)\*/g, '$1')
-        .replace(/__([^_]+)__/g, '$1')
-        .replace(/_([^_]+)_/g, '$1')
-        // Remove code blocks
-        .replace(/```[\s\S]*?```/g, '[code]')
-        .replace(/`([^`]+)`/g, '$1')
-        // Remove links
-        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-        // Remove bullet points
-        .replace(/^[\s]*[-*+]\s+/gm, '• ')
-        // Remove extra whitespace
-        .replace(/\n{3,}/g, '\n\n')
-        .trim()
-    );
+    await sendToAllChannels(channels, job.name, job.prompt, response, sessionId, job.recipient);
   }
 
   /**
@@ -856,20 +630,6 @@ export class CronScheduler {
   ): void {
     this.onIOSSync = handler;
   }
-
-  private onNotification?: (title: string, body: string) => void;
-  private onChatMessage?: (
-    jobName: string,
-    prompt: string,
-    response: string,
-    sessionId: string
-  ) => void;
-  private onIOSSync?: (
-    jobName: string,
-    prompt: string,
-    response: string,
-    sessionId: string
-  ) => void;
 
   /**
    * Add result to history

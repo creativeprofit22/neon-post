@@ -709,7 +709,7 @@
     .hidden { display: none !important; }
   </style>
   <script>
-    (function(){function _apply(p){var r=document.documentElement;if(!p){['bg-primary','bg-secondary','bg-tertiary','border','text-primary','text-secondary','text-muted','accent','accent-secondary','accent-hover','error','success','warning','orange','user-bubble','user-bubble-solid','assistant-bubble'].forEach(function(k){r.style.removeProperty('--'+k)});return}Object.keys(p).forEach(function(k){r.style.setProperty('--'+k,p[k])})}window.addEventListener('DOMContentLoaded',function(){if(!window.pocketAgent)return;Promise.all([window.pocketAgent.getThemes(),window.pocketAgent.getSkin()]).then(function(res){var themes=res[0],skinId=res[1],t=themes[skinId];if(t)_apply(t.palette);window.pocketAgent.onSkinChanged(function(id){var th=themes[id];if(th)_apply(th.palette)})}).catch(function(){})})})();
+    (function(){function _apply(p){var r=document.documentElement;if(!p){['bg-primary','bg-secondary','bg-tertiary','border','text-primary','text-secondary','text-muted','accent','accent-secondary','accent-hover','error','success','warning','orange','user-bubble','user-bubble-solid','assistant-bubble'].forEach(function(k){r.style.removeProperty('--'+k)});return}Object.keys(p).forEach(function(k){r.style.setProperty('--'+k,p[k])})}window.addEventListener('DOMContentLoaded',function(){if(!window.pocketAgent)return;Promise.all([window.pocketAgent.themes.list(),window.pocketAgent.themes.getSkin()]).then(function(res){var themes=res[0],skinId=res[1],t=themes[skinId];if(t)_apply(t.palette);window.pocketAgent.themes.onSkinChanged(function(id){var th=themes[id];if(th)_apply(th.palette)})}).catch(function(){})})})();
   </script>
 </head>
 <body>
@@ -942,7 +942,7 @@
     let keychainInitialized = false;
 
     // Platform-specific text
-    const platform = window.pocketAgent.getPlatform();
+    const platform = window.pocketAgent.app.getPlatform();
     const platformText = (() => {
       if (platform === 'darwin') {
         return {
@@ -977,7 +977,7 @@
       btn.innerHTML = '<span class="spinner"></span> Initializing...';
 
       try {
-        const result = await window.pocketAgent.initializeKeychain();
+        const result = await window.pocketAgent.settings.initializeKeychain();
 
         if (result.available) {
           keychainInitialized = true;
@@ -1019,7 +1019,7 @@
 
     async function checkAndShowPermissions() {
       try {
-        const mac = await window.pocketAgent.isMacOS();
+        const mac = await window.pocketAgent.permissions.isMacOS();
         if (!mac) {
           showStep('step-auth');
           return;
@@ -1042,7 +1042,7 @@
       btn.innerHTML = '<span class="spinner"></span> Checking...';
 
       try {
-        const statuses = await window.pocketAgent.checkPermissions([
+        const statuses = await window.pocketAgent.permissions.check([
           'full-disk-access',
           'accessibility',
           'screen-recording',
@@ -1090,7 +1090,7 @@
 
     async function openPermSettings(type) {
       try {
-        await window.pocketAgent.openPermissionSettings(type);
+        await window.pocketAgent.permissions.openSettings(type);
       } catch (err) {
         console.error('Failed to open permission settings:', err);
       }
@@ -1179,7 +1179,7 @@
 
       try {
         // Start OAuth flow - opens browser
-        const result = await window.pocketAgent.startOAuth();
+        const result = await window.pocketAgent.auth.startOAuth();
 
         if (result.success) {
           // Show the code entry step
@@ -1230,19 +1230,19 @@
 
       try {
         // Exchange code for tokens
-        const result = await window.pocketAgent.completeOAuth(code);
+        const result = await window.pocketAgent.auth.completeOAuth(code);
 
         if (result.success) {
           // Save Kimi key if provided
           const kimiKey = document.getElementById('kimi-key-oauth').value.trim();
           if (kimiKey) {
-            await window.pocketAgent.setSetting('moonshot.apiKey', kimiKey);
+            await window.pocketAgent.settings.set('moonshot.apiKey', kimiKey);
           }
 
           // Save GLM key if provided
           const glmKey = document.getElementById('glm-key-oauth').value.trim();
           if (glmKey) {
-            await window.pocketAgent.setSetting('glm.apiKey', glmKey);
+            await window.pocketAgent.settings.set('glm.apiKey', glmKey);
           }
 
           showStep('step-success');
@@ -1269,7 +1269,7 @@
 
     async function cancelOAuth() {
       try {
-        await window.pocketAgent.cancelOAuth();
+        await window.pocketAgent.auth.cancelOAuth();
       } catch (err) {
         console.error('Failed to cancel OAuth:', err);
       }
@@ -1315,7 +1315,7 @@
       try {
         // Validate Anthropic key if provided
         if (anthropicKey) {
-          const result = await window.pocketAgent.validateAnthropicKey(anthropicKey);
+          const result = await window.pocketAgent.validate.anthropicKey(anthropicKey);
           if (!result.valid) {
             statusDiv.innerHTML = `
               <div class="status error">
@@ -1330,28 +1330,28 @@
         }
 
         // Save keys
-        await window.pocketAgent.setSetting('auth.method', 'api_key');
+        await window.pocketAgent.settings.set('auth.method', 'api_key');
 
         if (anthropicKey) {
-          await window.pocketAgent.setSetting('anthropic.apiKey', anthropicKey);
+          await window.pocketAgent.settings.set('anthropic.apiKey', anthropicKey);
         }
         if (kimiKey) {
-          await window.pocketAgent.setSetting('moonshot.apiKey', kimiKey);
+          await window.pocketAgent.settings.set('moonshot.apiKey', kimiKey);
         }
         if (glmKey) {
-          await window.pocketAgent.setSetting('glm.apiKey', glmKey);
+          await window.pocketAgent.settings.set('glm.apiKey', glmKey);
         }
 
         // Auto-select a model matching the first available provider key
         // so the agent doesn't start with a mismatched default model
-        const currentModel = await window.pocketAgent.getSetting('agent.model');
+        const currentModel = await window.pocketAgent.settings.get('agent.model');
         const isAnthropicModel = !currentModel || currentModel.startsWith('claude-');
         if (isAnthropicModel && !anthropicKey) {
           // Default model is Anthropic but user didn't provide an Anthropic key
           if (kimiKey) {
-            await window.pocketAgent.setSetting('agent.model', 'kimi-k2.5');
+            await window.pocketAgent.settings.set('agent.model', 'kimi-k2.5');
           } else if (glmKey) {
-            await window.pocketAgent.setSetting('agent.model', 'glm-4.7');
+            await window.pocketAgent.settings.set('agent.model', 'glm-4.7');
           }
         }
 
@@ -1372,8 +1372,8 @@
     async function finishSetup() {
       // Restart agent with new settings and open chat
       try {
-        await window.pocketAgent.restartAgent();
-        await window.pocketAgent.openChat();
+        await window.pocketAgent.agent.restart();
+        await window.pocketAgent.app.openChat();
       } catch (err) {
         console.error('Failed to finish setup:', err);
       }

@@ -7,6 +7,14 @@
 
 import { BrowserWindow, WebContents, app } from 'electron';
 import { BrowserAction, BrowserResult } from './types';
+import {
+  getExtractionScript,
+  getScrollScript,
+  getClickScript,
+  getHoverScript,
+  getTypeScript,
+  getVisibleTextScript,
+} from './extract-scripts';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -218,14 +226,7 @@ export class ElectronTier {
     try {
       const webContents = await this.getWebContents();
 
-      const result = await webContents.executeJavaScript(`
-        (function() {
-          const el = document.querySelector(${JSON.stringify(selector)});
-          if (!el) return { success: false, error: 'Element not found' };
-          el.click();
-          return { success: true };
-        })()
-      `);
+      const result = await webContents.executeJavaScript(getClickScript(selector));
 
       if (!result.success) {
         return {
@@ -259,20 +260,7 @@ export class ElectronTier {
     try {
       const webContents = await this.getWebContents();
 
-      const result = await webContents.executeJavaScript(`
-        (function() {
-          const el = document.querySelector(${JSON.stringify(selector)});
-          if (!el) return { success: false, error: 'Element not found' };
-          if (!('value' in el)) return { success: false, error: 'Element is not an input' };
-
-          el.focus();
-          el.value = ${JSON.stringify(text)};
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-
-          return { success: true };
-        })()
-      `);
+      const result = await webContents.executeJavaScript(getTypeScript(selector, text));
 
       if (!result.success) {
         return {
@@ -346,55 +334,9 @@ export class ElectronTier {
       const selector = action.extractSelector || 'body';
       const extractType = action.extractType || 'structured';
 
-      const result = await webContents.executeJavaScript(`
-        (function() {
-          const selector = ${JSON.stringify(selector)};
-          const el = document.querySelector(selector) || document.body;
-          const extractType = ${JSON.stringify(extractType)};
-
-          switch (extractType) {
-            case 'text':
-              return { text: el.innerText };
-
-            case 'html':
-              return { html: el.innerHTML };
-
-            case 'links':
-              const links = [];
-              el.querySelectorAll('a[href]').forEach(a => {
-                links.push({ href: a.href, text: a.innerText.trim() });
-              });
-              return { links };
-
-            case 'tables':
-              const tables = [];
-              el.querySelectorAll('table').forEach(table => {
-                const tableData = [];
-                table.querySelectorAll('tr').forEach(row => {
-                  const rowData = [];
-                  row.querySelectorAll('td, th').forEach(cell => {
-                    rowData.push(cell.innerText.trim());
-                  });
-                  if (rowData.length) tableData.push(rowData);
-                });
-                if (tableData.length) tables.push(tableData);
-              });
-              return { tables };
-
-            case 'structured':
-            default:
-              return {
-                title: document.title,
-                description: document.querySelector('meta[name="description"]')?.content || '',
-                headings: Array.from(document.querySelectorAll('h1, h2, h3'))
-                  .slice(0, 20)
-                  .map(h => h.innerText.trim()),
-                mainContent: (document.querySelector('main, article, [role="main"], .content') || document.body)
-                  .innerText.slice(0, 3000)
-              };
-          }
-        })()
-      `);
+      const result = await webContents.executeJavaScript(
+        getExtractionScript(extractType, selector)
+      );
 
       return {
         success: true,
@@ -443,9 +385,7 @@ export class ElectronTier {
   private async getVisibleText(): Promise<string> {
     const webContents = await this.getWebContents();
 
-    return webContents.executeJavaScript(`
-      document.body.innerText.slice(0, 5000)
-    `);
+    return webContents.executeJavaScript(getVisibleTextScript());
   }
 
   /**
@@ -459,41 +399,9 @@ export class ElectronTier {
     try {
       const webContents = await this.getWebContents();
 
-      const result = await webContents.executeJavaScript(`
-        (function() {
-          const target = ${selector ? `document.querySelector(${JSON.stringify(selector)})` : 'window'};
-          if (${selector ? 'true' : 'false'} && !target) {
-            return { success: false, error: 'Element not found' };
-          }
-
-          const scrollTarget = target === window ? window : target;
-          const direction = ${JSON.stringify(direction)};
-          const amount = ${amount};
-
-          switch (direction) {
-            case 'up':
-              scrollTarget.scrollBy(0, -amount);
-              break;
-            case 'down':
-              scrollTarget.scrollBy(0, amount);
-              break;
-            case 'left':
-              scrollTarget.scrollBy(-amount, 0);
-              break;
-            case 'right':
-              scrollTarget.scrollBy(amount, 0);
-              break;
-          }
-
-          return {
-            success: true,
-            scrollY: window.scrollY,
-            scrollX: window.scrollX,
-            scrollHeight: document.documentElement.scrollHeight,
-            scrollWidth: document.documentElement.scrollWidth
-          };
-        })()
-      `);
+      const result = await webContents.executeJavaScript(
+        getScrollScript(direction, amount, selector)
+      );
 
       if (!result.success) {
         return {
@@ -525,33 +433,7 @@ export class ElectronTier {
     try {
       const webContents = await this.getWebContents();
 
-      const result = await webContents.executeJavaScript(`
-        (function() {
-          const el = document.querySelector(${JSON.stringify(selector)});
-          if (!el) return { success: false, error: 'Element not found' };
-
-          // Dispatch mouse events to trigger hover states
-          const rect = el.getBoundingClientRect();
-          const centerX = rect.left + rect.width / 2;
-          const centerY = rect.top + rect.height / 2;
-
-          const mouseEnter = new MouseEvent('mouseenter', {
-            bubbles: true,
-            clientX: centerX,
-            clientY: centerY
-          });
-          const mouseOver = new MouseEvent('mouseover', {
-            bubbles: true,
-            clientX: centerX,
-            clientY: centerY
-          });
-
-          el.dispatchEvent(mouseEnter);
-          el.dispatchEvent(mouseOver);
-
-          return { success: true };
-        })()
-      `);
+      const result = await webContents.executeJavaScript(getHoverScript(selector));
 
       if (!result.success) {
         return {

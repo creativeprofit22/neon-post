@@ -556,7 +556,7 @@
     .hidden { display: none !important; }
   </style>
   <script>
-    (function(){function _apply(p){var r=document.documentElement;if(!p){['bg-primary','bg-secondary','bg-tertiary','border','text-primary','text-secondary','text-muted','accent','accent-secondary','accent-hover','error','success','warning','orange','user-bubble','user-bubble-solid','assistant-bubble'].forEach(function(k){r.style.removeProperty('--'+k)});return}Object.keys(p).forEach(function(k){r.style.setProperty('--'+k,p[k])})}window.addEventListener('DOMContentLoaded',function(){if(!window.pocketAgent)return;Promise.all([window.pocketAgent.getThemes(),window.pocketAgent.getSkin()]).then(function(res){var themes=res[0],skinId=res[1],t=themes[skinId];if(t)_apply(t.palette);window.pocketAgent.onSkinChanged(function(id){var th=themes[id];if(th)_apply(th.palette)})}).catch(function(){})})})();
+    (function(){function _apply(p){var r=document.documentElement;if(!p){['bg-primary','bg-secondary','bg-tertiary','border','text-primary','text-secondary','text-muted','accent','accent-secondary','accent-hover','error','success','warning','orange','user-bubble','user-bubble-solid','assistant-bubble'].forEach(function(k){r.style.removeProperty('--'+k)});return}Object.keys(p).forEach(function(k){r.style.setProperty('--'+k,p[k])})}window.addEventListener('DOMContentLoaded',function(){if(!window.pocketAgent)return;Promise.all([window.pocketAgent.themes.list(),window.pocketAgent.themes.getSkin()]).then(function(res){var themes=res[0],skinId=res[1],t=themes[skinId];if(t)_apply(t.palette);window.pocketAgent.themes.onSkinChanged(function(id){var th=themes[id];if(th)_apply(th.palette)})}).catch(function(){})})})();
   </script>
   <script type="module">
     import autoAnimate from 'https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.9/+esm';
@@ -953,7 +953,7 @@
 
     async function loadWorkflows() {
       try {
-        workflowCommands = await window.pocketAgent.getCommands();
+        workflowCommands = await window.pocketAgent.commands.list();
         const sourceSelect = document.getElementById('prompt-source');
         workflowCommands.forEach(cmd => {
           const opt = document.createElement('option');
@@ -987,7 +987,7 @@
 
     async function loadSessions() {
       try {
-        const sessions = await window.pocketAgent.getSessions();
+        const sessions = await window.pocketAgent.sessions.list();
         const sessionSelect = document.getElementById('job-session');
         sessionsMap = {};
 
@@ -1003,7 +1003,7 @@
 
     async function loadJobs() {
       try {
-        const allJobs = await window.pocketAgent.getCronJobs();
+        const allJobs = await window.pocketAgent.cron.list();
         // Filter to only show recurring jobs (cron and every types), not one-time 'at' jobs
         const jobs = allJobs.filter(job => {
           const scheduleType = job.schedule_type || 'cron';
@@ -1077,7 +1077,7 @@
       const schedule = buildCronExpression();
 
       try {
-        const result = await window.pocketAgent.createCronJob(name, schedule, prompt, 'default', sessionId);
+        const result = await window.pocketAgent.cron.create(name, schedule, prompt, 'default', sessionId);
         if (result.success) {
           document.getElementById('job-name').value = '';
           document.getElementById('job-prompt').value = '';
@@ -1095,7 +1095,7 @@
 
     async function toggleJob(name, enabled) {
       try {
-        await window.pocketAgent.toggleCronJob(name, enabled);
+        await window.pocketAgent.cron.toggle(name, enabled);
         showToast(enabled ? 'Back at it!' : 'Taking a break', 'success');
         loadJobs();
       } catch (err) {
@@ -1106,7 +1106,7 @@
     async function runJob(name) {
       showToast('On it!', 'success');
       try {
-        await window.pocketAgent.runCronJob(name);
+        await window.pocketAgent.cron.run(name);
       } catch (err) {
         showToast(err.message, 'error');
       }
@@ -1116,7 +1116,7 @@
       if (!confirm(`Delete "${name}"?`)) return;
 
       try {
-        await window.pocketAgent.deleteCronJob(name);
+        await window.pocketAgent.cron.delete(name);
         showToast('Poof! Gone.', 'success');
         loadJobs();
       } catch (err) {
