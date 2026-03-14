@@ -21,6 +21,7 @@ import { SettingsManager } from '../settings';
 import { SYSTEM_GUIDELINES } from '../config/system-guidelines';
 import { getStreamConfig } from './chat-providers';
 import { getChatAgentTools, getServerTools } from './chat-tools';
+import { buildTemporalContext } from './context-extraction';
 import type {
   AgentStatus,
   ImageContent,
@@ -586,54 +587,8 @@ export class ChatEngine {
     return undefined;
   }
 
-  private parseDbTimestamp(timestamp: string): Date {
-    if (/Z$|[+-]\d{2}:?\d{2}$/.test(timestamp)) return new Date(timestamp);
-
-    const userTimezone = SettingsManager.get('profile.timezone');
-    const normalized = timestamp.replace(' ', 'T');
-    return userTimezone ? new Date(normalized + 'Z') : new Date(normalized);
-  }
-
   private buildTemporalContext(lastMessageTimestamp?: string): string {
-    const now = new Date();
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const dayName = dayNames[now.getDay()];
-
-    const timeStr = now.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-    const dateStr = now.toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    });
-
-    const lines = ['## Current Time', `It is ${dayName}, ${dateStr} at ${timeStr}.`];
-
-    if (lastMessageTimestamp) {
-      try {
-        const lastDate = this.parseDbTimestamp(lastMessageTimestamp);
-        const diffMs = now.getTime() - lastDate.getTime();
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
-
-        let timeSince = '';
-        if (diffMins < 1) timeSince = 'just now';
-        else if (diffMins < 60) timeSince = `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
-        else if (diffHours < 24) timeSince = `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
-        else if (diffDays < 7) timeSince = `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
-        else timeSince = lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-        lines.push(`Last message from user was ${timeSince}.`);
-      } catch {
-        /* ignore */
-      }
-    }
-
-    return lines.join('\n');
+    return buildTemporalContext(lastMessageTimestamp);
   }
 
   /**
