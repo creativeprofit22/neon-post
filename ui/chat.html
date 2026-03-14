@@ -6672,6 +6672,7 @@
       const wrapper = document.createElement('div');
       wrapper.className = `global-chat-wrapper ${isSelf ? 'self' : 'other'}`;
       wrapper.dataset.messageTs = msg.ts;
+      if (msg._optimistic) wrapper.dataset.optimistic = 'true';
 
       // Sender label (outside bubble)
       const sender = document.createElement('div');
@@ -6913,9 +6914,33 @@
             }
           }
         } else if (data.type === 'message_ack') {
-          // Server confirmed our message was saved — add it to chat
+          // Server confirmed our message — find and update the optimistic bubble
           if (data.minTier !== undefined) userMinTierMap.set(data.username, data.minTier);
-          addGlobalChatMessage({ username: data.username, text: data.text, ts: data.ts, admin: !!data.admin, tier: data.tier || 0, replyTo: data.replyTo || undefined, reactions: data.reactions || {} });
+          const optimisticIdx = globalChatMessages.findIndex(m => m._optimistic && m.username === data.username && m.text === data.text);
+          if (optimisticIdx !== -1) {
+            // Update the optimistic message with server-confirmed data
+            globalChatMessages[optimisticIdx] = {
+              username: data.username,
+              text: data.text,
+              ts: data.ts,
+              admin: !!data.admin,
+              tier: data.tier || 0,
+              replyTo: data.replyTo || undefined,
+              reactions: data.reactions || {},
+            };
+            // Find optimistic wrapper by data attribute and update its ts
+            const wrappers = document.querySelectorAll('[data-message-ts]');
+            for (const w of wrappers) {
+              if (w.dataset.optimistic === 'true') {
+                w.dataset.messageTs = String(data.ts);
+                w.removeAttribute('data-optimistic');
+                break;
+              }
+            }
+          } else {
+            // Fallback: no optimistic message found, add normally (shouldn't happen)
+            addGlobalChatMessage({ username: data.username, text: data.text, ts: data.ts, admin: !!data.admin, tier: data.tier || 0, replyTo: data.replyTo || undefined, reactions: data.reactions || {} });
+          }
         } else if (data.type === 'chat_cleared') {
           globalChatMessages = [];
           const container = document.getElementById('global-chat-messages');
@@ -7114,7 +7139,6 @@
         return;
       }
 
-      // Don't optimistically add — wait for server echo so all users see the same state
       input.value = '';
       autoResizeTextarea();
       gchatClearReply();
@@ -7122,6 +7146,19 @@
       mentionHighlight.innerHTML = '';
       input.classList.remove('mention-active');
       sendChatWs({ type: 'message', text, replyTo });
+
+      // Optimistically add message immediately so it appears instant
+      const optimisticTs = Date.now();
+      addGlobalChatMessage({
+        username: globalChatUsername,
+        text,
+        ts: optimisticTs,
+        admin: chatIsAdmin,
+        tier: globalChatSelfTier,
+        replyTo: replyTo || undefined,
+        reactions: {},
+        _optimistic: true,
+      });
     }
 
     const notyf = new Notyf({
