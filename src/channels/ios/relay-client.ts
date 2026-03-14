@@ -388,8 +388,36 @@ export class iOSRelayClient {
   }
 
   /** Force reconnect — used after system sleep/wake to recover stale WebSocket */
+  private forceReconnectPromise: Promise<void> | null = null;
+  private lastForceReconnect = 0;
+
   async forceReconnect(): Promise<void> {
     if (!this._isRunning) return;
+
+    // Debounce: on macOS, 'resume' and 'unlock-screen' fire back-to-back on wake.
+    // Each forceReconnect closes the host WS, which makes the relay kill all client
+    // connections. Debounce to prevent rapid close-open-close-open cycles.
+    const now = Date.now();
+    if (now - this.lastForceReconnect < 5000) {
+      console.log('[iOS Relay] Force reconnect debounced (< 5s since last)');
+      return;
+    }
+    this.lastForceReconnect = now;
+
+    // Coalesce: if already force-reconnecting, return the same promise
+    if (this.forceReconnectPromise) {
+      return this.forceReconnectPromise;
+    }
+
+    this.forceReconnectPromise = this.doForceReconnect();
+    try {
+      await this.forceReconnectPromise;
+    } finally {
+      this.forceReconnectPromise = null;
+    }
+  }
+
+  private async doForceReconnect(): Promise<void> {
     console.log('[iOS Relay] Force reconnecting (sleep/wake recovery)');
 
     // Clear any pending reconnect timer
@@ -649,7 +677,7 @@ export class iOSRelayClient {
 
     // Send success (include adminKey during pairing — one-time secure exchange)
     const chatInfo = this.onChatInfo?.();
-    const pairResult: ServerPairResultMessage & { adminKey?: string } = {
+    const pairResult: ServerPairResultMessage = {
       type: 'pair_result',
       success: true,
       authToken,

@@ -2221,7 +2221,7 @@ function setupIPC(): void {
 
       // Notify iOS when mode changes (desktop toggle)
       if (key === 'agent.mode' && iosChannel) {
-        iosChannel.broadcast({ type: 'mode', mode: value });
+        iosChannel.broadcast({ type: 'mode', mode: value, locked: false });
       }
 
       // Broadcast skin change to all open windows + iOS

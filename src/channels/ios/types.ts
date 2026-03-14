@@ -10,7 +10,6 @@ export interface ClientMessage {
     | 'pair'
     | 'ping'
     | 'stop'
-    | 'auth'
     | 'push_token'
     | 'sessions:list'
     | 'sessions:switch'
@@ -24,7 +23,6 @@ export interface ClientMessage {
     | 'daily-logs:list'
     | 'soul:list'
     | 'soul:delete'
-    | 'facts:graph'
     | 'customize:get'
     | 'customize:save'
     | 'routines:list'
@@ -100,6 +98,7 @@ export interface ServerPairResultMessage {
   error?: string;
   authToken?: string;
   deviceId?: string;
+  adminKey?: string;
 }
 
 export interface ServerSessionsMessage {
