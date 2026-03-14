@@ -1111,27 +1111,7 @@
           </div>
         </div>
 
-        <h3 class="subsection-title" style="margin-top: 24px; margin-bottom: 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary);">Model Settings</h3>
-        <div class="settings-grid" id="brain-power-section">
-          <div class="setting-row">
-            <label>Model</label>
-            <select id="agent.model">
-              <option value="claude-opus-4-6">Opus 4.6</option>
-              <option value="claude-opus-4-5-20251101">Opus 4.5</option>
-              <option value="claude-sonnet-4-6">Sonnet 4.6</option>
-              <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
-            </select>
-          </div>
-          <div class="setting-row">
-            <label>Thinking</label>
-            <select id="agent.thinkingLevel">
-              <option value="none">None</option>
-              <option value="minimal">Minimal</option>
-              <option value="normal">Normal</option>
-              <option value="extended">Extended</option>
-            </select>
-          </div>
-        </div>
+
       </section>
 
       <!-- API Keys Section -->
@@ -1543,7 +1523,6 @@
         updateToggles();
         updateAuthStatus();
         updateDeleteButtons();
-        await refreshModelDropdown();
       } catch (err) {
         console.error('Failed to load settings:', err);
         showToast('Hmm, couldn\'t grab settings', 'error');
@@ -2318,7 +2297,7 @@
           statusBadge.textContent = 'Session expired';
         });
       } else {
-        statusBadge.className = 'auth-badge none';
+        statusBadge.className = 'auth-badge none hidden';
         statusBadge.textContent = '';
         authBtn.textContent = 'Sign In';
         authBtn.className = 'oauth-btn';
