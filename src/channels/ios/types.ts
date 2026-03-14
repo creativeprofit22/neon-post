@@ -215,7 +215,6 @@ export type iOSSoulHandler = () => Array<{
 
 export type iOSSoulDeleteHandler = (id: number) => boolean;
 
-
 export type iOSCustomizeGetHandler = () => {
   agentName: string;
   description: string;

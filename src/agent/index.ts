@@ -2397,7 +2397,6 @@ class AgentManagerClass extends EventEmitter {
       // macOS tools
       notify: 'sending a meow',
 
-
       // Agent Teams tools
       TeammateTool: 'rallying the squad',
       TeamCreate: 'rallying the squad',

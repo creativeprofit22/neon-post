@@ -13,9 +13,10 @@ import { SettingsManager } from '../settings';
 const OAUTH_CONFIG = {
   clientId: '9d1c250a-e61b-44d9-88ed-5944d1962f5e',
   authorizeUrl: 'https://claude.ai/oauth/authorize',
-  tokenUrl: 'https://console.anthropic.com/v1/oauth/token',
-  redirectUri: 'https://console.anthropic.com/oauth/code/callback',
-  scopes: 'org:create_api_key user:profile user:inference',
+  tokenUrl: 'https://platform.claude.com/v1/oauth/token',
+  redirectUri: 'https://platform.claude.com/oauth/code/callback',
+  scopes:
+    'org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload',
 };
 
 interface PKCEPair {
@@ -216,6 +217,7 @@ class ClaudeOAuthManager {
         refresh_token: refreshToken,
         grant_type: 'refresh_token',
         client_id: OAUTH_CONFIG.clientId,
+        scope: OAUTH_CONFIG.scopes,
       }),
     });
 

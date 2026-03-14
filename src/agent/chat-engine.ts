@@ -35,6 +35,20 @@ type MessageParam = Message;
 const MAX_TOOL_ITERATIONS = 20;
 const MAX_CONTEXT_MESSAGES = 80;
 
+// Model context window sizes (tokens)
+const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
+  'claude-opus-4-6': 1_000_000,
+  'claude-sonnet-4-6': 1_000_000,
+  'claude-haiku-4-5-20251001': 200_000,
+  'kimi-k2.5': 128_000,
+  'glm-5': 128_000,
+  'glm-4.7': 128_000,
+};
+
+function getContextWindow(model: string): number {
+  return MODEL_CONTEXT_WINDOWS[model] ?? 200_000;
+}
+
 // Map settings thinking level to gg-ai ThinkingLevel
 const THINKING_LEVEL_MAP: Record<string, ThinkingLevel | undefined> = {
   none: undefined,
@@ -393,7 +407,7 @@ export class ChatEngine {
         wasCompacted,
         media: this.pendingMedia.length > 0 ? this.pendingMedia : undefined,
         contextTokens: totalInputTokens + totalCacheRead + totalCacheWrite,
-        contextWindow: 200000,
+        contextWindow: getContextWindow(model),
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);

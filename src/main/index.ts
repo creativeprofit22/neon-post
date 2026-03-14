@@ -1902,7 +1902,7 @@ function setupIPC(): void {
               content: c.content,
             }));
           });
-            iosChannel.setChatInfoHandler(() => ({
+          iosChannel.setChatInfoHandler(() => ({
             username: SettingsManager.get('chat.username') || '',
             adminKey: SettingsManager.get('chat.adminKey') || '',
           }));

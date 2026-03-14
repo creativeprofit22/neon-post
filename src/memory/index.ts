@@ -89,7 +89,6 @@ export interface SearchResult {
   keywordScore: number;
 }
 
-
 export interface DailyLog {
   id: number;
   date: string;
@@ -2006,7 +2005,6 @@ export class MemoryManager {
   clearSdkSessionId(sessionId: string): void {
     this.db.prepare('UPDATE sessions SET sdk_session_id = NULL WHERE id = ?').run(sessionId);
   }
-
 
   // ============ SOUL METHODS ============
 

@@ -761,8 +761,7 @@ export async function handleListRoutinesTool(): Promise<string> {
 export function getDeleteRoutineToolDefinition() {
   return {
     name: 'delete_routine',
-    description:
-      'Delete a scheduled routine or reminder by name.',
+    description: 'Delete a scheduled routine or reminder by name.',
     input_schema: {
       type: 'object' as const,
       properties: {

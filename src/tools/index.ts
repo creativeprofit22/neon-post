@@ -291,7 +291,6 @@ export async function buildSdkMcpServers(
         );
         tools.push(sdkTool);
       }
-
     }
 
     // Project tools (with diagnostics wrapper)
