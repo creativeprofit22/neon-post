@@ -8307,8 +8307,9 @@
       e.stopPropagation();
       dragCounter++;
 
-      // Only show overlay if dragging files (types is DOMStringList, use contains not includes)
-      if (e.dataTransfer?.types?.contains('Files')) {
+      // Only show overlay if dragging files (types may be DOMStringList or Array depending on Electron version)
+      const types = e.dataTransfer?.types;
+      if (types && (typeof types.includes === 'function' ? types.includes('Files') : types.contains('Files'))) {
         showDragOverlay();
       }
     });

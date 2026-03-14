@@ -1620,6 +1620,11 @@
             if (value === '[]') {
               value = '';
             }
+            // Don't populate password fields with masked placeholder values from getAllSafe()
+            // This prevents '••••••••' from being saved back as the actual key
+            if (input.type === 'password' && value === '••••••••') {
+              continue;
+            }
             input.value = value;
           }
         }
@@ -1731,8 +1736,10 @@
     function setupAutoSave() {
       // Exclude API key inputs, auth inputs, and fields with manual save buttons from auto-save
       const excludedIds = [
-        'anthropic.apiKey', 'openai.apiKey', 'auth-api-key', 'oauth-code',
-        'telegram.allowedUserIds', 'telegram.defaultChatId'
+        'anthropic.apiKey', 'openai.apiKey', 'moonshot.apiKey', 'glm.apiKey',
+        'auth-api-key', 'oauth-code',
+        'telegram.botToken', 'telegram.allowedUserIds', 'telegram.defaultChatId',
+        'chat.adminKey'
       ];
 
       const inputs = document.querySelectorAll('input, select');
