@@ -32,6 +32,7 @@ export const MODEL_PROVIDERS: Record<string, ProviderType> = {
   // Moonshot/Kimi models
   'kimi-k2.5': 'moonshot',
   // Z.AI GLM models
+  'glm-5-turbo': 'glm',
   'glm-5': 'glm',
   'glm-4.7': 'glm',
 };
