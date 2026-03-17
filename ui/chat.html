@@ -8433,6 +8433,53 @@
       input.focus();
     });
 
+    // Paste handler for clipboard images (Cmd+V / Ctrl+V)
+    document.addEventListener('paste', async (e) => {
+      const items = Array.from(e.clipboardData?.items || []);
+      const imageItems = items.filter(item => item.type.startsWith('image/'));
+
+      if (imageItems.length === 0) return; // Let normal text paste proceed
+
+      e.preventDefault();
+
+      for (const item of imageItems) {
+        const file = item.getAsFile();
+        if (!file) continue;
+
+        // Determine extension from MIME type
+        const mimeToExt = {
+          'image/png': 'png',
+          'image/jpeg': 'jpg',
+          'image/gif': 'gif',
+          'image/webp': 'webp',
+          'image/bmp': 'bmp',
+        };
+        const ext = mimeToExt[file.type] || 'png';
+
+        // Give it a name since clipboard images don't have one
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const namedFile = new File([file], `clipboard-${timestamp}.${ext}`, { type: file.type });
+
+        // Validate size
+        if (namedFile.size > MAX_FILE_SIZE) {
+          addMessage('system', `Pasted image too large (max 10MB)`);
+          continue;
+        }
+
+        try {
+          const attachment = await readFile(namedFile, ext);
+          const currentAttachments = getPendingAttachments();
+          currentAttachments.push(attachment);
+          setPendingAttachments(currentAttachments);
+        } catch (err) {
+          addMessage('system', `Failed to read pasted image`);
+        }
+      }
+
+      renderAttachmentPreviews();
+      input.focus();
+    });
+
     // Auto-resize textarea
     input.addEventListener('input', () => {
       input.style.height = 'auto';
