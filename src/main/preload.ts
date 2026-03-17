@@ -4,8 +4,11 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('pocketAgent', {
   // ─── Agent ───────────────────────────────────────────────────────────
   agent: {
-    send: (message: string, sessionId?: string) =>
-      ipcRenderer.invoke('agent:send', message, sessionId),
+    send: (
+      message: string,
+      sessionId?: string,
+      images?: Array<{ type: 'base64'; mediaType: string; data: string }>
+    ) => ipcRenderer.invoke('agent:send', message, sessionId, images),
     stop: (sessionId?: string) => ipcRenderer.invoke('agent:stop', sessionId),
     setMode: (mode: string) => ipcRenderer.invoke('agent:setMode', mode),
     getMode: () => ipcRenderer.invoke('agent:getMode'),
@@ -328,7 +331,8 @@ declare global {
       agent: {
         send: (
           message: string,
-          sessionId?: string
+          sessionId?: string,
+          images?: Array<{ type: 'base64'; mediaType: string; data: string }>
         ) => Promise<{
           success: boolean;
           response?: string;

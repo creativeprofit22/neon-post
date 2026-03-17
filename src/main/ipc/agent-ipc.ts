@@ -2,7 +2,7 @@ import { ipcMain } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { app } from 'electron';
-import { AgentManager } from '../../agent';
+import { AgentManager, ImageContent } from '../../agent';
 import { SettingsManager } from '../../settings';
 import { getWindow } from '../windows';
 import type { IPCDependencies } from './types';
@@ -18,99 +18,109 @@ export function registerAgentIPC(deps: IPCDependencies): void {
   } = deps;
 
   // Chat messages with status streaming
-  ipcMain.handle('agent:send', async (event, message: string, sessionId?: string) => {
-    console.log(`[IPC] agent:send received sessionId: ${sessionId}`);
-
-    // Auto-initialize agent if not yet initialized (handles race conditions and late key setup)
-    if (!AgentManager.isInitialized()) {
-      if (SettingsManager.hasRequiredKeys()) {
-        console.log('[IPC] Agent not initialized, initializing now...');
-        await deps.initializeAgent();
-      }
-      if (!AgentManager.isInitialized()) {
-        return {
-          success: false,
-          error: 'No API keys configured. Please add your key in Settings > LLM.',
-        };
-      }
-    }
-
-    // Set up status listener to forward to renderer
-    const effectiveSessionId = sessionId || 'default';
-    const statusHandler = (status: {
-      type: string;
-      sessionId?: string;
-      toolName?: string;
-      toolInput?: string;
-      message?: string;
-    }) => {
-      // Only forward status events for this session (or events without sessionId for backward compat)
-      if (status.sessionId && status.sessionId !== effectiveSessionId) return;
-
-      // Send status update to the chat window that initiated the request
-      const webContents = event.sender;
-      if (!webContents.isDestroyed()) {
-        webContents.send('agent:status', status);
-      }
-    };
-
-    AgentManager.on('status', statusHandler);
-
-    try {
-      // Lazy working directory creation: only create when first message is sent in coder mode
-      ensureCoderWorkingDirectory(effectiveSessionId);
-
-      const result = await AgentManager.processMessage(message, 'desktop', sessionId || 'default');
-      updateTrayMenu();
-
-      // Sync to Telegram (Desktop -> Telegram) - only to the linked chat for this session
-      const memory = getMemory();
-      const telegramBot = getTelegramBot();
-      const linkedChatId = memory?.getChatForSession(effectiveSessionId);
+  ipcMain.handle(
+    'agent:send',
+    async (event, message: string, sessionId?: string, images?: ImageContent[]) => {
       console.log(
-        '[Main] Checking telegram sync - bot exists:',
-        !!telegramBot,
-        'session:',
-        effectiveSessionId,
-        'linked chat:',
-        linkedChatId
+        `[IPC] agent:send received sessionId: ${sessionId}, images: ${images?.length || 0}`
       );
-      if (telegramBot && linkedChatId && result.response) {
-        console.log('[Main] Syncing desktop message to Telegram chat:', linkedChatId);
-        telegramBot
-          .syncToChat(message, result.response, linkedChatId, result.media)
-          .catch((err) => {
-            console.error('[Main] Failed to sync desktop message to Telegram:', err);
-          });
+
+      // Auto-initialize agent if not yet initialized (handles race conditions and late key setup)
+      if (!AgentManager.isInitialized()) {
+        if (SettingsManager.hasRequiredKeys()) {
+          console.log('[IPC] Agent not initialized, initializing now...');
+          await deps.initializeAgent();
+        }
+        if (!AgentManager.isInitialized()) {
+          return {
+            success: false,
+            error: 'No API keys configured. Please add your key in Settings > LLM.',
+          };
+        }
       }
 
-      // Sync to iOS (Desktop -> iOS) — skip if response is empty (e.g. aborted)
-      const iosChannel = getIosChannel();
-      if (iosChannel && result.response) {
-        iosChannel.syncFromDesktop(message, result.response, effectiveSessionId, result.media);
-      }
+      // Set up status listener to forward to renderer
+      const effectiveSessionId = sessionId || 'default';
+      const statusHandler = (status: {
+        type: string;
+        sessionId?: string;
+        toolName?: string;
+        toolInput?: string;
+        message?: string;
+      }) => {
+        // Only forward status events for this session (or events without sessionId for backward compat)
+        if (status.sessionId && status.sessionId !== effectiveSessionId) return;
 
-      // If response is empty (e.g. aborted/stopped), signal stop instead of empty bubble
-      if (!result.response) {
-        return { success: true, stopped: true };
-      }
-
-      return {
-        success: true,
-        response: result.response,
-        tokensUsed: result.tokensUsed,
-        suggestedPrompt: result.suggestedPrompt,
-        wasCompacted: result.wasCompacted,
-        media: result.media,
-        planPending: result.planPending,
+        // Send status update to the chat window that initiated the request
+        const webContents = event.sender;
+        if (!webContents.isDestroyed()) {
+          webContents.send('agent:status', status);
+        }
       };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      return { success: false, error: errorMsg };
-    } finally {
-      AgentManager.off('status', statusHandler);
+
+      AgentManager.on('status', statusHandler);
+
+      try {
+        // Lazy working directory creation: only create when first message is sent in coder mode
+        ensureCoderWorkingDirectory(effectiveSessionId);
+
+        const result = await AgentManager.processMessage(
+          message,
+          'desktop',
+          sessionId || 'default',
+          images
+        );
+        updateTrayMenu();
+
+        // Sync to Telegram (Desktop -> Telegram) - only to the linked chat for this session
+        const memory = getMemory();
+        const telegramBot = getTelegramBot();
+        const linkedChatId = memory?.getChatForSession(effectiveSessionId);
+        console.log(
+          '[Main] Checking telegram sync - bot exists:',
+          !!telegramBot,
+          'session:',
+          effectiveSessionId,
+          'linked chat:',
+          linkedChatId
+        );
+        if (telegramBot && linkedChatId && result.response) {
+          console.log('[Main] Syncing desktop message to Telegram chat:', linkedChatId);
+          telegramBot
+            .syncToChat(message, result.response, linkedChatId, result.media)
+            .catch((err) => {
+              console.error('[Main] Failed to sync desktop message to Telegram:', err);
+            });
+        }
+
+        // Sync to iOS (Desktop -> iOS) — skip if response is empty (e.g. aborted)
+        const iosChannel = getIosChannel();
+        if (iosChannel && result.response) {
+          iosChannel.syncFromDesktop(message, result.response, effectiveSessionId, result.media);
+        }
+
+        // If response is empty (e.g. aborted/stopped), signal stop instead of empty bubble
+        if (!result.response) {
+          return { success: true, stopped: true };
+        }
+
+        return {
+          success: true,
+          response: result.response,
+          tokensUsed: result.tokensUsed,
+          suggestedPrompt: result.suggestedPrompt,
+          wasCompacted: result.wasCompacted,
+          media: result.media,
+          planPending: result.planPending,
+        };
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        return { success: false, error: errorMsg };
+      } finally {
+        AgentManager.off('status', statusHandler);
+      }
     }
-  });
+  );
 
   ipcMain.handle('agent:history', async (_, limit: number = 50, sessionId?: string) => {
     return AgentManager.getRecentMessages(limit, sessionId || 'default');

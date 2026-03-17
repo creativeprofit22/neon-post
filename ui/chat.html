@@ -5374,7 +5374,9 @@
       scrollToBottom();
 
       // Build the full message with attachments and workflow
-      let fullMessage = await buildMessageWithAttachments(message, attachments);
+      const built = await buildMessageWithAttachments(message, attachments);
+      let fullMessage = built.text;
+      const visionImages = built.images;
       if (workflow) {
         const workflowPrefix = `[Workflow: ${workflow.name}]\n${workflow.content}\n[/Workflow]`;
         fullMessage = fullMessage ? `${workflowPrefix}\n\n${fullMessage}` : workflowPrefix;
@@ -5385,7 +5387,11 @@
 
       try {
         // This will resolve when the message is actually processed (not when queued)
-        const result = await window.pocketAgent.agent.send(fullMessage, sessionId);
+        const result = await window.pocketAgent.agent.send(
+          fullMessage,
+          sessionId,
+          visionImages.length > 0 ? visionImages : undefined
+        );
 
         // If this message was queued, remove the queued state
         if (queuedMessageElements.has(messageId)) {
@@ -5548,9 +5554,10 @@
     }
 
     async function buildMessageWithAttachments(message, attachments) {
-      if (attachments.length === 0) return message;
+      if (attachments.length === 0) return { text: message, images: [] };
 
       const parts = [];
+      const images = []; // Vision-capable image content blocks
 
       // Add text message if present
       if (message) {
@@ -5560,10 +5567,24 @@
       // Add attachments
       for (const att of attachments) {
         if (att.isImage && att.dataUrl) {
-          // Save image to temp file and reference path
+          // Extract base64 data and MIME type for vision
           try {
             const filePath = await window.pocketAgent.attachments.save(att.name, att.dataUrl);
-            parts.push(`\n\n[Attached image: ${att.name}]\nFile saved at: ${filePath}\nUse the Read tool to view this image.`);
+            parts.push(`\n\n[Attached image: ${att.name}]\nFile saved at: ${filePath}`);
+
+            // Extract base64 data from data URL for vision content block
+            const mimeMatch = att.dataUrl.match(/^data:(image\/[^;]+);base64,(.+)$/);
+            if (mimeMatch) {
+              const mediaType = mimeMatch[1];
+              const supportedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+              if (supportedTypes.includes(mediaType)) {
+                images.push({
+                  type: 'base64',
+                  mediaType: mediaType,
+                  data: mimeMatch[2],
+                });
+              }
+            }
           } catch (err) {
             parts.push(`\n\n[Image: ${att.name}] (failed to save: ${err.message})`);
           }
@@ -5598,7 +5619,7 @@
         }
       }
 
-      return parts.join('');
+      return { text: parts.join(''), images };
     }
 
     async function clearChat() {
