@@ -486,8 +486,9 @@
     }
 
     .auth-badge.none {
-      background: rgba(239, 68, 68, 0.15);
+      background: rgba(239, 68, 68, 0.10);
       color: var(--error);
+      border: 1px solid rgba(239, 68, 68, 0.18);
       padding: 4px 8px;
       font-size: 10px;
     }
@@ -503,13 +504,14 @@
       display: inline-flex;
       align-items: center;
       padding: 2px 6px;
-      border-radius: 4px;
+      border-radius: 6px;
       font-size: 9px;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.3px;
-      background: var(--error);
-      color: white;
+      background: rgba(239, 68, 68, 0.12);
+      color: var(--error);
+      border: 1px solid rgba(239, 68, 68, 0.25);
       margin-left: 6px;
     }
 
@@ -542,29 +544,37 @@
     .risk-badge {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      padding: 4px 8px;
-      background: rgba(239, 68, 68, 0.15);
-      color: var(--error);
+      gap: 5px;
+      padding: 4px 10px;
+      background: rgba(245, 158, 11, 0.10);
+      color: var(--warning);
+      border: 1px solid rgba(245, 158, 11, 0.18);
       border-radius: 16px;
       font-size: 10px;
       font-weight: 500;
       white-space: nowrap;
       cursor: help;
       position: relative;
+      transition: all 0.15s;
+    }
+
+    .risk-badge:hover {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: rgba(245, 158, 11, 0.28);
     }
 
     .risk-badge .risk-info {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 14px;
-      height: 14px;
+      width: 13px;
+      height: 13px;
       border-radius: 50%;
-      border: 1px solid var(--error);
-      font-size: 9px;
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      font-size: 8px;
       font-weight: 700;
       line-height: 1;
+      opacity: 0.8;
     }
 
     .risk-badge .risk-tooltip {
@@ -2307,10 +2317,14 @@
           } else {
             statusBadge.className = 'auth-badge none';
             statusBadge.textContent = 'Session expired';
+            authBtn.textContent = 'Sign In';
+            authBtn.className = 'oauth-btn';
           }
         }).catch(() => {
           statusBadge.className = 'auth-badge none';
           statusBadge.textContent = 'Session expired';
+          authBtn.textContent = 'Sign In';
+          authBtn.className = 'oauth-btn';
         });
       } else {
         statusBadge.className = 'auth-badge none hidden';
@@ -2341,10 +2355,9 @@
     }
 
     async function handleAuthAction() {
-      const authMethod = settings['auth.method'];
-      const hasOAuth = settings['auth.oauthToken'];
-
-      if (authMethod === 'oauth' && hasOAuth) {
+      const authBtn = document.getElementById('oauth-btn');
+      // Use button class to determine action (logout-btn = signed in, oauth-btn = signed out/expired)
+      if (authBtn.classList.contains('logout-btn')) {
         await logout();
       } else {
         await startOAuth();

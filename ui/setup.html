@@ -22,6 +22,7 @@
       --accent-hover: #c084fc;
       --error: #ef4444;
       --success: #22c55e;
+      --warning: #f59e0b;
       --orange: #f97316;
       --radius: 16px;
       --radius-sm: 10px;
@@ -289,23 +290,31 @@
     }
 
     .auth-option-badge.risk {
-      background: rgba(239, 68, 68, 0.15);
-      color: var(--error);
+      background: rgba(245, 158, 11, 0.10);
+      color: var(--warning);
+      border: 1px solid rgba(245, 158, 11, 0.18);
       cursor: help;
       position: relative;
+      transition: all 0.15s;
+    }
+
+    .auth-option-badge.risk:hover {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: rgba(245, 158, 11, 0.28);
     }
 
     .auth-option-badge.risk .risk-info {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 14px;
-      height: 14px;
+      width: 13px;
+      height: 13px;
       border-radius: 50%;
-      border: 1px solid var(--error);
-      font-size: 9px;
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      font-size: 8px;
       font-weight: 700;
       line-height: 1;
+      opacity: 0.8;
     }
 
     .risk-tooltip {
