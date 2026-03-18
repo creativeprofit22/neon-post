@@ -147,6 +147,7 @@ export function registerSessionsIPC(deps: IPCDependencies): void {
   ipcMain.handle('sessions:delete', async (_, id: string) => {
     AgentManager.clearQueue(id);
     AgentManager.clearSdkSessionMapping(id);
+    AgentManager.cleanupSession(id);
     const memory = getMemory();
     const success = memory?.deleteSession(id) ?? false;
     const iosChannel = getIosChannel();

@@ -126,8 +126,11 @@ export class TelegramBot extends BaseChannel {
     };
 
     // Callback handler dependencies
+    // Use getter so the callback is resolved at call-time, not at setup-time
     const callbackDeps: CallbackHandlerDeps = {
-      onMessageCallback: this.onMessageCallback,
+      get onMessageCallback() {
+        return self.onMessageCallback;
+      },
       sendResponse: this.sendResponse.bind(this),
     };
 

@@ -268,7 +268,7 @@ Workflows are reusable command templates. Use /workflow to see what's available,
  * Register session linking handlers
  */
 export function registerSessionHandlers(deps: CommandHandlerDeps): void {
-  const { bot, onSessionLinkCallback } = deps;
+  const { bot } = deps;
 
   // Handle bot being added to a group - auto-link to session
   bot.on('my_chat_member', async (ctx) => {
@@ -310,7 +310,7 @@ export function registerSessionHandlers(deps: CommandHandlerDeps): void {
       console.log(
         `[Telegram] Linked group "${groupName}" (chatId: ${chatId}) to session "${session.id}"`
       );
-      onSessionLinkCallback?.({ sessionId: session.id, linked: true });
+      deps.onSessionLinkCallback?.({ sessionId: session.id, linked: true });
     } else {
       // List available sessions
       const sessions = memory.getSessions();
@@ -373,7 +373,7 @@ export function registerSessionHandlers(deps: CommandHandlerDeps): void {
         `* Disable Privacy Mode via @BotFather (/setprivacy -> Disable)`
     );
     console.log(`[Telegram] Manually linked chat ${chatId} to session "${session.id}"`);
-    onSessionLinkCallback?.({ sessionId: session.id, linked: true });
+    deps.onSessionLinkCallback?.({ sessionId: session.id, linked: true });
   });
 
   // Handle /unlink command
@@ -396,6 +396,6 @@ export function registerSessionHandlers(deps: CommandHandlerDeps): void {
     memory.unlinkTelegramChat(chatId);
     await ctx.reply('Chat unlinked. Messages will now go to the default session.');
     console.log(`[Telegram] Unlinked chat ${chatId}`);
-    onSessionLinkCallback?.({ sessionId: currentSessionId, linked: false });
+    deps.onSessionLinkCallback?.({ sessionId: currentSessionId, linked: false });
   });
 }

@@ -465,20 +465,6 @@ class AgentManagerClass extends EventEmitter {
     new Map();
   private pendingProjectSwitch: Set<string> = new Set();
 
-  // Per-tool timeouts for SDK built-in tools (MCP tools have their own via wrapToolHandler)
-  private static readonly SDK_TOOL_TIMEOUTS: Record<string, number> = {
-    Bash: 120_000, // 2 min — commands can be long-running
-    Read: 15_000,
-    Write: 15_000,
-    Edit: 15_000,
-    Glob: 15_000,
-    Grep: 30_000, // large codebases
-    WebSearch: 30_000,
-    WebFetch: 45_000,
-    Task: 300_000, // 5 min — subagent work
-  };
-  private static readonly SDK_TOOL_DEFAULT_TIMEOUT = 60_000; // 1 min default
-
   private constructor() {
     super();
   }
@@ -1336,6 +1322,24 @@ class AgentManagerClass extends EventEmitter {
     this.closePersistentSession(sessionId);
     this.sdkSessionIdBySession.delete(sessionId);
     console.log(`[AgentManager] Cleared SDK session mapping for ${sessionId}`);
+  }
+
+  /**
+   * Clean up all per-session state for a deleted session to prevent memory leaks.
+   * Call this when a session is permanently removed.
+   */
+  cleanupSession(sessionId: string): void {
+    this.contextUsageBySession.delete(sessionId);
+    this.lastSuggestedPromptBySession.delete(sessionId);
+    this.pendingMediaBySession.delete(sessionId);
+    this.activeSubagentsBySession.delete(sessionId);
+    this.lastPartialTextBySession.delete(sessionId);
+    this.backgroundTasksBySession.delete(sessionId);
+    this.processingBySession.delete(sessionId);
+    this.abortControllersBySession.delete(sessionId);
+    this.stoppedByUserSession.delete(sessionId);
+    this.pendingProjectSwitch.delete(sessionId);
+    console.log(`[AgentManager] Cleaned up per-session state for ${sessionId}`);
   }
 
   /**

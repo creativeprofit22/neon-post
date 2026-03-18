@@ -73,6 +73,7 @@ export async function embedMissingFacts(db: Database.Database): Promise<void> {
       FROM facts f
       LEFT JOIN chunks c ON f.id = c.fact_id
       WHERE c.id IS NULL
+      LIMIT 100
     `
     )
     .all() as Fact[];
@@ -334,8 +335,9 @@ export async function searchFactsHybrid(
 
   // 2. Keyword search using FTS5
   try {
-    // Escape special FTS5 characters and create search query
-    const escapedQuery = query.replace(/['"]/g, '').trim();
+    // Strip all non-alphanumeric characters (except spaces) to prevent FTS5 syntax errors
+    // FTS5 operators include: AND, OR, NOT, NEAR, *, ^, ", ', (), column: filters
+    const escapedQuery = query.replace(/[^a-zA-Z0-9\s]/g, '').trim();
     if (escapedQuery) {
       const ftsResults = db
         .prepare(
@@ -407,8 +409,9 @@ export function searchFacts(db: Database.Database, query: string, category?: str
         FROM facts
         WHERE category = ? AND (content LIKE ? OR subject LIKE ?)
         ORDER BY updated_at DESC
+        LIMIT ?
       `);
-    return stmt.all(category, searchPattern, searchPattern) as Fact[];
+    return stmt.all(category, searchPattern, searchPattern, MAX_SEARCH_RESULTS) as Fact[];
   }
 
   const stmt = db.prepare(`
@@ -416,8 +419,9 @@ export function searchFacts(db: Database.Database, query: string, category?: str
       FROM facts
       WHERE content LIKE ? OR subject LIKE ? OR category LIKE ?
       ORDER BY updated_at DESC
+      LIMIT ?
     `);
-  return stmt.all(searchPattern, searchPattern, searchPattern) as Fact[];
+  return stmt.all(searchPattern, searchPattern, searchPattern, MAX_SEARCH_RESULTS) as Fact[];
 }
 
 /**

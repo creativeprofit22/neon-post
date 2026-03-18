@@ -86,7 +86,7 @@ export class ChatEngine {
       reject: (error: Error) => void;
     }>
   > = new Map();
-  private pendingMedia: MediaAttachment[] = [];
+  private pendingMediaBySession: Map<string, MediaAttachment[]> = new Map();
 
   constructor(config: ChatEngineConfig) {
     this.memory = config.memory;
@@ -224,7 +224,7 @@ export class ChatEngine {
     attachmentInfo?: AttachmentInfo
   ): Promise<ProcessResult> {
     this.processingBySession.set(sessionId, true);
-    this.pendingMedia = [];
+    this.pendingMediaBySession.set(sessionId, []);
 
     const abortController = new AbortController();
     this.abortControllersBySession.set(sessionId, abortController);
@@ -407,7 +407,10 @@ export class ChatEngine {
         response,
         tokensUsed: totalTokens,
         wasCompacted,
-        media: this.pendingMedia.length > 0 ? this.pendingMedia : undefined,
+        media:
+          (this.pendingMediaBySession.get(sessionId) || []).length > 0
+            ? this.pendingMediaBySession.get(sessionId)
+            : undefined,
         contextTokens: totalInputTokens + totalCacheRead + totalCacheWrite,
         contextWindow: getContextWindow(model),
       };
@@ -428,6 +431,7 @@ export class ChatEngine {
     } finally {
       this.processingBySession.delete(sessionId);
       this.abortControllersBySession.delete(sessionId);
+      this.pendingMediaBySession.delete(sessionId);
 
       setTimeout(() => {
         this.processQueue(sessionId).catch((err) => {
@@ -767,6 +771,7 @@ export class ChatEngine {
 
   clearSession(sessionId: string): void {
     this.conversationsBySession.delete(sessionId);
+    this.pendingMediaBySession.delete(sessionId);
   }
 
   private formatToolInput(input: unknown): string {
