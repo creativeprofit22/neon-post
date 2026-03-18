@@ -13,16 +13,14 @@ import { SettingsManager } from '../settings';
 const OAUTH_CONFIG = {
   clientId: '9d1c250a-e61b-44d9-88ed-5944d1962f5e',
   authorizeUrl: 'https://claude.ai/oauth/authorize',
-  tokenUrl: 'https://platform.claude.com/v1/oauth/token',
-  redirectUri: 'https://platform.claude.com/oauth/code/callback',
-  scopes:
-    'org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload',
+  tokenUrl: 'https://console.anthropic.com/v1/oauth/token',
+  redirectUri: 'https://console.anthropic.com/oauth/code/callback',
+  scopes: 'org:create_api_key user:profile user:inference',
 };
 
 interface PKCEPair {
   verifier: string;
   challenge: string;
-  state: string;
 }
 
 interface OAuthTokens {
@@ -51,8 +49,7 @@ class ClaudeOAuthManager {
   private generatePKCE(): PKCEPair {
     const verifier = crypto.randomBytes(32).toString('base64url');
     const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
-    const state = crypto.randomBytes(16).toString('hex');
-    return { verifier, challenge, state };
+    return { verifier, challenge };
   }
 
   /**
@@ -68,7 +65,7 @@ class ClaudeOAuthManager {
       scope: OAUTH_CONFIG.scopes,
       code_challenge: this.currentPKCE.challenge,
       code_challenge_method: 'S256',
-      state: this.currentPKCE.state,
+      state: this.currentPKCE.verifier,
     });
 
     return `${OAUTH_CONFIG.authorizeUrl}?${params.toString()}`;
@@ -140,12 +137,12 @@ class ClaudeOAuthManager {
     // Handle code#state format (user pastes the full callback code)
     const parts = code.trim().split('#');
     const authCode = parts[0];
-    const state = parts.length > 1 ? parts[1] : pkce.state;
+    const state = parts.length > 1 ? parts[1] : pkce.verifier;
 
     console.log('[OAuth] Exchanging code:', {
       codeLength: authCode.length,
       hasState: parts.length > 1,
-      stateMatch: state === pkce.state,
+      stateMatch: state === pkce.verifier,
     });
 
     const response = await net.fetch(OAUTH_CONFIG.tokenUrl, {
@@ -217,7 +214,6 @@ class ClaudeOAuthManager {
         refresh_token: refreshToken,
         grant_type: 'refresh_token',
         client_id: OAUTH_CONFIG.clientId,
-        scope: OAUTH_CONFIG.scopes,
       }),
     });
 

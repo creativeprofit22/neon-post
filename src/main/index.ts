@@ -703,23 +703,10 @@ async function initializeAgent(): Promise<void> {
             response,
             sessionId,
           });
-        }
-        if (!getWindow(WIN.CHAT)) {
+        } else {
+          // Window not open — open it. loadHistory() on init will pick up
+          // the message from the database, so no need to send via IPC.
           openChatWindow();
-          setTimeout(() => {
-            try {
-              if (getWindow(WIN.CHAT)) {
-                getWindow(WIN.CHAT)?.webContents.send('scheduler:message', {
-                  jobName,
-                  prompt,
-                  response,
-                  sessionId,
-                });
-              }
-            } catch (err) {
-              console.error('[Main] Failed to send scheduler message to chat window:', err);
-            }
-          }, 1000);
         }
       }
     );
