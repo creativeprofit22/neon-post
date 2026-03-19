@@ -35,8 +35,8 @@
 
     .notyf__toast {
       background: rgba(28, 28, 30, 0.85);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 14px;
       padding: 0;
@@ -515,7 +515,7 @@
       height: 3px;
       top: 0;
       left: 0;
-      animation: pixelcat 0.6s steps(1) infinite;
+      animation: pixelcat 1.5s steps(1) infinite;
       image-rendering: pixelated;
     }
 
@@ -1163,7 +1163,7 @@
       height: 3px;
       top: 0;
       left: 0;
-      animation: pixelcat 0.6s steps(1) infinite;
+      animation: pixelcat 1.5s steps(1) infinite;
       image-rendering: pixelated;
     }
 
@@ -2081,9 +2081,10 @@
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
-      animation: admin-flow 6s linear infinite, admin-neon 4s ease-in-out infinite alternate;
+      animation: admin-flow 6s linear infinite;
       font-weight: 700;
       letter-spacing: 0.5px;
+      text-shadow: 0 0 6px rgba(96, 165, 250, 0.4);
       position: relative;
       text-transform: uppercase;
     }
@@ -2124,7 +2125,7 @@
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
-      animation: admin-glitch 8s ease-in-out infinite;
+      animation: admin-glitch 20s ease-in-out infinite;
       opacity: 0;
       pointer-events: none;
     }
@@ -2162,20 +2163,20 @@
       animation: badge-glow-pulse 1.8s ease-in-out infinite;
     }
     .tier-badge-mystic {
-      animation: badge-float 2s ease-in-out infinite, badge-glow-pulse 2.5s ease-in-out infinite;
+      animation: badge-float 2s ease-in-out infinite;
     }
     .tier-badge-inferno {
-      animation: badge-flicker 0.4s ease-in-out infinite alternate, badge-shake 1.5s ease-in-out infinite;
+      animation: badge-shake 1.5s ease-in-out infinite;
     }
     .tier-badge-cosmic {
       animation: badge-spin 4s linear infinite;
     }
     .tier-badge-legendary {
-      animation: badge-bounce 1.2s ease-in-out infinite, badge-glow-pulse 1.5s ease-in-out infinite;
+      animation: badge-bounce 1.2s ease-in-out infinite;
     }
     .tier-badge-mythic {
-      animation: badge-bounce 1s ease-in-out infinite, badge-spin 6s linear infinite;
-      filter: drop-shadow(0 0 4px rgba(192,132,252,0.6));
+      animation: badge-spin 6s linear infinite;
+      text-shadow: 0 0 4px rgba(192,132,252,0.6);
     }
 
     @keyframes badge-flash {
@@ -2199,8 +2200,8 @@
       50% { transform: translateY(-3px); }
     }
     @keyframes badge-glow-pulse {
-      0%, 100% { filter: drop-shadow(0 0 2px rgba(255,255,255,0.2)); transform: scale(1); }
-      50% { filter: drop-shadow(0 0 6px rgba(255,255,255,0.6)); transform: scale(1.1); }
+      0%, 100% { text-shadow: 0 0 2px rgba(255,255,255,0.2); transform: scale(1); }
+      50% { text-shadow: 0 0 6px rgba(255,255,255,0.6); transform: scale(1.1); }
     }
     @keyframes badge-spin {
       0% { transform: rotate(0deg); }
@@ -2236,7 +2237,6 @@
       background-clip: text;
       -webkit-text-fill-color: transparent;
       animation: tier-shimmer 2.5s linear infinite;
-      filter: drop-shadow(0 0 3px rgba(129,140,248,0.5));
     }
 
     /* Tier 4: Frost — cyan frost glow */
@@ -2247,7 +2247,6 @@
       background-clip: text;
       -webkit-text-fill-color: transparent;
       animation: tier-shimmer 2.5s linear infinite;
-      filter: drop-shadow(0 0 4px rgba(34,211,238,0.5));
     }
 
     /* Tier 5: Solar — gold radiance */
@@ -2258,7 +2257,6 @@
       background-clip: text;
       -webkit-text-fill-color: transparent;
       animation: tier-shimmer 2s linear infinite;
-      filter: drop-shadow(0 0 6px rgba(245,158,11,0.6));
     }
 
     /* Tier 6: Mystic — purple-pink flow */
@@ -2269,7 +2267,6 @@
       background-clip: text;
       -webkit-text-fill-color: transparent;
       animation: tier-shimmer 2s linear infinite;
-      filter: drop-shadow(0 0 5px rgba(168,85,247,0.5));
     }
 
     /* Tier 7: Inferno — red-orange fire text */
@@ -2279,8 +2276,7 @@
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
-      animation: tier-shimmer 1.8s linear infinite, tier-pulse 2s ease-in-out infinite alternate;
-      filter: drop-shadow(0 0 6px rgba(239,68,68,0.6));
+      animation: tier-shimmer 1.8s linear infinite;
     }
 
     /* Tier 8: Cosmic — rainbow gradient flow */
@@ -2291,7 +2287,6 @@
       background-clip: text;
       -webkit-text-fill-color: transparent;
       animation: tier-shimmer 3s linear infinite;
-      filter: drop-shadow(0 0 6px rgba(139,92,246,0.5)) drop-shadow(0 0 10px rgba(59,130,246,0.3));
     }
 
     /* Tier 9: Legendary — multi-color glitch + glow */
@@ -2302,7 +2297,6 @@
       background-clip: text;
       -webkit-text-fill-color: transparent;
       animation: tier-shimmer 2s linear infinite;
-      filter: drop-shadow(0 0 8px rgba(236,72,153,0.6)) drop-shadow(0 0 14px rgba(139,92,246,0.4));
       position: relative;
     }
     .tier-legendary::before {
@@ -2328,8 +2322,7 @@
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
-      animation: tier-shimmer 1.5s linear infinite, tier-pulse 1.5s ease-in-out infinite alternate;
-      filter: drop-shadow(0 0 8px rgba(192,132,252,0.7)) drop-shadow(0 0 16px rgba(96,165,250,0.5)) drop-shadow(0 0 24px rgba(34,211,238,0.3));
+      animation: tier-shimmer 1.5s linear infinite;
       position: relative;
     }
     .tier-mythic::before {
@@ -3310,7 +3303,7 @@
       position: relative;
       left: -14px;
       background: transparent;
-      animation: pixelheart-pulse 1.2s ease-in-out infinite;
+      /* Static pixel heart - no animation needed, painted once and cached */
       image-rendering: pixelated;
       box-shadow:
         /* Row 1 */
@@ -3775,6 +3768,23 @@
     .button-row-right { display: flex; gap: 8px; margin-top: 8px; justify-content: flex-end; }
     #send-btn .send-icon,
     #send-btn .stop-icon { display: block; }
+
+    /* Pause animations when window is hidden/unfocused */
+    body.animations-paused *,
+    body.animations-paused *::before,
+    body.animations-paused *::after {
+      animation-play-state: paused !important;
+      transition: none !important;
+    }
+
+    /* Accessibility: respect OS-level reduced motion preference */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
   </style>
   <script>
     (function(){function _apply(p){var r=document.documentElement;if(!p){['bg-primary','bg-secondary','bg-tertiary','border','text-primary','text-secondary','text-muted','accent','accent-secondary','accent-hover','error','success','warning','orange','user-bubble','user-bubble-solid','assistant-bubble'].forEach(function(k){r.style.removeProperty('--'+k)});return}Object.keys(p).forEach(function(k){r.style.setProperty('--'+k,p[k])})}window.addEventListener('DOMContentLoaded',function(){if(!window.pocketAgent)return;Promise.all([window.pocketAgent.themes.list(),window.pocketAgent.themes.getSkin()]).then(function(res){var themes=res[0],skinId=res[1],t=themes[skinId];if(t)_apply(t.palette);window.pocketAgent.themes.onSkinChanged(function(id){var th=themes[id];if(th)_apply(th.palette)})}).catch(function(){})})})();
@@ -4354,10 +4364,13 @@
 
       // Reload history when window regains visibility (e.g. after sleep/wake)
       document.addEventListener('visibilitychange', () => {
+        document.body.classList.toggle('animations-paused', document.hidden);
         if (!document.hidden) {
           loadHistory();
         }
       });
+      window.addEventListener('blur', () => document.body.classList.add('animations-paused'));
+      window.addEventListener('focus', () => document.body.classList.remove('animations-paused'));
 
 
       // Load sessions first (sets currentSessionId), then init mode for correct session

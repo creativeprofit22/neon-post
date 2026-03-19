@@ -61,7 +61,7 @@ let scheduler: CronScheduler | null = null;
 let telegramBot: TelegramBot | null = null;
 let iosChannel: iOSChannel | null = null;
 let splashWindow: BrowserWindow | null = null;
-let trayUpdateInterval: ReturnType<typeof setInterval> | null = null;
+// tray menu updates are event-driven via IPC handlers
 let modelChangedHandler: ((model: string) => void) | null = null;
 
 // Window IDs for the registry
@@ -966,8 +966,8 @@ app.whenReady().then(async () => {
       await initializeAgent();
     }
 
-    // Periodic tray update
-    trayUpdateInterval = setInterval(updateTrayMenu, 30000);
+    // Tray menu is updated event-driven (after messages, cron changes, etc.)
+    // No polling needed — updateTrayMenu() is called directly by IPC handlers
   } catch (error) {
     console.error('[Main] FATAL ERROR during initialization:', error);
   }
@@ -985,10 +985,6 @@ app.on('activate', () => {
 app.on('before-quit', async () => {
   if (app.isReady()) {
     globalShortcut.unregisterAll(); // Clean up global shortcuts
-  }
-  if (trayUpdateInterval) {
-    clearInterval(trayUpdateInterval);
-    trayUpdateInterval = null;
   }
   if (modelChangedHandler) {
     AgentManager.off('model:changed', modelChangedHandler);
