@@ -1,12 +1,4 @@
-import {
-  app,
-  BrowserWindow,
-  Notification,
-  globalShortcut,
-  screen,
-  powerMonitor,
-  powerSaveBlocker,
-} from 'electron';
+import { app, BrowserWindow, Notification, globalShortcut, screen, powerMonitor } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -828,39 +820,19 @@ app.whenReady().then(async () => {
     showSplashScreen();
 
     // === Power Management ===
-    // Prevent App Nap from throttling our timers (scheduler, reminders)
-    // This keeps the app responsive even when display is off
-    let powerBlockerId: number | null = null;
-
-    const startPowerBlocker = () => {
-      if (powerBlockerId === null) {
-        // 'prevent-app-suspension' keeps timers running accurately
-        powerBlockerId = powerSaveBlocker.start('prevent-app-suspension');
-        console.log('[Power] App suspension blocker started');
-      }
-    };
-
-    const stopPowerBlocker = () => {
-      if (powerBlockerId !== null && powerSaveBlocker.isStarted(powerBlockerId)) {
-        powerSaveBlocker.stop(powerBlockerId);
-        powerBlockerId = null;
-        console.log('[Power] App suspension blocker stopped');
-      }
-    };
-
-    // Start blocker immediately
-    startPowerBlocker();
+    // Let macOS manage power naturally — App Nap may coalesce timers by a few
+    // seconds when the app is in the background, which is fine for minute-level
+    // cron jobs.  node-cron and setInterval still fire reliably without
+    // powerSaveBlocker.  Removing the blocker allows the system to downclock
+    // and avoids unnecessary fan spin-up on idle.
 
     // Handle system suspend/resume (actual sleep)
     powerMonitor.on('suspend', () => {
       console.log('[Power] System suspending (sleep)');
-      // Timers will be paused, nothing we can do
     });
 
     powerMonitor.on('resume', () => {
       console.log('[Power] System resumed from sleep');
-      // Restart power blocker in case it was affected
-      startPowerBlocker();
       // Force CDP reconnection — WebSocket is dead after sleep
       getBrowserManager()
         .forceReconnectCdp()
@@ -878,7 +850,6 @@ app.whenReady().then(async () => {
     // Handle lock screen (display off but CPU running)
     powerMonitor.on('lock-screen', () => {
       console.log('[Power] Screen locked');
-      // Keep blocker running - this is when App Nap would kick in
     });
 
     powerMonitor.on('unlock-screen', () => {
@@ -895,11 +866,6 @@ app.whenReady().then(async () => {
           console.warn('[Power] iOS relay reconnect after unlock failed:', err);
         });
       }
-    });
-
-    // Clean up on app quit
-    app.on('will-quit', () => {
-      stopPowerBlocker();
     });
 
     // Set Dock icon on macOS
