@@ -37,19 +37,35 @@ async function buildProviderEnv(model: string): Promise<Record<string, string | 
   const provider = getProviderForModel(model);
   const config = PROVIDER_CONFIGS[provider];
 
-  // Start with cleared provider vars
+  // Start with cleared provider vars.
+  // ANTHROPIC_MODEL is required for the SDK subprocess to use the correct model,
+  // especially with non-Anthropic providers where ANTHROPIC_BASE_URL is overridden.
+  // CLAUDECODE and CLAUDE_CODE_ENTRYPOINT are cleared to prevent nested session
+  // detection and let the SDK set its own entrypoint.
   const env: Record<string, string | undefined> = {
     ANTHROPIC_BASE_URL: undefined,
     ANTHROPIC_AUTH_TOKEN: undefined,
     CLAUDE_CODE_OAUTH_TOKEN: undefined,
+    ANTHROPIC_MODEL: model,
+    CLAUDECODE: undefined,
+    CLAUDE_CODE_ENTRYPOINT: undefined,
   };
+
+  // For non-Anthropic providers, override all model aliases so the SDK subprocess
+  // never falls back to an Anthropic model name (which would hit api.anthropic.com).
+  if (provider !== 'anthropic') {
+    env.ANTHROPIC_DEFAULT_SONNET_MODEL = model;
+    env.ANTHROPIC_DEFAULT_OPUS_MODEL = model;
+    env.ANTHROPIC_DEFAULT_HAIKU_MODEL = model;
+    env.CLAUDE_CODE_SUBAGENT_MODEL = model;
+  }
 
   if (provider === 'moonshot') {
     const moonshotKey = SettingsManager.get('moonshot.apiKey');
     if (!moonshotKey) {
       throw new Error('Moonshot API key not configured. Please add your key in Settings > Keys.');
     }
-    env.ANTHROPIC_BASE_URL = config.baseUrl;
+    env.ANTHROPIC_BASE_URL = config.sdkBaseUrl;
     env.ANTHROPIC_AUTH_TOKEN = moonshotKey;
     env.ANTHROPIC_API_KEY = moonshotKey;
     console.log('[AgentManager] Provider configured: Moonshot (Kimi)');
@@ -58,7 +74,7 @@ async function buildProviderEnv(model: string): Promise<Record<string, string | 
     if (!glmKey) {
       throw new Error('Z.AI GLM API key not configured. Please add your key in Settings > LLM.');
     }
-    env.ANTHROPIC_BASE_URL = config.baseUrl;
+    env.ANTHROPIC_BASE_URL = config.sdkBaseUrl;
     env.ANTHROPIC_AUTH_TOKEN = glmKey;
     env.ANTHROPIC_API_KEY = glmKey;
     console.log('[AgentManager] Provider configured: Z.AI GLM');

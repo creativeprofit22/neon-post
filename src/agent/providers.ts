@@ -7,18 +7,26 @@
 export type ProviderType = 'anthropic' | 'moonshot' | 'glm';
 
 export interface ProviderConfig {
+  /** OpenAI-compatible base URL (used by gg-ai chat engine in General mode) */
   baseUrl?: string;
+  /** Anthropic-compatible base URL (used by Claude Agent SDK subprocess in Coder mode) */
+  sdkBaseUrl?: string;
 }
 
 export const PROVIDER_CONFIGS: Record<ProviderType, ProviderConfig> = {
   anthropic: {
-    // No baseUrl = uses default Anthropic endpoint
+    // No baseUrl = uses default Anthropic endpoint for both modes
   },
   moonshot: {
-    // No baseUrl = uses gg-ai default (https://api.moonshot.ai/v1)
+    // General mode: gg-ai uses OpenAI-compat endpoint (no baseUrl = gg-ai default /v1)
+    // Coder mode: SDK subprocess needs the Anthropic-compat endpoint
+    sdkBaseUrl: 'https://api.moonshot.ai/anthropic',
   },
   glm: {
+    // General mode: gg-ai uses OpenAI-compat endpoint
+    // Coder mode: SDK subprocess needs the Anthropic-compat endpoint
     baseUrl: 'https://api.z.ai/api/paas/v4',
+    sdkBaseUrl: 'https://api.z.ai/api/anthropic',
   },
 };
 
