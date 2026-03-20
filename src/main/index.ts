@@ -278,12 +278,21 @@ function ensureAgentWorkspace(): string {
     // Personalize settings are in SQLite. Coder mode generates its own CLAUDE.md per session.
 
     // Populate default workflow commands
-    // If .claude is a symlink from a previous install, replace it with a real directory
+    // If .claude is a symlink (or broken symlink) from a previous install, replace it with a real directory.
+    // Use lstatSync instead of existsSync because existsSync follows symlinks and returns
+    // false for broken symlinks, which would skip cleanup and cause ENOENT on mkdir.
     const workspaceClaudeDirForCmds = path.join(workspace, '.claude');
-    if (
-      fs.existsSync(workspaceClaudeDirForCmds) &&
-      fs.lstatSync(workspaceClaudeDirForCmds).isSymbolicLink()
-    ) {
+    let claudeDirExists = false;
+    let claudeDirIsSymlink = false;
+    try {
+      const stat = fs.lstatSync(workspaceClaudeDirForCmds);
+      claudeDirExists = true;
+      claudeDirIsSymlink = stat.isSymbolicLink();
+    } catch {
+      // Doesn't exist at all — that's fine
+    }
+
+    if (claudeDirExists && claudeDirIsSymlink) {
       // Preserve any user-created commands from the symlink target before replacing
       const symlinkCommandsDir = path.join(workspaceClaudeDirForCmds, 'commands');
       const preservedCommands: Array<{ name: string; content: string }> = [];
