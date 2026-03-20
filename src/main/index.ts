@@ -71,11 +71,30 @@ const WIN = {
 /**
  * Get the agent's isolated workspace directory.
  * This is separate from the app's project root to prevent conflicts.
- * Located in ~/Documents/Pocket-agent/
+ * Located in ~/Documents/Pocket-agent/  (falls back to userData if Documents is unavailable,
+ * e.g. iCloud Drive syncing or broken symlink on macOS).
  */
 function getAgentWorkspace(): string {
   const documentsPath = app.getPath('documents');
-  return path.join(documentsPath, 'Pocket-agent');
+  const workspace = path.join(documentsPath, 'Pocket-agent');
+
+  // Verify the Documents path is actually reachable on disk.
+  // On macOS with iCloud Drive, ~/Documents can be a symlink to
+  // ~/Library/Mobile Documents/com~apple~CloudDocs/Documents/ which may
+  // not exist if iCloud hasn't fully set up or the symlink is broken.
+  try {
+    fs.mkdirSync(workspace, { recursive: true });
+    return workspace;
+  } catch {
+    // Documents path is unreachable — fall back to Electron's userData directory
+    // (~/Library/Application Support/pocket-agent/ on macOS)
+    const fallback = path.join(app.getPath('userData'), 'workspace');
+    console.warn(
+      `[Main] Documents path unreachable (${documentsPath}), using fallback: ${fallback}`
+    );
+    fs.mkdirSync(fallback, { recursive: true });
+    return fallback;
+  }
 }
 
 /**
