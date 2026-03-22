@@ -6,16 +6,17 @@
  */
 
 import crypto from 'crypto';
-import { net, shell } from 'electron';
+import { shell } from 'electron';
 import { SettingsManager } from '../settings';
 
 // OAuth Configuration (same as Claude Code)
 const OAUTH_CONFIG = {
   clientId: '9d1c250a-e61b-44d9-88ed-5944d1962f5e',
   authorizeUrl: 'https://claude.ai/oauth/authorize',
-  tokenUrl: 'https://console.anthropic.com/v1/oauth/token',
-  redirectUri: 'https://console.anthropic.com/oauth/code/callback',
-  scopes: 'org:create_api_key user:profile user:inference',
+  tokenUrl: 'https://platform.claude.com/v1/oauth/token',
+  redirectUri: 'https://platform.claude.com/oauth/code/callback',
+  scopes:
+    'org:create_api_key user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload',
 };
 
 interface PKCEPair {
@@ -33,6 +34,8 @@ class ClaudeOAuthManager {
   private static instance: ClaudeOAuthManager | null = null;
   private currentPKCE: PKCEPair | null = null;
   private pendingAuth: boolean = false;
+  private refreshPromise: Promise<boolean> | null = null;
+  private exchangeInProgress: boolean = false;
 
   private constructor() {}
 
@@ -59,6 +62,7 @@ class ClaudeOAuthManager {
     this.currentPKCE = this.generatePKCE();
 
     const params = new URLSearchParams({
+      code: 'true',
       client_id: OAUTH_CONFIG.clientId,
       response_type: 'code',
       redirect_uri: OAUTH_CONFIG.redirectUri,
@@ -100,6 +104,55 @@ class ClaudeOAuthManager {
   }
 
   /**
+   * Fetch with retry and exponential backoff for rate limit errors.
+   * Handles both HTTP 429 and Anthropic's JSON body rate_limit_error responses.
+   */
+  private async fetchWithRetry(
+    url: string,
+    options: RequestInit,
+    maxRetries: number = 5
+  ): Promise<Response> {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const response = await fetch(url, options);
+
+      console.log(
+        `[OAuth] Token endpoint response: status=${response.status} (attempt ${attempt + 1}/${maxRetries + 1})`
+      );
+
+      const isRateLimited = response.status === 429;
+      let bodyRateLimited = false;
+
+      // Check for Anthropic-style rate_limit_error in response body (may come as non-429 status)
+      if (!isRateLimited && !response.ok) {
+        const cloned = response.clone();
+        try {
+          const body = await cloned.text();
+          bodyRateLimited = body.includes('rate_limit_error');
+        } catch {
+          // Ignore clone/parse errors
+        }
+      }
+
+      if ((isRateLimited || bodyRateLimited) && attempt < maxRetries) {
+        // Use Retry-After header if present, otherwise start at 5s and double each time
+        const retryAfter = response.headers.get('retry-after');
+        const delaySeconds = retryAfter ? parseInt(retryAfter, 10) : 5 * Math.pow(2, attempt);
+        const delayMs = (isNaN(delaySeconds) ? 5 * Math.pow(2, attempt) : delaySeconds) * 1000;
+        console.log(
+          `[OAuth] Rate limited, retrying in ${delayMs / 1000}s (attempt ${attempt + 1}/${maxRetries})`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        continue;
+      }
+
+      return response;
+    }
+
+    // Should not reach here, but satisfy TypeScript
+    throw new Error('Max retries exceeded');
+  }
+
+  /**
    * Complete OAuth flow with authorization code from user
    */
   async completeWithCode(code: string): Promise<{ success: boolean; error?: string }> {
@@ -107,6 +160,12 @@ class ClaudeOAuthManager {
       return { success: false, error: 'No pending OAuth flow' };
     }
 
+    // Guard against duplicate submissions
+    if (this.exchangeInProgress) {
+      return { success: false, error: 'Token exchange already in progress' };
+    }
+
+    this.exchangeInProgress = true;
     try {
       const tokens = await this.exchangeCodeForTokens(code, this.currentPKCE);
 
@@ -127,6 +186,8 @@ class ClaudeOAuthManager {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to exchange code for tokens',
       };
+    } finally {
+      this.exchangeInProgress = false;
     }
   }
 
@@ -145,7 +206,7 @@ class ClaudeOAuthManager {
       stateMatch: state === pkce.verifier,
     });
 
-    const response = await net.fetch(OAUTH_CONFIG.tokenUrl, {
+    const response = await this.fetchWithRetry(OAUTH_CONFIG.tokenUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -173,7 +234,7 @@ class ClaudeOAuthManager {
   }
 
   /**
-   * Refresh access token if needed
+   * Refresh access token if needed (deduplicates concurrent calls)
    */
   async refreshTokenIfNeeded(): Promise<boolean> {
     const expiresAt = parseInt(SettingsManager.get('auth.tokenExpiresAt') || '0', 10);
@@ -188,26 +249,37 @@ class ClaudeOAuthManager {
       return false;
     }
 
-    try {
-      const tokens = await this.refreshAccessToken(refreshToken);
-
-      SettingsManager.set('auth.oauthToken', tokens.accessToken);
-      SettingsManager.set('auth.refreshToken', tokens.refreshToken);
-      SettingsManager.set('auth.tokenExpiresAt', tokens.expiresAt.toString());
-
-      console.log('[OAuth] Token refreshed');
-      return true;
-    } catch (error) {
-      console.error('[OAuth] Token refresh failed:', error);
-      return false;
+    // Deduplicate concurrent refresh calls — reuse in-flight promise
+    if (this.refreshPromise) {
+      return this.refreshPromise;
     }
+
+    this.refreshPromise = (async () => {
+      try {
+        const tokens = await this.refreshAccessToken(refreshToken);
+
+        SettingsManager.set('auth.oauthToken', tokens.accessToken);
+        SettingsManager.set('auth.refreshToken', tokens.refreshToken);
+        SettingsManager.set('auth.tokenExpiresAt', tokens.expiresAt.toString());
+
+        console.log('[OAuth] Token refreshed');
+        return true;
+      } catch (error) {
+        console.error('[OAuth] Token refresh failed:', error);
+        return false;
+      } finally {
+        this.refreshPromise = null;
+      }
+    })();
+
+    return this.refreshPromise;
   }
 
   /**
    * Refresh access token
    */
   private async refreshAccessToken(refreshToken: string): Promise<OAuthTokens> {
-    const response = await net.fetch(OAUTH_CONFIG.tokenUrl, {
+    const response = await this.fetchWithRetry(OAUTH_CONFIG.tokenUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
