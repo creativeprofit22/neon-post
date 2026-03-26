@@ -419,8 +419,8 @@ function openChatWindow(): void {
     id: WIN.CHAT,
     title: 'Pocket Agent',
     htmlFile: 'chat.html',
-    width: 600,
-    height: 800,
+    width: 1020,
+    height: 720,
     boundsKey: 'window.chatBounds',
   });
 }
