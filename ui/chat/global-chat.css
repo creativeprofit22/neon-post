@@ -1,3 +1,79 @@
+/* Floating admin clear chat button */
+.floating-admin-clear-btn {
+  position: fixed;
+  bottom: 80px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 150;
+  transition: all 0.2s ease;
+}
+
+.floating-admin-clear-btn:hover {
+  border-color: var(--error);
+  color: var(--error);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.floating-admin-clear-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Hide floating buttons when a panel view is active */
+.main-content:has(.active#settings-view) .floating-fresh-btn,
+.main-content:has(.active#settings-view) .floating-toggle-btn,
+.main-content:has(.active#settings-view) .floating-admin-clear-btn,
+.main-content:has(.active#brain-view) .floating-fresh-btn,
+.main-content:has(.active#brain-view) .floating-toggle-btn,
+.main-content:has(.active#brain-view) .floating-admin-clear-btn,
+.main-content:has(.active#routines-view) .floating-fresh-btn,
+.main-content:has(.active#routines-view) .floating-toggle-btn,
+.main-content:has(.active#routines-view) .floating-admin-clear-btn,
+.main-content:has(.active#personalize-view) .floating-fresh-btn,
+.main-content:has(.active#personalize-view) .floating-toggle-btn,
+.main-content:has(.active#personalize-view) .floating-admin-clear-btn {
+  display: none !important;
+}
+
+/* Floating fresh start button */
+.floating-fresh-btn {
+  position: fixed;
+  bottom: 80px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 150;
+  transition: all 0.2s ease;
+}
+
+.floating-fresh-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(168, 85, 247, 0.1);
+}
+
+.floating-fresh-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
 /* Floating chat/agent toggle button */
 .floating-toggle-btn {
   position: fixed;

@@ -1,6 +1,6 @@
 /* Input Area */
 #input-area {
-  padding: 12px calc(max(20px, (100% - 720px) / 2)) 20px;
+  padding: 12px calc(max(80px, (100% - 720px) / 2)) 20px;
   background: var(--bg-primary);
   display: flex;
   flex-shrink: 0;
@@ -83,6 +83,11 @@
 
 #message-input::placeholder {
   color: var(--text-muted);
+}
+
+/* When toolbar is hidden (global chat mode), increase textarea to match normal height */
+.input-container:has(.input-toolbar-btns.hidden) #message-input {
+  min-height: 115px;
 }
 
 #message-input.has-suggestion::placeholder {
@@ -317,7 +322,7 @@
   height: 28px;
   box-sizing: border-box;
   background: transparent;
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   font-size: 11px;
@@ -464,6 +469,59 @@
 
 #workflows-panel.hidden {
   display: none;
+}
+
+/* Attachments panel inside slide-up */
+#attachments-panel {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+#attachments-panel.hidden {
+  display: none;
+}
+
+/* Reply panel inside slide-up */
+#reply-panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#reply-panel.hidden {
+  display: none;
+}
+
+.gchat-reply-panel-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.gchat-reply-panel-close {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.gchat-reply-panel-close:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--error);
+}
+
+.gchat-reply-panel-close svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* Workflows Area */

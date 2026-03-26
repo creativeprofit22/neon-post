@@ -9,169 +9,6 @@ header {
   position: relative;
 }
 
-/* Session Tabs */
-.tabs-container {
-  display: flex;
-  align-items: center;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  padding: 0 20px;
-  gap: 4px;
-  overflow-x: auto;
-  flex-shrink: 0;
-}
-
-.tabs-container::-webkit-scrollbar {
-  height: 0;
-}
-
-.tab {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-bottom: none;
-  color: var(--text-secondary);
-  font-family: 'Pixelify Sans', sans-serif;
-  font-size: 12px;
-  font-weight: 400;
-  cursor: grab;
-  border-radius: 8px 8px 0 0;
-  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
-  white-space: nowrap;
-  max-width: 180px;
-  position: relative;
-  user-select: none;
-  margin-bottom: -1px;
-}
-
-.tab:hover {
-  color: var(--text-primary);
-  background: var(--bg-secondary);
-  border-color: var(--text-muted);
-}
-
-.tab.active {
-  color: var(--text-primary);
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-bottom: 1px solid var(--bg-primary);
-}
-
-.tab.dragging {
-  opacity: 0.6;
-  cursor: grabbing;
-  background: var(--accent);
-  border-color: var(--accent);
-  color: white;
-}
-
-.tab.dragging .tab-close {
-  color: rgba(255,255,255,0.7);
-}
-
-.tab.loading .tab-name {
-  background: linear-gradient(
-    90deg,
-    var(--text-primary) 0%,
-    var(--text-primary) 40%,
-    #60a5fa 50%,
-    var(--text-primary) 60%,
-    var(--text-primary) 100%
-  );
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: tab-text-shimmer 1.5s ease-in-out infinite;
-}
-
-@keyframes tab-text-shimmer {
-  0% { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
-}
-
-.tab-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 120px;
-}
-
-.tab-name-input {
-  background: transparent;
-  border: 1px solid var(--accent);
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-family: 'Pixelify Sans', sans-serif;
-  font-size: 12px;
-  font-weight: 400;
-  padding: 2px 6px;
-  width: 100px;
-  outline: none;
-}
-
-.tab-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-  font-size: 14px;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
-}
-
-.tab-close:hover {
-  background: var(--error);
-  color: white;
-}
-
-.tab-telegram-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #0088cc;
-  flex-shrink: 0;
-  margin-left: 2px;
-}
-
-.tab-telegram-icon svg {
-  width: 12px;
-  height: 12px;
-}
-
-.new-tab-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  background: transparent;
-  border: 1px dashed var(--border);
-  border-radius: 6px;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 18px;
-  transition: all 0.15s ease;
-  margin-left: 8px;
-  flex-shrink: 0;
-}
-
-.new-tab-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: rgba(168, 85, 247, 0.1);
-}
-
 .header-left {
   display: flex;
   align-items: center;
@@ -180,7 +17,7 @@ header {
 
 
 header h1 {
-  font-family: 'Pixelify Sans', sans-serif;
+  font-family: 'Archivo Black', sans-serif;
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0;
@@ -197,7 +34,7 @@ header h1 {
   height: 28px;
   box-sizing: border-box;
   background: transparent;
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
   font-size: 11px;
@@ -325,7 +162,7 @@ header h1 {
   width: 100%;
   text-align: left;
   color: var(--text-secondary);
-  font-family: 'Pixelify Sans', sans-serif;
+  font-family: 'Archivo Black', sans-serif;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;

@@ -18,6 +18,7 @@ import {
   appendToDailyLog as _appendToDailyLog,
   getDailyLogsSince as _getDailyLogsSince,
   getDailyLogsContext as _getDailyLogsContext,
+  deleteDailyLog as _deleteDailyLog,
 } from './daily-logs';
 import {
   createSoulCache,
@@ -660,6 +661,10 @@ export class MemoryManager {
 
   getDailyLogsSince(days: number = 3): DailyLog[] {
     return _getDailyLogsSince(this.db, days);
+  }
+
+  deleteDailyLog(id: number): boolean {
+    return _deleteDailyLog(this.db, id);
   }
 
   getDailyLogsContext(days: number = 3): string {

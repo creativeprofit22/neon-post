@@ -86,6 +86,14 @@ export function getDailyLogsSince(db: Database.Database, days: number = 3): Dail
 }
 
 /**
+ * Delete a daily log by ID
+ */
+export function deleteDailyLog(db: Database.Database, id: number): boolean {
+  const result = db.prepare('DELETE FROM daily_logs WHERE id = ?').run(id);
+  return result.changes > 0;
+}
+
+/**
  * Get daily logs as formatted context string for the agent
  */
 export function getDailyLogsContext(db: Database.Database, days: number = 3): string {

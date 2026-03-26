@@ -34,7 +34,7 @@
 
 /* Scroll Buttons */
 .scroll-btn {
-  position: fixed;
+  position: absolute;
   right: 24px;
   width: 36px;
   height: 36px;
@@ -69,19 +69,19 @@
 }
 
 #scroll-top-btn {
-  top: 100px;
+  top: 12px;
 }
 
 #scroll-bottom-btn {
-  bottom: 140px;
+  bottom: 180px;
 }
 
 #gchat-scroll-top-btn {
-  top: 100px;
+  top: 12px;
 }
 
 #gchat-scroll-bottom-btn {
-  bottom: 140px;
+  bottom: 180px;
 }
 
 /* Message Bubbles */
@@ -532,7 +532,7 @@ mark.search-highlight.current {
 }
 
 .empty-state .empty-title {
-  font-family: 'Pixelify Sans', sans-serif;
+  font-family: 'Archivo Black', sans-serif;
   font-size: 24px;
   font-weight: 700;
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-secondary) 100%);

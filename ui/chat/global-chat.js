@@ -154,8 +154,7 @@ function gchatSetReply(username, text, element) {
 
 function gchatClearReply() {
   gchatReplyTo = null;
-  const banner = document.querySelector('.gchat-reply-banner');
-  if (banner) banner.remove();
+  gchatRenderReplyBanner();
 }
 
 function gchatGetUsernames() {
@@ -273,38 +272,31 @@ function gchatRenderMentionNodes(text, container) {
 }
 
 function gchatRenderReplyBanner() {
-  // Remove existing banner
-  const existing = document.querySelector('.gchat-reply-banner');
-  if (existing) existing.remove();
-  if (!gchatReplyTo) return;
+  const panel = document.getElementById('reply-panel');
+  const contentEl = document.getElementById('reply-panel-content');
+  const slideUp = document.getElementById('slide-up-panel');
+  if (!panel || !contentEl || !slideUp) return;
 
-  const banner = document.createElement('div');
-  banner.className = 'gchat-reply-banner';
+  if (!gchatReplyTo) {
+    contentEl.innerHTML = '';
+    panel.classList.add('hidden');
+    // Close slide-up if no other panel is open
+    const searchOpen = !document.getElementById('search-panel').classList.contains('hidden');
+    const workflowsOpen = !document.getElementById('workflows-panel').classList.contains('hidden');
+    const attachOpen = !document.getElementById('attachments-panel').classList.contains('hidden');
+    if (!searchOpen && !workflowsOpen && !attachOpen) {
+      slideUp.classList.remove('open');
+    }
+    return;
+  }
 
-  const content = document.createElement('div');
-  content.className = 'gchat-reply-banner-content';
+  contentEl.innerHTML = `
+    <div class="gchat-reply-banner-label">Replying to ${gchatReplyTo.username}</div>
+    <div class="gchat-reply-banner-text">${gchatReplyTo.text}</div>
+  `;
 
-  const label = document.createElement('div');
-  label.className = 'gchat-reply-banner-label';
-  label.textContent = 'Replying to ' + gchatReplyTo.username;
-
-  const text = document.createElement('div');
-  text.className = 'gchat-reply-banner-text';
-  text.textContent = gchatReplyTo.text;
-
-  content.appendChild(label);
-  content.appendChild(text);
-
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'gchat-reply-banner-close';
-  closeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>';
-  closeBtn.onclick = () => gchatClearReply();
-
-  banner.appendChild(content);
-  banner.appendChild(closeBtn);
-
-  const toolbarRow = document.getElementById('toolbar-row');
-  toolbarRow.parentNode.insertBefore(banner, toolbarRow);
+  panel.classList.remove('hidden');
+  slideUp.classList.add('open');
 }
 
 function gchatCreateReplyPreview(replyTo) {
@@ -1214,6 +1206,10 @@ function clearAllTypingState() {
 function updateChatCounts(online, inChat) {
   const el = document.getElementById('chat-online-stats');
   if (el) el.textContent = `${online} online · ${inChat} in chat`;
+  if (globalChatMode) {
+    const prefix = _appVersion ? `Pocket Agent v${_appVersion}` : 'Pocket Agent';
+    document.title = `${prefix} — ${online} online · ${inChat} in chat`;
+  }
 }
 
 function updateUnreadBadge() {
@@ -1229,43 +1225,29 @@ function updateUnreadBadge() {
 
 async function toggleGlobalChat() {
   globalChatMode = !globalChatMode;
-  const tabsCont = document.getElementById('tabs-container');
-  const chatHeader = document.getElementById('global-chat-header');
   const messagesEl = document.getElementById('messages');
   const globalMsgsEl = document.getElementById('global-chat-messages');
-  const modelBadge = document.getElementById('model-badge');
-  const versionBadge = document.getElementById('version-badge'); // may not exist
-  const statsEl = document.getElementById('stats');
-  const chatOnlineStats = document.getElementById('chat-online-stats');
-  const chatUsernameBadge = document.getElementById('chat-username-badge');
   const toolbarRow = document.getElementById('toolbar-row');
   const bgTasksArea = document.getElementById('background-tasks-area');
-  const attachBtn = document.querySelector('.attach-btn');
+  const attachBtn = document.getElementById('attach-btn');
   const workflowBadge = document.getElementById('workflow-badge-container');
   const scrollTopBtn = document.getElementById('scroll-top-btn');
   const scrollBottomBtn = document.getElementById('scroll-bottom-btn');
+  const freshStartBtn = document.getElementById('fresh-start-btn');
+  const adminClearBtn = document.getElementById('admin-clear-chat-btn');
 
   if (globalChatMode) {
     // Enter chat mode — clear unread
     chatUnreadCount = 0;
     updateUnreadBadge();
-    const username = await getOrCreateChatUsername();
-    updateHeaderTierBadge();
-    document.getElementById('chat-username-badge').onclick = toggleTierTooltip;
+    await getOrCreateChatUsername();
 
     // Close search/workflows panels if open
     closeSearch();
     closeWorkflows();
 
-    tabsCont.classList.add('hidden');
-    chatHeader.classList.remove('hidden');
     messagesEl.classList.add('hidden');
     globalMsgsEl.classList.remove('hidden');
-    modelBadge.classList.add('hidden');
-    if (versionBadge) versionBadge.classList.add('hidden');
-    statsEl.classList.add('hidden');
-    chatUsernameBadge.classList.remove('hidden');
-    chatOnlineStats.classList.remove('hidden');
     toolbarRow.classList.add('hidden');
     if (attachBtn) attachBtn.classList.add('hidden');
     if (workflowBadge) workflowBadge.classList.add('hidden');
@@ -1273,8 +1255,13 @@ async function toggleGlobalChat() {
     document.getElementById('mode-select').classList.add('hidden');
     if (scrollTopBtn) scrollTopBtn.classList.add('hidden');
     if (scrollBottomBtn) scrollBottomBtn.classList.add('hidden');
+    if (freshStartBtn) freshStartBtn.classList.add('hidden');
     document.getElementById('gchat-scroll-top-btn').classList.remove('hidden');
     document.getElementById('gchat-scroll-bottom-btn').classList.remove('hidden');
+
+    // Show admin clear button if admin
+    if (adminClearBtn) adminClearBtn.classList.toggle('hidden', !chatIsAdmin);
+
     input.value = '';
     input.style.height = 'auto';
     input.placeholder = 'say something...';
@@ -1286,14 +1273,22 @@ async function toggleGlobalChat() {
     toggleBtn.querySelector('.toggle-chat-icon').classList.add('hidden');
     toggleBtn.querySelector('.toggle-agent-icon').classList.remove('hidden');
 
-    // Show admin gear if admin
-    const adminWrap = document.getElementById('admin-menu-wrap');
-    if (adminWrap) adminWrap.classList.toggle('hidden', !chatIsAdmin);
+    // Update title bar for global chat
+    const chatStatsEl = document.getElementById('chat-online-stats');
+    if (chatStatsEl && chatStatsEl.textContent) {
+      const prefix = _appVersion ? `Pocket Agent v${_appVersion}` : 'Pocket Agent';
+      document.title = `${prefix} — ${chatStatsEl.textContent}`;
+    }
+
+    // Deselect active session in sidebar
+    document.querySelectorAll('.sidebar-session.active').forEach(el => el.classList.remove('active'));
 
     renderGlobalChatMessages();
     enterChatActive();
   } else {
-    // Exit chat mode
+    // Exit chat mode — restore message stats in title and re-render session tabs
+    updateStats();
+    renderTabs();
     leaveChatActive();
     clearAllTypingState();
     hideAdminTierPopover();
@@ -1301,17 +1296,9 @@ async function toggleGlobalChat() {
     gchatDismissMentionList();
     mentionHighlight.innerHTML = '';
     input.classList.remove('mention-active');
-    tabsCont.classList.remove('hidden');
-    chatHeader.classList.add('hidden');
     messagesEl.classList.remove('hidden');
     globalMsgsEl.classList.add('hidden');
-    modelBadge.classList.remove('hidden');
-    if (versionBadge) versionBadge.classList.remove('hidden');
-    statsEl.classList.remove('hidden');
-    chatUsernameBadge.classList.add('hidden');
-    chatOnlineStats.classList.add('hidden');
     toolbarRow.classList.remove('hidden');
-    // Only show bg tasks area if there are active tasks
     if (getBackgroundTaskCount(currentSessionId) > 0) {
       bgTasksArea.classList.remove('hidden');
     }
@@ -1321,6 +1308,8 @@ async function toggleGlobalChat() {
     document.getElementById('mode-select').classList.remove('hidden');
     if (scrollTopBtn) scrollTopBtn.classList.remove('hidden');
     if (scrollBottomBtn) scrollBottomBtn.classList.remove('hidden');
+    if (freshStartBtn) freshStartBtn.classList.remove('hidden');
+    if (adminClearBtn) adminClearBtn.classList.add('hidden');
     document.getElementById('gchat-scroll-top-btn').classList.add('hidden');
     document.getElementById('gchat-scroll-bottom-btn').classList.add('hidden');
     gchatScrollTopBtn.classList.remove('visible');

@@ -115,7 +115,7 @@ function playReplySound() {
 const MAX_TABS = 10;
 let sessions = [];
 let currentSessionId = 'default';
-const tabsContainer = document.getElementById('tabs-container');
+const tabsContainer = document.getElementById('sidebar-sessions');
 
 // Global chat state
 let globalChatMode = false;

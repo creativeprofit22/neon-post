@@ -9,18 +9,6 @@ function bindMenuClick(id, action) {
   bindClick(id, () => { playNormalClick(); action(); closeMenu(); });
 }
 
-// --- Header / Hamburger Menu ---
-bindClick('hamburger-btn', () => { playNormalClick(); toggleMenu(); });
-bindMenuClick('menu-fresh-start', clearChat);
-bindMenuClick('menu-brain', showFacts);
-bindMenuClick('menu-daily-logs', showDailyLogs);
-bindMenuClick('menu-soul', showSoul);
-bindMenuClick('menu-personalize', openCustomize);
-bindMenuClick('menu-routines', openRoutines);
-bindMenuClick('menu-docs', openDocs);
-bindMenuClick('menu-settings', openSettings);
-bindMenuClick('menu-about', openAbout);
-
 // --- About Modal ---
 document.getElementById('about-modal').addEventListener('click', (e) => {
   if (e.target === e.currentTarget) closeAbout();
@@ -39,12 +27,16 @@ bindClick('about-link-skool', () => {
 bindClick('plan-reject-btn', rejectPlan);
 bindClick('plan-approve-btn', approvePlan);
 
-// --- Tabs ---
-bindClick('new-tab-btn', () => { playNormalClick(); createNewSession(); });
+// --- Sidebar ---
+bindClick('sidebar-new-chat', () => { playNormalClick(); createNewSession(); });
+bindClick('sidebar-personalize-btn', () => { playNormalClick(); togglePersonalizePanel(); });
+bindClick('sidebar-routines-btn', () => { playNormalClick(); toggleRoutinesPanel(); });
+bindClick('sidebar-brain-btn', () => { playNormalClick(); toggleBrainPanel(); });
+bindClick('sidebar-docs-btn', () => { playNormalClick(); openDocs(); });
+bindClick('sidebar-settings-btn', () => { playNormalClick(); toggleSettingsPanel(); });
+bindClick('sidebar-about-btn', () => { playNormalClick(); openAbout(); });
 
 // --- Global Chat Header ---
-bindClick('gchat-back-btn', () => { playNormalClick(); toggleGlobalChat(); });
-
 // --- Scroll Buttons ---
 bindClick('scroll-top-btn', () => { playNormalClick(); scrollToTop(); });
 bindClick('scroll-bottom-btn', () => { playNormalClick(); scrollToBottom(); });
@@ -69,6 +61,9 @@ document.getElementById('message-input').addEventListener('input', handleInput);
 // --- Input Toolbar ---
 bindClick('search-toolbar-btn', () => { playNormalClick(); toggleSearch(); });
 bindClick('workflows-toolbar-btn', () => { playNormalClick(); toggleWorkflows(); });
+bindClick('fresh-start-btn', () => { playNormalClick(); clearChat(); });
+bindClick('admin-clear-chat-btn', () => { playNormalClick(); if (confirm('Clear the entire global chat?')) sendChatWs({ type: 'clear_chat' }); });
+bindClick('reply-panel-close', () => { playNormalClick(); gchatClearReply(); });
 bindClick('chat-toggle-btn', () => { playNormalClick(); toggleGlobalChat(); });
 bindClick('bg-tasks-toggle-btn', () => { playNormalClick(); toggleBackgroundTasks(); });
 bindClick('bg-dropdown-back-btn', () => { playNormalClick(); closeBackgroundTasks(); });

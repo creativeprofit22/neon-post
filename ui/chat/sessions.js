@@ -22,31 +22,29 @@ let draggedTab = null;
 let draggedSessionId = null;
 
 function renderTabs() {
-  // Remove existing tabs (keep the new tab button)
-  const existingTabs = tabsContainer.querySelectorAll('.tab');
+  // Clear existing session items
+  const existingTabs = tabsContainer.querySelectorAll('.sidebar-session');
   existingTabs.forEach(tab => tab.remove());
-
-  // Add tabs before the new tab button
-  const newTabBtn = tabsContainer.querySelector('.new-tab-btn');
 
   sessions.forEach((session, index) => {
     const tab = document.createElement('div');
     const isActive = session.id === currentSessionId;
     const isLoading = isLoadingBySession.get(session.id);
-    tab.className = 'tab' + (isActive ? ' active' : '') + (isLoading ? ' loading' : '');
+    tab.className = 'sidebar-session' + (isActive ? ' active' : '') + (isLoading ? ' loading' : '');
     tab.dataset.sessionId = session.id;
     tab.dataset.index = index;
     tab.draggable = true;
 
     tab.onclick = (e) => {
-      if (!e.target.closest('.tab-close') && !e.target.closest('.tab-name-input')) {
+      if (!e.target.closest('.sidebar-session-close') && !e.target.closest('.tab-name-input')) {
         playNormalClick();
+        returnToChatView();
         switchSession(session.id);
       }
     };
     tab.ondblclick = () => startRenameSession(session.id);
 
-    // Drag events
+    // Drag events (vertical)
     tab.ondragstart = (e) => {
       draggedTab = tab;
       draggedSessionId = session.id;
@@ -66,20 +64,16 @@ function renderTabs() {
       e.preventDefault();
       if (!draggedTab || draggedSessionId === session.id) return;
 
-      // Get the tab being hovered over
       const targetTab = tab;
       const rect = targetTab.getBoundingClientRect();
-      const midpoint = rect.left + rect.width / 2;
+      const midpoint = rect.top + rect.height / 2;
 
-      // Determine if we should insert before or after
-      if (e.clientX < midpoint) {
-        // Insert before this tab
+      if (e.clientY < midpoint) {
         if (targetTab.previousElementSibling !== draggedTab) {
           tabsContainer.insertBefore(draggedTab, targetTab);
           updateSessionsOrder();
         }
       } else {
-        // Insert after this tab
         if (targetTab.nextElementSibling !== draggedTab) {
           tabsContainer.insertBefore(draggedTab, targetTab.nextElementSibling);
           updateSessionsOrder();
@@ -87,24 +81,30 @@ function renderTabs() {
       }
     };
 
+    // Chat icon
+    const icon = document.createElement('span');
+    icon.className = 'sidebar-session-icon';
+    icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+    tab.appendChild(icon);
+
     const nameSpan = document.createElement('span');
-    nameSpan.className = 'tab-name';
+    nameSpan.className = 'sidebar-session-name';
     nameSpan.textContent = session.name;
     tab.appendChild(nameSpan);
 
     // Show Telegram icon if session is linked to a Telegram group
     if (session.telegram_linked) {
       const telegramIcon = document.createElement('span');
-      telegramIcon.className = 'tab-telegram-icon';
-      telegramIcon.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>`;
+      telegramIcon.className = 'sidebar-session-telegram';
+      telegramIcon.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>';
       telegramIcon.title = session.telegram_group_name || 'Linked to Telegram';
       tab.appendChild(telegramIcon);
     }
 
-    // Don't show close button for default session if it's the only one
+    // Close button (don't show for default if it's the only session)
     if (session.id !== 'default' || sessions.length > 1) {
       const closeBtn = document.createElement('button');
-      closeBtn.className = 'tab-close';
+      closeBtn.className = 'sidebar-session-close';
       closeBtn.innerHTML = '×';
       closeBtn.onclick = (e) => {
         e.stopPropagation();
@@ -114,16 +114,17 @@ function renderTabs() {
       tab.appendChild(closeBtn);
     }
 
-    tabsContainer.insertBefore(tab, newTabBtn);
+    tabsContainer.appendChild(tab);
   });
 
-  // Hide new tab button when at max capacity
-  newTabBtn.classList.toggle('hidden', sessions.length >= MAX_TABS);
+  // Hide new chat button in sidebar when at max
+  const newChatBtn = document.getElementById('sidebar-new-chat');
+  if (newChatBtn) newChatBtn.classList.toggle('hidden', sessions.length >= MAX_TABS);
 }
 
 function updateSessionsOrder() {
   // Update sessions array to match current DOM order
-  const tabs = tabsContainer.querySelectorAll('.tab');
+  const tabs = tabsContainer.querySelectorAll('.sidebar-session');
   const newOrder = [];
   tabs.forEach(tab => {
     const sessionId = tab.dataset.sessionId;
@@ -151,12 +152,12 @@ async function switchSession(sessionId) {
   // Save search state for current session
   const searchArea = document.getElementById('search-area');
   const searchInput = document.getElementById('search-input');
-  searchTextBySession.set(currentSessionId, searchInput.value);
-  searchOpenBySession.set(currentSessionId, searchArea.classList.contains('searching'));
+  if (searchInput) searchTextBySession.set(currentSessionId, searchInput.value);
+  if (searchArea) searchOpenBySession.set(currentSessionId, searchArea.classList.contains('searching'));
 
   // Clear search UI (will restore for new session after load)
-  searchArea.classList.remove('searching');
-  searchInput.value = '';
+  if (searchArea) searchArea.classList.remove('searching');
+  if (searchInput) searchInput.value = '';
   clearSearchHighlights();
   searchMatches = [];
   currentSearchIndex = 0;
@@ -221,8 +222,8 @@ async function switchSession(sessionId) {
   const savedSearchText = searchTextBySession.get(sessionId) || '';
   const wasSearchOpen = searchOpenBySession.get(sessionId) || false;
   if (wasSearchOpen || savedSearchText) {
-    searchInput.value = savedSearchText;
-    if (wasSearchOpen) {
+    if (searchInput) searchInput.value = savedSearchText;
+    if (wasSearchOpen && searchArea) {
       searchArea.classList.add('searching');
       // Re-run search to highlight matches in new session's messages
       if (savedSearchText) {
@@ -284,6 +285,7 @@ async function createNewSession() {
   if (sessions.length >= MAX_TABS) {
     return;
   }
+  returnToChatView();
 
   try {
     const result = await window.pocketAgent.sessions.create(getNextSessionName());
@@ -313,7 +315,7 @@ function startRenameSession(sessionId) {
   const tab = tabsContainer.querySelector(`[data-session-id="${sessionId}"]`);
   if (!tab) return;
 
-  const nameSpan = tab.querySelector('.tab-name');
+  const nameSpan = tab.querySelector('.sidebar-session-name');
   const currentName = nameSpan.textContent;
 
   const input = document.createElement('input');

@@ -74,17 +74,26 @@ async function readFile(file, ext) {
 }
 
 function renderAttachmentPreviews() {
-  // Remove existing container
-  const existing = document.querySelector('.attachments-container');
-  if (existing) existing.remove();
+  const grid = document.getElementById('attachments-grid');
+  const panel = document.getElementById('attachments-panel');
+  const slideUp = document.getElementById('slide-up-panel');
+  if (!grid || !panel || !slideUp) return;
 
   const attachments = getPendingAttachments();
-  if (attachments.length === 0) return;
 
-  // Create container
-  const container = document.createElement('div');
-  container.className = 'attachments-container';
+  if (attachments.length === 0) {
+    grid.innerHTML = '';
+    panel.classList.add('hidden');
+    // Close slide-up if no other panel is open
+    const searchOpen = !document.getElementById('search-panel').classList.contains('hidden');
+    const workflowsOpen = !document.getElementById('workflows-panel').classList.contains('hidden');
+    if (!searchOpen && !workflowsOpen) {
+      slideUp.classList.remove('open');
+    }
+    return;
+  }
 
+  grid.innerHTML = '';
   attachments.forEach((att, index) => {
     const preview = document.createElement('div');
     preview.className = 'attachment-preview';
@@ -112,12 +121,11 @@ function renderAttachmentPreviews() {
       `;
     }
 
-    container.appendChild(preview);
+    grid.appendChild(preview);
   });
 
-  // Insert before input area
-  const inputArea = document.getElementById('input-area');
-  inputArea.parentNode.insertBefore(container, inputArea);
+  panel.classList.remove('hidden');
+  slideUp.classList.add('open');
 }
 
 function removeAttachment(index) {

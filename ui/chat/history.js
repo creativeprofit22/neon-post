@@ -76,8 +76,14 @@ async function loadHistory() {
   }
 }
 
+let _appVersion = '';
+
 async function updateStats() {
   try {
+    if (!_appVersion) {
+      try { _appVersion = await window.pocketAgent.app.getVersion(); } catch (e) { /* ignore */ }
+    }
+    const prefix = _appVersion ? `Pocket Agent v${_appVersion}` : 'Pocket Agent';
     const stats = await window.pocketAgent.agent.getStats(currentSessionId);
     if (stats) {
       let parts = [`${stats.messageCount} msgs`];
@@ -89,7 +95,7 @@ async function updateStats() {
         parts.push(`${pct}% context`);
       }
 
-      statsDiv.textContent = parts.join(' · ');
+      document.title = `${prefix} — ${parts.join(' · ')}`;
     }
   } catch (err) {
     console.error('Failed to get stats:', err);

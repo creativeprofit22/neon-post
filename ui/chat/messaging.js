@@ -417,27 +417,15 @@ async function clearChat() {
   }
 }
 
-async function showFacts() {
-  try {
-    await window.pocketAgent.app.openFacts();
-  } catch (err) {
-    console.error('Failed to open facts:', err);
-  }
+function showFacts() {
+  showBrainPanel('facts');
 }
 
-async function showDailyLogs() {
-  try {
-    await window.pocketAgent.app.openDailyLogs();
-  } catch (err) {
-    console.error('Failed to open daily logs:', err);
-  }
+function showDailyLogs() {
+  showBrainPanel('logs');
 }
 
-async function showSoul() {
-  try {
-    await window.pocketAgent.app.openSoul();
-  } catch (err) {
-    console.error('Failed to open soul:', err);
-  }
+function showSoul() {
+  showBrainPanel('soul');
 }
 

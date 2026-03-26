@@ -7,7 +7,7 @@
   <title>Pocket Agent</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Datatype:wght@400;500;600;700&family=Pixelify+Sans:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&family=Archivo+Black&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.css">
   <script src="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -24,6 +24,11 @@
   <link rel="stylesheet" href="chat/global-chat.css">
   <link rel="stylesheet" href="chat/overlays.css">
   <link rel="stylesheet" href="chat/attachments.css">
+  <link rel="stylesheet" href="chat/sidebar.css">
+  <link rel="stylesheet" href="chat/settings-panel.css">
+  <link rel="stylesheet" href="chat/brain-panel.css">
+  <link rel="stylesheet" href="chat/routines-panel.css">
+  <link rel="stylesheet" href="chat/personalize-panel.css">
   <script src="shared/theme-loader.js"></script>
   <script type="module">
     import autoAnimate from 'https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.9/+esm';
@@ -32,137 +37,88 @@
   </script>
 </head>
 <body>
-  <header>
-    <div class="header-left">
+  <div class="app-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <button class="sidebar-toggle" id="sidebar-toggle-btn" title="Toggle sidebar">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <line x1="9" y1="3" x2="9" y2="21"/>
+        </svg>
+      </button>
+      <span class="sidebar-logo">Pocket Agent</span>
     </div>
-    <div class="header-right">
-      <div class="stats" id="stats"></div>
-      <span class="chat-username-badge hidden" id="chat-username-badge"></span>
-      <div class="stats hidden" id="chat-online-stats">0 online · 0 in chat</div>
-      <div class="hamburger-menu">
-        <button class="hamburger-btn" id="hamburger-btn">
-          <span></span>
-          <span></span>
-          <span></span>
-        </button>
-        <div class="menu-dropdown" id="menu-dropdown">
-          <button class="menu-item" id="menu-fresh-start">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-              <path d="M3 3v5h5"/>
-            </svg>
-            Fresh Start
-          </button>
-          <button class="menu-item" id="menu-brain">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2a10 10 0 1 0 10 10H12V2z"/>
-              <path d="M12 2a10 10 0 0 1 10 10"/>
-              <circle cx="12" cy="12" r="6"/>
-              <circle cx="12" cy="12" r="2"/>
-            </svg>
-            My Brain
-          </button>
-          <button class="menu-item" id="menu-daily-logs">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/>
-              <line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
-            </svg>
-            Daily Logs
-          </button>
-          <button class="menu-item" id="menu-soul">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-            </svg>
-            My Approach
-          </button>
-          <button class="menu-item" id="menu-personalize">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 20h9"/>
-              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-            </svg>
-            Personalize
-          </button>
-          <button class="menu-item" id="menu-routines">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
-            Routines
-          </button>
-          <div class="menu-divider"></div>
-          <button class="menu-item" id="menu-docs">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-            </svg>
-            Docs
-          </button>
-          <div class="menu-divider"></div>
-          <button class="menu-item" id="menu-settings">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-            Settings
-          </button>
-          <div class="menu-divider"></div>
-          <button class="menu-item" id="menu-about">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-              <line x1="12" y1="17" x2="12.01" y2="17"/>
-            </svg>
-            Who made me?
-          </button>
-        </div>
+    <nav class="sidebar-nav">
+      <button class="sidebar-btn" id="sidebar-new-chat" title="New chat">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        <span class="sidebar-btn-label">New Chat</span>
+      </button>
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-sessions" id="sidebar-sessions">
+        <!-- Session items rendered by sessions.js -->
       </div>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="sidebar-divider"></div>
+      <button class="sidebar-btn" id="sidebar-personalize-btn" title="Personalize">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20h9"/>
+          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+        </svg>
+        <span class="sidebar-btn-label">Personalize</span>
+      </button>
+      <button class="sidebar-btn" id="sidebar-routines-btn" title="Routines">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 6 12 12 16 14"/>
+        </svg>
+        <span class="sidebar-btn-label">Routines</span>
+      </button>
+      <button class="sidebar-btn" id="sidebar-brain-btn" title="The Brain">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a10 10 0 1 0 10 10H12V2z"/>
+          <path d="M12 2a10 10 0 0 1 10 10"/>
+          <circle cx="12" cy="12" r="6"/>
+          <circle cx="12" cy="12" r="2"/>
+        </svg>
+        <span class="sidebar-btn-label">The Brain</span>
+      </button>
+      <button class="sidebar-btn" id="sidebar-docs-btn" title="Docs">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        </svg>
+        <span class="sidebar-btn-label">Docs</span>
+      </button>
+      <button class="sidebar-btn" id="sidebar-settings-btn" title="Settings">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span class="sidebar-btn-label">Settings</span>
+      </button>
+      <button class="sidebar-btn" id="sidebar-about-btn" title="Who made me?">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <span class="sidebar-btn-label">Who made me?</span>
+      </button>
     </div>
-  </header>
+  </aside>
 
-  <!-- About Modal -->
-  <div class="modal-overlay" id="about-modal">
-    <div class="modal">
-      <div class="modal-header">
-        <div class="modal-icon pixel-cat"></div>
-        <div class="modal-title">
-          <h2>who made me?</h2>
-          <p>the human behind franky</p>
-        </div>
-        <button class="modal-close" id="about-close-btn">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-      </div>
-      <div class="modal-body">
-        <div class="about-content">
-          <p>i was built by <strong>Ken Kai</strong> - he's been obsessed with AI and AI development for over 10 years now</p>
-          <p>he runs a youtube channel where he shares everything he learns, and teaches on skool too</p>
-          <p>if you want to learn more about AI dev, agents, and building cool stuff like me - check him out:</p>
-        </div>
-        <div class="about-links">
-          <a class="about-link" id="about-link-youtube">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-            </svg>
-            <span>@kenkaidoesai</span>
-            <small>YouTube</small>
-          </a>
-          <a class="about-link" id="about-link-skool">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
-              <path d="M6 12v5c3 3 9 3 12 0v-5"/>
-            </svg>
-            <span>skool.com/kenkai</span>
-            <small>Learn AI Dev</small>
-          </a>
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- Main Content -->
+  <div class="main-content">
+  <div id="chat-view">
+  <!-- Hidden elements used by global chat -->
+  <div class="hidden" id="stats"></div>
+  <span class="chat-username-badge hidden" id="chat-username-badge"></span>
+  <div class="stats hidden" id="chat-online-stats">0 online · 0 in chat</div>
 
   <!-- Plan Approval Overlay -->
   <div class="plan-approval-overlay" id="plan-approval-overlay">
@@ -179,36 +135,9 @@
     </div>
   </div>
 
-  <div class="tabs-container" id="tabs-container">
-    <!-- Tabs will be populated by JavaScript -->
-    <button class="new-tab-btn" id="new-tab-btn" title="New chat">+</button>
-  </div>
+  <!-- Tabs moved to sidebar -->
 
-  <div id="global-chat-header" class="hidden">
-    <button class="chat-back-btn" id="gchat-back-btn" title="Back to agent">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="15 18 9 12 15 6"></polyline>
-      </svg>
-    </button>
-    <span class="chat-title">global chat</span>
-    <span class="chat-status" id="chat-status-dot"></span>
-    <div id="admin-menu-wrap" class="hidden">
-      <button id="admin-gear-btn" class="chat-back-btn" title="Admin">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-        </svg>
-      </button>
-      <div id="admin-dropdown">
-        <button class="menu-item danger" id="admin-clear-chat">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-          </svg>
-          <span>Clear Chat</span>
-        </button>
-      </div>
-    </div>
-  </div>
+  <!-- Global chat header removed — functionality moved to sidebar/floating buttons/titlebar -->
 
   <div id="messages"></div>
   <div id="global-chat-messages" class="hidden"></div>
@@ -288,13 +217,17 @@
             </svg>
           </button>
         </div>
+        <div id="attachments-panel" class="slide-panel-content hidden">
+          <div id="attachments-grid" class="attachments-grid"></div>
+        </div>
+        <div id="reply-panel" class="slide-panel-content hidden">
+          <div id="reply-panel-content" class="gchat-reply-panel-content"></div>
+          <button id="reply-panel-close" class="gchat-reply-panel-close" title="Cancel reply">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+          </button>
+        </div>
       </div>
       <div class="input-top-row">
-        <button class="attach-btn" id="attach-btn" title="Drop a file">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
-          </svg>
-        </button>
         <span id="workflow-badge-container"></span>
         <div class="textarea-wrapper">
           <div id="ghost-suggestion"></div>
@@ -307,6 +240,11 @@
         </div>
       </div>
       <div class="input-toolbar-btns">
+        <button class="input-toolbar-btn" id="attach-btn" title="Drop a file">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+          </svg>
+        </button>
         <button class="input-toolbar-btn" id="search-toolbar-btn" title="Search">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"></circle>
@@ -384,7 +322,21 @@
     </div>
   </div>
 
-  <!-- Floating chat/agent toggle button -->
+  </div><!-- #chat-view -->
+
+  <!-- Floating buttons (outside chat-view so they're always visible) -->
+  <button id="admin-clear-chat-btn" class="floating-admin-clear-btn hidden" title="Clear Chat">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="3 6 5 6 21 6"></polyline>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+    </svg>
+  </button>
+  <button id="fresh-start-btn" class="floating-fresh-btn" title="Fresh Start">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+      <path d="M3 3v5h5"/>
+    </svg>
+  </button>
   <button id="chat-toggle-btn" class="floating-toggle-btn" title="Global Chat">
     <svg class="toggle-chat-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
@@ -397,7 +349,550 @@
     <span id="chat-toggle-badge" class="chat-unread-badge hidden">0</span>
   </button>
 
+  <!-- Settings View (inline, replaces chat when active) -->
+  <div id="settings-view">
+    <div class="settings-header">
+      <h1><span>Settings</span></h1>
+      <div class="header-actions">
+        <button class="secondary" onclick="playNormalClick(); hideSettingsPanel()">Back</button>
+        <button id="reboot-btn" class="reboot" onclick="playNormalClick(); stgRestartAgent()" disabled>Reboot</button>
+      </div>
+    </div>
+
+    <div class="settings-container">
+      <nav class="settings-sidebar">
+        <div class="settings-nav-item active" data-section="auth">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><circle cx="8" cy="16" r="1"/><circle cx="16" cy="16" r="1"/></svg>
+          LLM
+        </div>
+        <div class="settings-nav-item" data-section="api_keys">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+          Keys
+        </div>
+        <div class="settings-nav-item" data-section="telegram">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Telegram
+        </div>
+        <div class="settings-nav-item" data-section="ios">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="3"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+          Mobile
+        </div>
+        <div class="settings-nav-item" data-section="memory">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Memory
+        </div>
+        <div class="settings-nav-item" data-section="browser">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          Browser
+        </div>
+        <div class="settings-nav-item" data-section="chat">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Chat
+        </div>
+        <div class="settings-nav-item" data-section="skins">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.8-.1 2.6-.4.5-.2.9-.8.7-1.3-.1-.4-.1-.8.1-1.2.4-.6 1-1 1.7-1H18c2.2 0 4-1.8 4-4 0-5-4.5-10-10-10z"/><circle cx="7.5" cy="11.5" r="1.5"/><circle cx="12" cy="7.5" r="1.5"/><circle cx="16.5" cy="11.5" r="1.5"/></svg>
+          Skins
+        </div>
+        <div class="settings-nav-item" data-section="pocket_cli">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8l4 4-4 4"/><line x1="13" y1="16" x2="17" y2="16"/></svg>
+          Pocket CLI
+        </div>
+        <div class="settings-nav-item" data-section="updates">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+          Updates
+        </div>
+      </nav>
+
+      <div class="settings-content">
+        <!-- LLM Section -->
+        <section id="auth" class="settings-section active">
+          <h2 class="section-title">LLM</h2>
+          <p class="section-desc">Connect and configure your AI models.</p>
+          <h3 class="subsection-title" style="margin-top: 16px; margin-bottom: 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary);">Anthropic (Claude)</h3>
+          <div class="auth-box">
+            <div class="auth-option">
+              <div class="auth-option-header">
+                <span class="auth-option-title">Login with Claude</span>
+                <div class="flex-row" style="gap: 8px;">
+                  <span class="risk-badge">Use at own risk <span class="risk-info">i</span><span class="risk-tooltip">Anthropic may restrict accounts using unofficial OAuth integrations. This is not an officially supported auth method. Use at your own risk.</span></span>
+                  <span id="auth-status" class="auth-badge loading">checking...</span>
+                  <button id="oauth-btn" class="oauth-btn" onclick="playNormalClick(); stgHandleAuthAction()">Sign in</button>
+                </div>
+              </div>
+              <div id="oauth-code-section" class="hidden config-section">
+                <div class="key-input">
+                  <input type="text" id="oauth-code" placeholder="Paste authorization code...">
+                  <button onclick="playNormalClick(); stgCompleteOAuth()">Submit</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="keys-table" id="auth-api-key-section">
+            <div class="key-row">
+              <div class="key-info"><span class="key-name">API Key</span><a href="https://console.anthropic.com/settings/keys" target="_blank" class="key-link">console.anthropic.com</a></div>
+              <div class="key-input">
+                <input type="password" id="auth-api-key" placeholder="sk-ant-...">
+                <button class="delete-btn" id="auth-api-key-delete" onclick="playNormalClick(); stgDeleteKey('anthropic.apiKey', 'auth-api-key')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                <button onclick="playNormalClick(); stgSaveApiKey()">Save</button>
+              </div>
+            </div>
+          </div>
+          <h3 class="subsection-title" style="margin-top: 24px; margin-bottom: 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary);">Kimi (Moonshot)</h3>
+          <div class="keys-table">
+            <div class="key-row">
+              <div class="key-info"><span class="key-name">API Key</span><a href="https://platform.moonshot.ai/" target="_blank" class="key-link">platform.moonshot.ai</a></div>
+              <div class="key-input">
+                <input type="password" id="moonshot.apiKey" placeholder="sk-...">
+                <button class="delete-btn" id="moonshot.apiKey-delete" onclick="playNormalClick(); stgDeleteKey('moonshot.apiKey')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                <button onclick="playNormalClick(); stgValidateKey('moonshot')">Test</button>
+              </div>
+            </div>
+          </div>
+          <h3 class="subsection-title" style="margin-top: 24px; margin-bottom: 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary);">GLM (Z.AI)</h3>
+          <div class="keys-table">
+            <div class="key-row">
+              <div class="key-info"><span class="key-name">API Key</span><a href="https://z.ai/manage-apikey/apikey-list" target="_blank" class="key-link">z.ai</a></div>
+              <div class="key-input">
+                <input type="password" id="glm.apiKey" placeholder="...">
+                <button class="delete-btn" id="glm.apiKey-delete" onclick="playNormalClick(); stgDeleteKey('glm.apiKey')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                <button onclick="playNormalClick(); stgValidateKey('glm')">Test</button>
+              </div>
+            </div>
+          </div>
+          <h3 class="subsection-title" style="margin-top: 24px; margin-bottom: 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary);">Model</h3>
+          <div class="settings-grid">
+            <div class="setting-row"><label>Active Model</label><select id="agent.model" class="w-140"></select></div>
+          </div>
+        </section>
+
+        <!-- API Keys Section -->
+        <section id="api_keys" class="settings-section">
+          <h2 class="section-title">API Keys</h2>
+          <p class="section-desc">Your secret keys are safely encrypted.</p>
+          <div class="keys-table">
+            <div class="key-row" id="anthropic-key-row">
+              <div class="key-info"><span class="key-name">Anthropic</span><a href="https://console.anthropic.com/" target="_blank" class="key-link">console.anthropic.com</a></div>
+              <div class="key-input">
+                <input type="password" id="anthropic.apiKey" placeholder="sk-ant-...">
+                <button class="delete-btn" id="anthropic.apiKey-delete" onclick="playNormalClick(); stgDeleteKey('anthropic.apiKey')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                <button onclick="playNormalClick(); stgValidateKey('anthropic')">Test</button>
+              </div>
+            </div>
+            <div class="key-row">
+              <div class="key-info"><span class="key-name">OpenAI</span><a href="https://platform.openai.com/" target="_blank" class="key-link">platform.openai.com</a></div>
+              <div class="key-input">
+                <input type="password" id="openai.apiKey" placeholder="sk-...">
+                <button class="delete-btn" id="openai.apiKey-delete" onclick="playNormalClick(); stgDeleteKey('openai.apiKey')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                <button onclick="playNormalClick(); stgValidateKey('openai')">Test</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Telegram Section -->
+        <section id="telegram" class="settings-section">
+          <h2 class="section-title">Telegram</h2>
+          <p class="section-desc">Chat with me from anywhere via Telegram!</p>
+          <div class="settings-grid"><div class="setting-row"><label>Enable Telegram</label><div class="toggle" id="telegram.enabled-toggle" onclick="playNormalClick(); stgToggleSetting('telegram.enabled')"></div></div></div>
+          <div class="settings-grid config-section" id="telegram-config">
+            <div class="setting-row setting-row--stacked"><div class="flex-between"><label>Bot Token</label><a href="https://t.me/BotFather" target="_blank" class="key-link">@BotFather</a></div><div class="key-input"><input type="password" id="telegram.botToken" placeholder="123456:ABC-DEF..."><button class="delete-btn" id="telegram.botToken-delete" onclick="playNormalClick(); stgDeleteKey('telegram.botToken')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button><button onclick="playNormalClick(); stgValidateKey('telegram')">Test</button></div></div>
+            <div class="setting-row setting-row--stacked"><div class="flex-between"><label style="display:flex;align-items:center;margin:0;">Allowed Users <span class="badge-required">Required</span></label><a href="https://t.me/userinfobot" target="_blank" class="key-link">@userinfobot</a></div><div class="key-input"><input type="text" id="telegram.allowedUserIds" placeholder="e.g. 918273645"><button onclick="playNormalClick(); stgSaveTelegramSetting('telegram.allowedUserIds')">Save</button></div></div>
+            <div class="setting-row setting-row--stacked"><label>Default Chat</label><div class="key-input"><input type="text" id="telegram.defaultChatId" placeholder="e.g. -100123456789"><button onclick="playNormalClick(); stgSaveTelegramSetting('telegram.defaultChatId')">Save</button></div></div>
+          </div>
+        </section>
+
+        <!-- iOS Mobile Section -->
+        <section id="ios" class="settings-section">
+          <h2 class="section-title">Mobile Companion</h2>
+          <p class="section-desc">Connect the Pocket Agent iOS app for on-the-go access.</p>
+          <div class="settings-grid"><div class="setting-row"><label>Enable Mobile Connection</label><div class="toggle" id="ios.enabled-toggle" onclick="playNormalClick(); stgToggleiOS()"></div></div></div>
+          <div id="ios-config" style="margin-top: 10px;">
+            <div id="ios-instance-section" style="margin-top: 8px;"><h3 class="subsection-title" style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: var(--text-secondary);">Instance ID</h3><p style="color: var(--text-muted); font-size: 11px; margin-bottom: 10px;">Enter this in the iOS app to identify your desktop. Click to copy.</p><div class="card-box"><div id="ios-instance-id" class="code-display" style="color: var(--text-primary);" onclick="playNormalClick(); stgCopyInstanceId()" title="Click to copy">--------</div></div></div>
+            <div id="ios-pairing" style="margin-top: 16px;"><div class="flex-between"><h3 class="subsection-title" style="margin: 0; font-size: 14px; font-weight: 600; color: var(--text-secondary);">Pairing Code</h3><button onclick="playNormalClick(); stgRefreshPairingCode(true)" style="padding: 4px 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 11px; cursor: pointer;">New Code</button></div><p style="color: var(--text-muted); font-size: 11px; margin: 6px 0 10px 0;">One-time code to pair a new device. Click to copy. Expires in 5 minutes.</p><div class="card-box"><div id="ios-pairing-code" class="code-display" style="color: var(--accent);" onclick="playNormalClick(); stgCopyPairingCode()" title="Click to copy">------</div></div></div>
+            <div style="margin-top: 16px;"><h3 class="subsection-title" style="margin-bottom: 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary);">Connected Devices</h3><div id="ios-devices" class="card-box" style="padding: 16px;"><p style="color: var(--text-muted); font-size: 13px; text-align: center;">No devices connected</p></div></div>
+          </div>
+        </section>
+
+        <!-- Memory Section -->
+        <section id="memory" class="settings-section">
+          <h2 class="section-title">Memory & Search</h2>
+          <p class="section-desc">Fine-tune how I remember and find things.</p>
+          <div class="settings-grid">
+            <div class="setting-row"><label>Embeddings</label><select id="memory.embeddingProvider"><option value="openai">OpenAI</option><option value="none">None</option></select></div>
+            <div class="setting-row"><label>Vector Weight</label><input type="number" id="memory.vectorWeight" step="0.1" min="0" max="1" placeholder="0.7"></div>
+            <div class="setting-row"><label>Keyword Weight</label><input type="number" id="memory.keywordWeight" step="0.1" min="0" max="1" placeholder="0.3"></div>
+            <div class="setting-row"><label>Min Score</label><input type="number" id="memory.minScoreThreshold" step="0.05" min="0" max="1" placeholder="0.35"></div>
+            <div class="setting-row"><label>Max Results</label><input type="number" id="memory.maxSearchResults" min="1" max="20" placeholder="6"></div>
+          </div>
+        </section>
+
+        <!-- Browser Section -->
+        <section id="browser" class="settings-section">
+          <h2 class="section-title">Browser Magic</h2>
+          <p class="section-desc">Control your browser to browse, click, fill forms, and more!</p>
+          <div class="settings-grid">
+            <div class="setting-row"><label>Enable Browser</label><div class="toggle" id="browser.enabled-toggle" onclick="playNormalClick(); stgToggleSetting('browser.enabled')"></div></div>
+            <div class="setting-row"><label>Use My Browser</label><div class="toggle" id="browser.useMyBrowser-toggle" onclick="playNormalClick(); stgToggleSetting('browser.useMyBrowser')"></div></div>
+          </div>
+          <div class="settings-grid section-spacer" id="browser-config">
+            <div class="setting-row"><label>Browser</label><select id="browser-selector" class="w-140"><option value="">Select browser...</option></select></div>
+            <div class="setting-row"><label>Launch</label><button id="browser-launch-btn" onclick="playNormalClick(); stgLaunchBrowserWithCdp()" class="skills-setup-btn btn-compact w-140">Launch Browser</button></div>
+            <div class="setting-row"><label>Status</label><div id="browser-status" class="status info status-no-margin">Not connected</div></div>
+            <div class="setting-row"><label>Connection</label><button id="browser-test-btn" onclick="playNormalClick(); stgTestBrowserConnection()" class="skills-setup-btn btn-compact w-140">Test Connection</button></div>
+          </div>
+          <details style="margin-top: 16px;">
+            <summary style="cursor: pointer; font-size: 11px; color: var(--text-muted); user-select: none;">Advanced settings</summary>
+            <div class="settings-grid config-section">
+              <div class="setting-row"><label>CDP URL</label><input type="text" id="browser.cdpUrl" placeholder="http://localhost:9222" class="w-180"></div>
+              <div class="setting-row"><label>Port</label><input type="number" id="browser-port" value="9222" min="1024" max="65535" class="w-80"></div>
+            </div>
+          </details>
+        </section>
+
+        <!-- Pocket CLI Section -->
+        <section id="pocket_cli" class="settings-section">
+          <h2 class="section-title">Pocket CLI</h2>
+          <p class="section-desc">Lets your AI interact with real services like Twitter, YouTube, Hacker News, Wikipedia, and more.</p>
+          <div class="settings-grid"><div class="setting-row"><label>Auto-check for updates</label><div class="toggle" id="pocketCli.autoCheck-toggle" onclick="playNormalClick(); stgToggleSetting('pocketCli.autoCheck')"></div></div></div>
+          <div class="settings-grid section-spacer">
+            <div class="setting-row"><label>Current Version</label><span id="pocket-cli-version" class="key-link" style="font-size: 12px;">—</span></div>
+            <div class="setting-row"><label>Status</label><div id="pocket-cli-status" class="status info status-no-margin">Ready</div></div>
+            <div class="setting-row"><label>Actions</label><div class="btn-row"><button id="pocket-cli-check-btn" onclick="playNormalClick(); stgCheckPocketCliUpdates()" class="skills-setup-btn btn-compact">Check Now</button><button id="pocket-cli-install-btn" onclick="playNormalClick(); stgInstallPocketCli()" class="skills-setup-btn btn-compact hidden">Install</button><button id="pocket-cli-update-btn" onclick="playNormalClick(); stgUpdatePocketCli()" class="skills-setup-btn btn-compact btn-accent hidden">Update</button></div></div>
+          </div>
+          <div id="pocket-cli-info" class="info-box section-spacer hidden"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span id="pocket-cli-info-text"></span></div>
+        </section>
+
+        <!-- Chat Section -->
+        <section id="chat" class="settings-section">
+          <h2 class="section-title">Global Chat</h2>
+          <p class="section-desc">Configure your global chat identity.</p>
+          <div class="settings-grid">
+            <div class="setting-row setting-row--stacked"><label>Username</label><p style="color: var(--text-muted); font-size: 11px; margin: 0;">Max 15 characters. Letters, numbers, and dashes only.</p><div class="key-input"><input type="text" id="chat.username" placeholder="e.g. ken-moonbeam" maxlength="15"><button onclick="playNormalClick(); stgSaveChatUsername()">Save</button></div></div>
+            <div class="setting-row setting-row--stacked"><label>Admin Key</label><div class="key-input"><input type="password" id="chat.adminKey" placeholder="Leave blank if not admin"><button onclick="playNormalClick(); stgSaveChatAdminKey()">Save</button></div></div>
+          </div>
+        </section>
+
+        <!-- Skins Section -->
+        <section id="skins" class="settings-section">
+          <h2 class="section-title">Skins</h2>
+          <p class="section-desc">Choose a visual theme for your agent.</p>
+          <div class="skin-grid" id="skin-grid"></div>
+        </section>
+
+        <!-- Updates Section -->
+        <section id="updates" class="settings-section">
+          <h2 class="section-title">Updates</h2>
+          <p class="section-desc">Keep your agent fresh with the latest features.</p>
+          <div class="settings-grid"><div class="setting-row"><label>Auto-check for updates</label><div class="toggle" id="updates.autoCheck-toggle" onclick="playNormalClick(); stgToggleSetting('updates.autoCheck')"></div></div></div>
+          <div class="settings-grid section-spacer">
+            <div class="setting-row"><label>Current Version</label><span id="current-version" class="key-link" style="font-size: 12px;">Loading...</span></div>
+            <div class="setting-row"><label>Status</label><div id="update-status" class="status info status-no-margin">Ready</div></div>
+            <div class="setting-row hidden" id="update-progress-row"><label>Progress</label><div class="progress-row"><div class="progress-track"><div id="update-progress-bar" class="progress-fill"></div></div><span id="update-progress-text" class="progress-text">0%</span></div></div>
+            <div class="setting-row"><label>Actions</label><div class="btn-row"><button id="check-updates-btn" onclick="playNormalClick(); stgCheckForUpdates()" class="skills-setup-btn btn-compact">Check Now</button><button id="download-update-btn" onclick="playNormalClick(); stgDownloadUpdate()" class="skills-setup-btn btn-compact hidden">Download</button><button id="install-update-btn" onclick="playNormalClick(); stgInstallUpdate()" class="skills-setup-btn btn-compact btn-accent hidden">Install & Restart</button></div></div>
+          </div>
+          <div id="update-info" class="info-box section-spacer hidden"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span id="update-info-text">New version available!</span></div>
+        </section>
+      </div>
+    </div>
+  </div><!-- #settings-view -->
+
+  <!-- Brain View (inline, replaces chat when active) -->
+  <div id="brain-view">
+    <div class="brain-header">
+      <h1><span>The Brain</span> <span class="brain-count" id="brain-active-count"></span></h1>
+      <div class="brain-header-actions">
+        <button onclick="playNormalClick(); hideBrainPanel()">Back</button>
+        <button onclick="playNormalClick(); brainRefresh()">Refresh</button>
+      </div>
+    </div>
+    <div class="brain-tabs">
+      <button class="brain-tab active" data-tab="facts">My Brain</button>
+      <button class="brain-tab" data-tab="soul">My Approach</button>
+      <button class="brain-tab" data-tab="logs">Daily Logs</button>
+    </div>
+    <div class="brain-content">
+      <!-- Facts Section -->
+      <div id="brain-facts" class="brain-section active">
+        <table class="facts-table" id="brain-facts-table">
+          <thead><tr><th>Category</th><th>Subject</th><th>Content</th><th></th></tr></thead>
+          <tbody id="brain-facts-tbody"></tbody>
+        </table>
+        <div id="brain-facts-empty" class="brain-empty hidden">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <p>my brain is empty!</p>
+          <small>tell me things about yourself and i'll remember them</small>
+        </div>
+        <span id="brain-facts-count" class="hidden"></span>
+      </div>
+      <!-- Soul Section -->
+      <div id="brain-soul" class="brain-section">
+        <div class="soul-cards" id="brain-soul-cards"></div>
+        <div id="brain-soul-empty" class="brain-empty hidden">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <p>no approach notes yet</p>
+          <small>as we chat, i'll learn how to work best with you</small>
+        </div>
+        <span id="brain-soul-count" class="hidden"></span>
+      </div>
+      <!-- Daily Logs Section -->
+      <div id="brain-logs" class="brain-section">
+        <table class="logs-table" id="brain-logs-table">
+          <thead><tr><th>Date</th><th>Entries</th><th></th></tr></thead>
+          <tbody id="brain-logs-tbody"></tbody>
+        </table>
+        <div id="brain-logs-empty" class="brain-empty hidden">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <p>no daily logs yet!</p>
+          <small>i'll start journaling as we chat</small>
+        </div>
+        <span id="brain-logs-count" class="hidden"></span>
+      </div>
+    </div>
+  </div><!-- #brain-view -->
+
+  <!-- Routines View -->
+  <div id="routines-view">
+    <div class="routines-header">
+      <h1><span>Routines</span></h1>
+      <div class="routines-header-actions">
+        <button onclick="playNormalClick(); hideRoutinesPanel()">Back</button>
+      </div>
+    </div>
+    <div class="routines-content">
+      <section class="rtn-section">
+        <div class="rtn-grid">
+          <div class="rtn-row">
+            <label>Job Name</label>
+            <div class="rtn-name-session">
+              <input type="text" id="rtn-job-name" placeholder="morning-vibes"/>
+              <select id="rtn-job-session"><option value="default">Default</option></select>
+            </div>
+          </div>
+          <div class="rtn-row schedule-row">
+            <label>When</label>
+            <div class="rtn-schedule-tabs">
+              <div class="rtn-schedule-tab active" data-type="daily">Daily</div>
+              <div class="rtn-schedule-tab" data-type="weekdays">Weekdays</div>
+              <div class="rtn-schedule-tab" data-type="interval">Every...</div>
+              <div class="rtn-schedule-tab" data-type="custom">Specific Days</div>
+            </div>
+            <div class="rtn-schedule-options active" id="rtn-options-daily">
+              <div class="rtn-time-picker">
+                <select id="rtn-hour-daily"></select>
+                <span class="separator">:</span>
+                <select id="rtn-minute-daily"></select>
+                <select id="rtn-ampm-daily"><option value="AM">AM</option><option value="PM">PM</option></select>
+              </div>
+            </div>
+            <div class="rtn-schedule-options" id="rtn-options-weekdays">
+              <div class="rtn-time-picker">
+                <select id="rtn-hour-weekdays"></select>
+                <span class="separator">:</span>
+                <select id="rtn-minute-weekdays"></select>
+                <select id="rtn-ampm-weekdays"><option value="AM">AM</option><option value="PM">PM</option></select>
+              </div>
+            </div>
+            <div class="rtn-schedule-options" id="rtn-options-interval">
+              <div class="rtn-interval-input">
+                <select id="rtn-interval-hours">
+                  <option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="12">12</option><option value="24">24</option>
+                </select>
+                <span class="rtn-interval-label">hrs</span>
+                <select id="rtn-interval-minutes">
+                  <option value="0">0</option><option value="5">5</option><option value="10">10</option><option value="15">15</option><option value="20">20</option><option value="30" selected>30</option><option value="45">45</option>
+                </select>
+                <span class="rtn-interval-label">mins</span>
+              </div>
+            </div>
+            <div class="rtn-schedule-options" id="rtn-options-custom">
+              <div class="rtn-day-selector">
+                <button type="button" class="rtn-day-btn" data-day="0">Sun</button>
+                <button type="button" class="rtn-day-btn" data-day="1">Mon</button>
+                <button type="button" class="rtn-day-btn" data-day="2">Tue</button>
+                <button type="button" class="rtn-day-btn" data-day="3">Wed</button>
+                <button type="button" class="rtn-day-btn" data-day="4">Thu</button>
+                <button type="button" class="rtn-day-btn" data-day="5">Fri</button>
+                <button type="button" class="rtn-day-btn" data-day="6">Sat</button>
+              </div>
+              <div class="rtn-time-picker">
+                <select id="rtn-hour-custom"></select>
+                <span class="separator">:</span>
+                <select id="rtn-minute-custom"></select>
+                <select id="rtn-ampm-custom"><option value="AM">AM</option><option value="PM">PM</option></select>
+              </div>
+            </div>
+          </div>
+          <div class="rtn-row">
+            <label>Source</label>
+            <select id="rtn-prompt-source" onchange="rtnHandlePromptSourceChange()"><option value="custom">Custom prompt</option></select>
+          </div>
+          <div class="rtn-row full-width" id="rtn-prompt-row">
+            <label>Prompt</label>
+            <textarea id="rtn-job-prompt" placeholder="what should i do when this kicks off?"></textarea>
+          </div>
+          <div class="rtn-row">
+            <label></label>
+            <button class="rtn-create-btn" onclick="playNormalClick(); rtnCreateJob()">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Let's Go!
+            </button>
+          </div>
+        </div>
+      </section>
+      <section class="rtn-section">
+        <h2 class="rtn-section-title">Running on Autopilot</h2>
+        <p class="rtn-section-desc">Your scheduled routines.</p>
+        <div class="rtn-grid">
+          <div id="rtn-jobs-list" class="rtn-jobs-list">
+            <div class="rtn-empty">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <p>Loading...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div><!-- #routines-view -->
+
+  <!-- Personalize View -->
+  <div id="personalize-view">
+    <div class="pz-header">
+      <h1><span>Personalize</span></h1>
+      <div class="pz-header-actions">
+        <button onclick="playNormalClick(); hidePersonalizePanel()">Back</button>
+        <button id="pz-reboot-btn" class="reboot" onclick="playNormalClick(); pzRestartAgent()" disabled>Reboot</button>
+      </div>
+    </div>
+    <div class="pz-container">
+      <nav class="pz-sidebar">
+        <div class="pz-nav-item active" data-tab="agent-name">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M9 8h0M15 8h0"/><path d="M9 12h6"/><path d="M8 16v2M16 16v2"/><path d="M7 2h2M15 2h2"/></svg>
+          Agent's Name
+        </div>
+        <div class="pz-nav-item" data-tab="profile">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Your Details
+        </div>
+        <div class="pz-nav-item" data-tab="personality">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          How I Act
+        </div>
+        <div class="pz-nav-item" data-tab="world">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          Your World
+        </div>
+        <div class="pz-nav-item" data-tab="system-prompt">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          System Prompt
+        </div>
+      </nav>
+      <div class="pz-content">
+        <!-- Agent's Name Tab -->
+        <div class="pz-tab active" id="pz-tab-agent-name">
+          <div class="pz-section-header"><h2>Agent's Name</h2><p>What should I be called?</p></div>
+          <div class="pz-name-input-container"><input type="text" class="pz-name-input" id="pz-agent-name-input" placeholder="Frankie"></div>
+          <div class="pz-form-section" style="margin-top: 20px;">
+            <div class="pz-form-group"><label for="pz-agent-description">Brief Description</label><textarea id="pz-agent-description" rows="3" placeholder="Who is this agent? What do they do?" style="resize: vertical;"></textarea><span class="hint">A short intro injected into the system prompt</span></div>
+          </div>
+          <div style="flex: 1;"></div>
+          <div class="pz-action-bar"><span class="info">Reboot me to apply changes!</span><div class="buttons"><button onclick="playNormalClick(); pzSaveAgentName()">Save</button></div></div>
+        </div>
+
+        <!-- Your Details Tab -->
+        <div class="pz-tab" id="pz-tab-profile">
+          <div class="pz-section-header"><h2>Your Details</h2><p>Basic info so I can personalize things for you</p></div>
+          <div class="pz-profile-content">
+            <div class="pz-form-section">
+              <div class="pz-form-grid">
+                <div class="pz-form-group"><label>Your Name</label><input type="text" id="pz-profile-name" placeholder="what should I call you?"></div>
+                <div class="pz-form-group"><label>Occupation</label><input type="text" id="pz-profile-occupation" placeholder="what do you do?"></div>
+                <div class="pz-form-group"><label>Location</label><div class="pz-autocomplete-wrapper"><input type="text" id="pz-profile-location" placeholder="where are you based?" autocomplete="off"><div class="pz-autocomplete-dropdown" id="pz-location-dropdown"></div></div><span class="hint">Type a city name to search</span></div>
+                <div class="pz-form-group"><label>Timezone</label><select id="pz-profile-timezone"><option value="">pick a timezone...</option></select><span class="hint">Auto-filled when you select a location</span></div>
+                <div class="pz-form-group"><label>Birthday</label><div class="pz-birthday-picker"><select id="pz-profile-birthday-month"><option value="">month</option><option value="January">January</option><option value="February">February</option><option value="March">March</option><option value="April">April</option><option value="May">May</option><option value="June">June</option><option value="July">July</option><option value="August">August</option><option value="September">September</option><option value="October">October</option><option value="November">November</option><option value="December">December</option></select><select id="pz-profile-birthday-day"><option value="">day</option></select></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="pz-action-bar"><span class="info" id="pz-profile-status">I'll remember this!</span><div class="buttons"><button onclick="playNormalClick(); pzSaveProfile()">Save</button></div></div>
+        </div>
+
+        <!-- How I Act Tab -->
+        <div class="pz-tab" id="pz-tab-personality">
+          <div class="pz-section-header"><h2>How I Act</h2><p>My personality, communication style, and vibes</p></div>
+          <div class="pz-editor-container"><textarea class="pz-editor" id="pz-personality-editor" placeholder="waking up..."></textarea></div>
+          <div class="pz-action-bar"><span class="info">Reboot me to apply changes!</span><div class="buttons"><button onclick="playNormalClick(); pzSavePersonality()">Save</button></div></div>
+        </div>
+
+        <!-- Your World Tab -->
+        <div class="pz-tab" id="pz-tab-world">
+          <div class="pz-section-header"><h2>Your World</h2><p>Help me understand what matters to you</p></div>
+          <div class="pz-profile-content">
+            <div class="pz-form-section"><div class="pz-form-group"><label>Goals</label><textarea id="pz-world-goals" rows="4" placeholder="what are you working toward?&#10;&#10;e.g. launch my startup, get fit, learn piano"></textarea></div></div>
+            <div class="pz-form-section"><div class="pz-form-group"><label>Struggles</label><textarea id="pz-world-struggles" rows="4" placeholder="what are you dealing with?&#10;&#10;e.g. time management, staying focused, burnout"></textarea></div></div>
+            <div class="pz-form-section"><div class="pz-form-group"><label>Fun Facts</label><textarea id="pz-world-funfacts" rows="6" placeholder="interests, hobbies, people in your life&#10;&#10;e.g. I have a golden retriever named Max&#10;my partner's name is Sarah&#10;I'm vegetarian, oat milk latte lover"></textarea></div></div>
+          </div>
+          <div class="pz-action-bar"><span class="info">Reboot me to apply changes!</span><div class="buttons"><button onclick="playNormalClick(); pzSaveWorld()">Save</button></div></div>
+        </div>
+
+        <!-- System Prompt Tab -->
+        <div class="pz-tab" id="pz-tab-system-prompt">
+          <div class="pz-section-header"><h2>System Prompt</h2><p>Core guidelines and agent mode prompts — managed by the developer</p></div>
+          <div class="pz-mode-tabs" id="pz-prompt-mode-tabs"><button class="pz-mode-tab active" data-prompt-mode="system">System Guidelines</button></div>
+          <div class="pz-readonly-badge"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Read-only - managed by developer</div>
+          <div class="pz-readonly-display" id="pz-system-prompt-display"></div>
+        </div>
+      </div>
+    </div>
+  </div><!-- #personalize-view -->
+
+  </div><!-- .main-content -->
+
+  <!-- About Modal (outside main-content so it overlays all views) -->
+  <div class="modal-overlay" id="about-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-icon pixel-cat"></div>
+        <div class="modal-title">
+          <h2>who made me?</h2>
+          <p>the human behind franky</p>
+        </div>
+        <button class="modal-close" id="about-close-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="about-content">
+          <p>i was built by <strong>Ken Kai</strong> - he's been obsessed with AI and AI development for over 10 years now</p>
+          <p>he runs a youtube channel where he shares everything he learns, and teaches on skool too</p>
+          <p>if you want to learn more about AI dev, agents, and building cool stuff like me - check him out:</p>
+        </div>
+        <div class="about-links">
+          <a class="about-link" id="about-link-youtube">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+            </svg>
+            <span>@kenkaidoesai</span>
+            <small>YouTube</small>
+          </a>
+          <a class="about-link" id="about-link-skool">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+              <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+            </svg>
+            <span>skool.com/kenkai</span>
+            <small>Learn AI Dev</small>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- .app-layout -->
+
   <!-- Chat JavaScript (extracted from inline script) -->
+  <script src="chat/sidebar.js"></script>
   <script src="chat/state.js"></script>
   <script src="chat/message-renderer.js"></script>
   <script src="chat/scroll.js"></script>
@@ -412,6 +907,10 @@
   <script src="chat/attachments.js"></script>
   <script src="chat/ui-chrome.js"></script>
   <script src="chat/plan-approval.js"></script>
+  <script src="chat/settings-panel.js"></script>
+  <script src="chat/brain-panel.js"></script>
+  <script src="chat/routines-panel.js"></script>
+  <script src="chat/personalize-panel.js"></script>
   <script src="chat/event-bindings.js"></script>
   <script src="chat/init.js"></script>
 

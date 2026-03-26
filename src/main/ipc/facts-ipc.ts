@@ -49,4 +49,11 @@ export function registerFactsIPC(deps: IPCDependencies): void {
   ipcMain.handle('dailyLogs:list', async () => {
     return AgentManager.getDailyLogsSince(3);
   });
+
+  ipcMain.handle('dailyLogs:delete', async (_, id: number) => {
+    const memory = getMemory();
+    if (!memory) return { success: false };
+    const success = memory.deleteDailyLog(id);
+    return { success };
+  });
 }

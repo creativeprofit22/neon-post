@@ -92,6 +92,7 @@ contextBridge.exposeInMainWorld('pocketAgent', {
   // ─── Daily Logs ──────────────────────────────────────────────────────
   dailyLogs: {
     list: () => ipcRenderer.invoke('dailyLogs:list'),
+    delete: (id: number) => ipcRenderer.invoke('dailyLogs:delete', id),
   },
 
   // ─── App (Windows, Navigation, Info) ─────────────────────────────────
@@ -439,6 +440,7 @@ declare global {
         list: () => Promise<
           Array<{ id: number; date: string; content: string; updated_at: string }>
         >;
+        delete: (id: number) => Promise<{ success: boolean }>;
       };
 
       app: {

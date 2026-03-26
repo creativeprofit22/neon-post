@@ -1,19 +1,11 @@
-async function openSettings(tab) {
-  try {
-    await window.pocketAgent.app.openSettings(tab);
-  } catch (err) {
-    console.error('Failed to open settings:', err);
-  }
+function openSettings(tab) {
+  showSettingsPanel(tab);
 }
 
 
 
-async function openCustomize() {
-  try {
-    await window.pocketAgent.app.openCustomize();
-  } catch (err) {
-    console.error('Failed to open customize:', err);
-  }
+function openCustomize() {
+  showPersonalizePanel();
 }
 
 // Hamburger menu functions
@@ -53,12 +45,8 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-async function openRoutines() {
-  try {
-    await window.pocketAgent.app.openRoutines();
-  } catch (err) {
-    console.error('Failed to open routines:', err);
-  }
+function openRoutines() {
+  showRoutinesPanel();
 }
 
 async function openDocs() {
