@@ -139,41 +139,36 @@ export async function buildPersistentOptions(
   const modeConfig = getModeConfig(sessionMode);
   const isLeanMode = sessionMode === 'coder'; // Coder gets SDK preset + CLAUDE.md only, no identity/guidelines
 
-  // === Static context (set once at session creation) ===
+  // === Static context (cacheable — hardcoded, never changes mid-session) ===
   // NOTE: CLAUDE.md (instructions) is NOT included here because the SDK
   // already reads it from the workspace via cwd + settingSources: ['project'].
   // Including it here would inject it twice.
   const staticParts: string[] = [];
 
-  // Personalize, guidelines, and profile — skipped for coder (uses workspace CLAUDE.md)
+  // Personalize and guidelines — skipped for coder (uses workspace CLAUDE.md)
   if (isLeanMode) {
     console.log(
-      `[AgentManager] ${modeConfig.name} mode — skipping identity, user context, guidelines (SDK uses workspace CLAUDE.md)`
+      `[AgentManager] ${modeConfig.name} mode — skipping identity, guidelines (SDK uses workspace CLAUDE.md)`
     );
   } else {
-    // 1. Agent Identity: name, description, personality
+    // 1. System Guidelines — operational instructions first (highest attention weight)
+    staticParts.push(SYSTEM_GUIDELINES);
+    console.log(`[AgentManager] System guidelines injected: ${SYSTEM_GUIDELINES.length} chars`);
+  }
+
+  // 2. Mode-specific system prompt (from registry) — always injected, even for coder
+  if (modeConfig.systemPrompt) {
+    staticParts.push(modeConfig.systemPrompt);
+    console.log(`[AgentManager] Mode prompt injected: ${modeConfig.systemPrompt.length} chars`);
+  }
+
+  // 3. Identity — agent name, description, personality (skipped for coder)
+  if (!isLeanMode) {
     const identity = SettingsManager.getFormattedIdentity();
     if (identity) {
       staticParts.push(identity);
       console.log(`[AgentManager] Identity injected: ${identity.length} chars`);
     }
-
-    // 2. User Context: profile + world
-    const userContext = SettingsManager.getFormattedUserContext();
-    if (userContext) {
-      staticParts.push(userContext);
-      console.log(`[AgentManager] User context injected: ${userContext.length} chars`);
-    }
-
-    // 3. System Guidelines: developer-controlled instructions
-    staticParts.push(SYSTEM_GUIDELINES);
-    console.log(`[AgentManager] System guidelines injected: ${SYSTEM_GUIDELINES.length} chars`);
-  }
-
-  // 4. Mode-specific system prompt (from registry)
-  if (modeConfig.systemPrompt) {
-    staticParts.push(modeConfig.systemPrompt);
-    console.log(`[AgentManager] Mode prompt injected: ${modeConfig.systemPrompt.length} chars`);
   }
 
   // Look up per-session working directory (falls back to global workspace)
@@ -235,29 +230,35 @@ export async function buildPersistentOptions(
 
               const dynamicParts: string[] = [];
 
-              // Temporal context (current time)
-              const recentMsgs = memory.getRecentMessages(1, sessionId);
-              const lastUserMsg = recentMsgs.find((m) => m.role === 'user');
-              const temporalContext = buildTemporalContext(lastUserMsg?.timestamp);
-              dynamicParts.push(temporalContext);
-
-              // Facts context
-              const factsContext = memory.getFactsForContext();
-              if (factsContext) {
-                dynamicParts.push(factsContext);
-              }
-
-              // Soul context
+              // 1. Soul — behavioral guidance (strongest signal)
               const soulContext = memory.getSoulContext();
               if (soulContext) {
                 dynamicParts.push(soulContext);
               }
 
-              // Daily logs
+              // 2. User context — profile, goals, struggles, fun facts (editable)
+              const userContext = SettingsManager.getFormattedUserContext();
+              if (userContext) {
+                dynamicParts.push(userContext);
+              }
+
+              // 3. Facts — remembered information (updated constantly)
+              const factsContext = memory.getFactsForContext();
+              if (factsContext) {
+                dynamicParts.push(factsContext);
+              }
+
+              // 4. Daily logs — recent history
               const dailyLogsContext = memory.getDailyLogsContext(3);
               if (dailyLogsContext) {
                 dynamicParts.push(dailyLogsContext);
               }
+
+              // 5. Temporal — current time (least info-dense, last)
+              const recentMsgs = memory.getRecentMessages(1, sessionId);
+              const lastUserMsg = recentMsgs.find((m) => m.role === 'user');
+              const temporalContext = buildTemporalContext(lastUserMsg?.timestamp);
+              dynamicParts.push(temporalContext);
 
               return {
                 hookSpecificOutput: {

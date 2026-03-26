@@ -531,24 +531,14 @@ export class ChatEngine {
    * Build system prompt split into static (cacheable) and dynamic (per-turn) parts.
    */
   buildSystemPrompt(sessionId?: string): { staticPrompt: string; dynamicPrompt: string } {
-    // === Static context ===
+    // === Static context (cacheable — hardcoded, never changes mid-session) ===
     const staticParts: string[] = [];
 
-    const identity = SettingsManager.getFormattedIdentity();
-    if (identity) {
-      staticParts.push(identity);
-      console.log(`[ChatEngine] Identity injected: ${identity.length} chars`);
-    }
-
-    const userContext = SettingsManager.getFormattedUserContext();
-    if (userContext) {
-      staticParts.push(userContext);
-      console.log(`[ChatEngine] User context injected: ${userContext.length} chars`);
-    }
-
+    // 1. System guidelines — operational instructions first (highest attention weight)
     staticParts.push(SYSTEM_GUIDELINES);
     console.log(`[ChatEngine] System guidelines injected: ${SYSTEM_GUIDELINES.length} chars`);
 
+    // 2. Mode prompt — specializes behavior for this agent mode
     const sessionMode = (
       sessionId ? this.memory.getSessionMode(sessionId) : 'general'
     ) as AgentModeId;
@@ -560,36 +550,54 @@ export class ChatEngine {
       );
     }
 
-    // === Dynamic context ===
-    const dynamicParts: string[] = [];
-
-    const lastUserMsg = sessionId ? this.getLastUserMessageTimestamp(sessionId) : undefined;
-    const temporal = this.buildTemporalContext(lastUserMsg);
-    dynamicParts.push(temporal);
-    console.log(`[ChatEngine] Temporal context injected: ${temporal.length} chars`);
-
-    const facts = this.memory.getFactsForContext();
-    if (facts) {
-      dynamicParts.push(facts);
-      console.log(`[ChatEngine] Facts injected: ${facts.length} chars`);
+    // 3. Identity — agent name, description, personality
+    const identity = SettingsManager.getFormattedIdentity();
+    if (identity) {
+      staticParts.push(identity);
+      console.log(`[ChatEngine] Identity injected: ${identity.length} chars`);
     }
 
+    // === Dynamic context (per-turn — can change between messages) ===
+    const dynamicParts: string[] = [];
+
+    // 1. Soul — behavioral guidance for working with this user (strongest signal)
     const soul = this.memory.getSoulContext();
     if (soul) {
       dynamicParts.push(soul);
       console.log(`[ChatEngine] Soul injected: ${soul.length} chars`);
     }
 
+    // 2. User context — profile, goals, struggles, fun facts (editable in settings)
+    const userContext = SettingsManager.getFormattedUserContext();
+    if (userContext) {
+      dynamicParts.push(userContext);
+      console.log(`[ChatEngine] User context injected: ${userContext.length} chars`);
+    }
+
+    // 3. Facts — remembered information about the user (updated constantly)
+    const facts = this.memory.getFactsForContext();
+    if (facts) {
+      dynamicParts.push(facts);
+      console.log(`[ChatEngine] Facts injected: ${facts.length} chars`);
+    }
+
+    // 4. Daily logs — recent conversation history
     const dailyLogs = this.memory.getDailyLogsContext(3);
     if (dailyLogs) {
       dynamicParts.push(dailyLogs);
       console.log(`[ChatEngine] Daily logs injected: ${dailyLogs.length} chars`);
     }
 
+    // 5. Temporal — current time (least info-dense, last position)
+    const lastUserMsg = sessionId ? this.getLastUserMessageTimestamp(sessionId) : undefined;
+    const temporal = this.buildTemporalContext(lastUserMsg);
+    dynamicParts.push(temporal);
+    console.log(`[ChatEngine] Temporal context injected: ${temporal.length} chars`);
+
     const staticPrompt = staticParts.join('\n\n');
     const dynamicPrompt = dynamicParts.join('\n\n');
     console.log(
-      `[ChatEngine] General mode prompt assembled — static: ${staticPrompt.length} chars, dynamic: ${dynamicPrompt.length} chars, total: ${staticPrompt.length + dynamicPrompt.length} chars`
+      `[ChatEngine] ${sessionMode} mode prompt — static: ${staticPrompt.length} chars, dynamic: ${dynamicPrompt.length} chars, total: ${staticPrompt.length + dynamicPrompt.length} chars`
     );
 
     return { staticPrompt, dynamicPrompt };
