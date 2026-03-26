@@ -13,10 +13,10 @@ jobs:
   build-mac:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: 'npm'
@@ -44,7 +44,7 @@ jobs:
         run: npm run build && npx electron-builder --mac --arm64 --x64 -p never
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: mac-build
           path: |
@@ -55,10 +55,10 @@ jobs:
   build-win:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: 'npm'
@@ -73,7 +73,7 @@ jobs:
         run: npm run build && npx electron-builder --win --x64 --arm64 -p never
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: win-build
           path: |
@@ -87,13 +87,13 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Download macOS artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: mac-build
           path: release/
 
       - name: Download Windows artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: win-build
           path: release/
