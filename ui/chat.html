@@ -320,11 +320,6 @@
             <polyline points="8 6 2 12 8 18"></polyline>
           </svg>
         </button>
-        <button class="input-toolbar-btn" id="chat-toggle-btn" title="Chat" style="position:relative;">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-          </svg>
-        </button>
         <div id="background-tasks-area" class="hidden">
           <button class="background-tasks-toggle" id="bg-tasks-toggle-btn">
             <span class="bg-task-pulse"></span>
@@ -389,6 +384,19 @@
       <div class="drag-overlay-hint">Images, PDFs, code, and text files supported</div>
     </div>
   </div>
+
+  <!-- Floating chat/agent toggle button -->
+  <button id="chat-toggle-btn" class="floating-toggle-btn" title="Global Chat">
+    <svg class="toggle-chat-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+    </svg>
+    <svg class="toggle-agent-icon hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2a10 10 0 1 0 10 10H12V2z"/>
+      <circle cx="12" cy="12" r="6"/>
+      <circle cx="12" cy="12" r="2"/>
+    </svg>
+    <span id="chat-toggle-badge" class="chat-unread-badge hidden">0</span>
+  </button>
 
   <!-- Chat JavaScript (extracted from inline script) -->
   <script src="chat/state.js"></script>

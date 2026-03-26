@@ -253,7 +253,12 @@ function gchatRenderMentionNodes(text, container) {
       span.textContent = part;
       container.appendChild(span);
     } else {
-      container.appendChild(document.createTextNode(part));
+      // Split on newlines to preserve line breaks as <br>
+      const lines = part.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        if (i > 0) container.appendChild(document.createElement('br'));
+        if (lines[i]) container.appendChild(document.createTextNode(lines[i]));
+      }
     }
   }
 }
@@ -1200,18 +1205,13 @@ function updateChatCounts(online, inChat) {
 }
 
 function updateUnreadBadge() {
-  const btn = document.getElementById('chat-toggle-btn');
-  if (!btn) return;
-  let badge = btn.querySelector('.chat-unread-badge');
+  const badge = document.getElementById('chat-toggle-badge');
+  if (!badge) return;
   if (chatUnreadCount > 0 && !globalChatMode) {
-    if (!badge) {
-      badge = document.createElement('span');
-      badge.className = 'chat-unread-badge';
-      btn.appendChild(badge);
-    }
     badge.textContent = chatUnreadCount > 99 ? '99+' : String(chatUnreadCount);
-  } else if (badge) {
-    badge.remove();
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
   }
 }
 
@@ -1253,11 +1253,20 @@ async function toggleGlobalChat() {
     toolbarRow.classList.add('hidden');
     if (attachBtn) attachBtn.classList.add('hidden');
     if (workflowBadge) workflowBadge.classList.add('hidden');
+    document.querySelector('.input-toolbar-btns').classList.add('hidden');
+    document.getElementById('mode-select').classList.add('hidden');
     if (scrollTopBtn) scrollTopBtn.classList.add('hidden');
     if (scrollBottomBtn) scrollBottomBtn.classList.add('hidden');
     document.getElementById('gchat-scroll-top-btn').classList.remove('hidden');
     document.getElementById('gchat-scroll-bottom-btn').classList.remove('hidden');
     input.placeholder = 'say something...';
+
+    // Update floating toggle button — show agent icon, mark active
+    const toggleBtn = document.getElementById('chat-toggle-btn');
+    toggleBtn.classList.add('active');
+    toggleBtn.title = 'Back to Agent';
+    toggleBtn.querySelector('.toggle-chat-icon').classList.add('hidden');
+    toggleBtn.querySelector('.toggle-agent-icon').classList.remove('hidden');
 
     // Show admin gear if admin
     const adminWrap = document.getElementById('admin-menu-wrap');
@@ -1290,13 +1299,22 @@ async function toggleGlobalChat() {
     }
     if (attachBtn) attachBtn.classList.remove('hidden');
     if (workflowBadge) workflowBadge.classList.remove('hidden');
+    document.querySelector('.input-toolbar-btns').classList.remove('hidden');
+    document.getElementById('mode-select').classList.remove('hidden');
     if (scrollTopBtn) scrollTopBtn.classList.remove('hidden');
     if (scrollBottomBtn) scrollBottomBtn.classList.remove('hidden');
     document.getElementById('gchat-scroll-top-btn').classList.add('hidden');
     document.getElementById('gchat-scroll-bottom-btn').classList.add('hidden');
     gchatScrollTopBtn.classList.remove('visible');
     gchatScrollBottomBtn.classList.remove('visible');
-    input.placeholder = "what's on your mind? \u{1F431}";
+    updateInputPlaceholder();
+
+    // Update floating toggle button — show chat icon, remove active
+    const toggleBtn = document.getElementById('chat-toggle-btn');
+    toggleBtn.classList.remove('active');
+    toggleBtn.title = 'Global Chat';
+    toggleBtn.querySelector('.toggle-chat-icon').classList.remove('hidden');
+    toggleBtn.querySelector('.toggle-agent-icon').classList.add('hidden');
   }
 }
 

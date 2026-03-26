@@ -1,3 +1,45 @@
+/* Floating chat/agent toggle button */
+.floating-toggle-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 150;
+  transition: all 0.2s ease;
+}
+
+.floating-toggle-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(168, 85, 247, 0.1);
+}
+
+.floating-toggle-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.floating-toggle-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.floating-toggle-btn .chat-unread-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+}
+
 /* Chat Area */
 .chat-toggle {
   display: flex;
