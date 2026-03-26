@@ -330,6 +330,22 @@ function ensureAgentWorkspace(): string {
     }
     console.log(`[Main] Populated ${DEFAULT_COMMANDS.length} default workflow command(s)`);
 
+    // Mark onboarding as completed for existing users who already have keys
+    // (prevents re-triggering onboarding after updating to the embedded version)
+    if (SettingsManager.hasRequiredKeys() && !SettingsManager.get('onboarding.completed')) {
+      SettingsManager.set('onboarding.completed', 'true');
+      console.log('[Main] Marked onboarding as completed for existing user');
+    }
+
+    // Clear saved window bounds so updated default dimensions take effect.
+    // Users' custom sizes will be re-saved on next window move/resize.
+    SettingsManager.delete('window.chatBounds');
+    SettingsManager.delete('window.cronBounds');
+    SettingsManager.delete('window.settingsBounds');
+    SettingsManager.delete('window.customizeBounds');
+    SettingsManager.delete('window.factsBounds');
+    console.log('[Main] Cleared saved window bounds for fresh layout');
+
     // Update version file
     fs.writeFileSync(versionFile, currentVersion);
     console.log(`[Main] Updated version file to v${currentVersion}`);
