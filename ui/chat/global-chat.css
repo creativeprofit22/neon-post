@@ -254,13 +254,11 @@
   font-size: 14px;
   line-height: 1.5;
   word-wrap: break-word;
-  box-shadow: 0 4px 14px rgba(168, 85, 247, 0.25);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease;
 }
 
 .message.global-chat-self:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.35);
 }
 
 .message.global-chat-other {

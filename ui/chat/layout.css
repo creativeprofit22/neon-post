@@ -221,7 +221,6 @@ header h1 {
 
 .model-badge:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.15);
 }
 
 .model-badge option {

@@ -144,8 +144,9 @@ function confirmDeleteSession(sessionId, sessionName) {
 async function switchSession(sessionId) {
   if (sessionId === currentSessionId) return;
 
-  // Save current session state before switching
-  inputTextBySession.set(currentSessionId, input.value);
+  // Clear input when switching sessions
+  input.value = '';
+  input.style.height = 'auto';
 
   // Save search state for current session
   const searchArea = document.getElementById('search-area');
@@ -205,11 +206,6 @@ async function switchSession(sessionId) {
 
   updateStats();
 
-  // Restore input text for this session
-  input.value = inputTextBySession.get(sessionId) || '';
-  // Auto-resize input to match content
-  input.style.height = 'auto';
-  input.style.height = Math.min(input.scrollHeight, 150) + 'px';
 
   // Restore ghost suggestion for this session
   const savedSuggestion = getCurrentSuggestion();

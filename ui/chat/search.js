@@ -1,33 +1,38 @@
 function toggleSearch() {
-  const searchArea = document.getElementById('search-area');
+  const panel = document.getElementById('slide-up-panel');
+  const searchPanel = document.getElementById('search-panel');
+  const workflowsPanel = document.getElementById('workflows-panel');
   const searchInput = document.getElementById('search-input');
+  const searchBtn = document.getElementById('search-toolbar-btn');
 
-  if (searchArea.classList.contains('searching')) {
+  if (panel.classList.contains('open') && !searchPanel.classList.contains('hidden')) {
     closeSearch();
   } else {
-    // Hide mode toggle, workflows and chat when search is open
-    document.getElementById('mode-toggle-area').classList.add('hidden');
-    document.getElementById('workflows-area').classList.add('hidden');
-    document.getElementById('chat-area').classList.add('hidden');
-    searchArea.classList.add('searching');
+    // Close workflows if open, show search
+    workflowsPanel.classList.add('hidden');
+    searchPanel.classList.remove('hidden');
+    panel.classList.add('open');
+    if (searchBtn) searchBtn.classList.add('active');
+    const wfBtn = document.getElementById('workflows-toolbar-btn');
+    if (wfBtn) wfBtn.classList.remove('active');
     searchInput.focus();
   }
 }
 
 function closeSearch() {
-  const searchArea = document.getElementById('search-area');
+  const panel = document.getElementById('slide-up-panel');
+  const searchPanel = document.getElementById('search-panel');
   const searchInput = document.getElementById('search-input');
+  const searchBtn = document.getElementById('search-toolbar-btn');
 
-  searchArea.classList.remove('searching');
+  searchPanel.classList.add('hidden');
+  panel.classList.remove('open');
+  if (searchBtn) searchBtn.classList.remove('active');
   searchInput.value = '';
   clearSearchHighlights();
   updateSearchResultsCount(0, 0);
   searchMatches = [];
   currentSearchIndex = -1;
-  // Restore mode toggle, workflows and chat visibility
-  document.getElementById('mode-toggle-area').classList.remove('hidden');
-  document.getElementById('workflows-area').classList.remove('hidden');
-  document.getElementById('chat-area').classList.remove('hidden');
 }
 
 function handleSearchInput(event) {

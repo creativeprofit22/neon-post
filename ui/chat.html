@@ -240,44 +240,6 @@
   <!-- Toolbar Row (hidden, kept in DOM for mention list / reply banner insertion) -->
   <div id="toolbar-row"></div>
 
-  <!-- Slide-up panel (search + workflows) -->
-  <div id="slide-up-panel" class="slide-up-panel">
-    <div id="search-panel" class="slide-panel-content hidden">
-      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
-        <circle cx="11" cy="11" r="8"></circle>
-        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-      </svg>
-      <input type="text" id="search-input" placeholder="Search in chat...">
-      <span id="search-results-count" class="search-results-count"></span>
-      <div class="search-nav">
-        <button class="search-nav-btn" id="search-prev-btn" title="Previous" disabled>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="18 15 12 9 6 15"></polyline>
-          </svg>
-        </button>
-        <button class="search-nav-btn" id="search-next-btn" title="Next" disabled>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </button>
-      </div>
-      <button class="search-close-btn" id="search-close-btn" title="Close">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      </button>
-    </div>
-    <div id="workflows-panel" class="slide-panel-content hidden">
-      <div id="workflows-grid"></div>
-      <button class="workflows-close-btn" id="workflows-close-btn" title="Close">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      </button>
-    </div>
-  </div>
 
   <div id="gchat-typing-indicator" class="hidden">
     <span class="gchat-typing-text"></span>
@@ -290,6 +252,43 @@
 
   <div id="input-area">
     <div class="input-container">
+      <div id="slide-up-panel" class="slide-up-panel">
+        <div id="search-panel" class="slide-panel-content hidden">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-icon">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="search-input" placeholder="Search in chat...">
+          <span id="search-results-count" class="search-results-count"></span>
+          <div class="search-nav">
+            <button class="search-nav-btn" id="search-prev-btn" title="Previous" disabled>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="18 15 12 9 6 15"></polyline>
+              </svg>
+            </button>
+            <button class="search-nav-btn" id="search-next-btn" title="Next" disabled>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+          </div>
+          <button class="search-close-btn" id="search-close-btn" title="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div id="workflows-panel" class="slide-panel-content hidden">
+          <div id="workflows-grid"></div>
+          <button class="workflows-close-btn" id="workflows-close-btn" title="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
       <div class="input-top-row">
         <button class="attach-btn" id="attach-btn" title="Drop a file">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

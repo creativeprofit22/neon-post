@@ -1,13 +1,19 @@
 async function toggleWorkflows() {
-  const area = document.getElementById('workflows-area');
-  if (area.classList.contains('active')) {
+  const panel = document.getElementById('slide-up-panel');
+  const workflowsPanel = document.getElementById('workflows-panel');
+  const searchPanel = document.getElementById('search-panel');
+  const wfBtn = document.getElementById('workflows-toolbar-btn');
+
+  if (panel.classList.contains('open') && !workflowsPanel.classList.contains('hidden')) {
     closeWorkflows();
   } else {
-    // Hide mode toggle, search and chat areas when workflows is open
-    document.getElementById('mode-toggle-area').classList.add('hidden');
-    document.getElementById('search-area').classList.add('hidden');
-    document.getElementById('chat-area').classList.add('hidden');
-    area.classList.add('active');
+    // Close search if open, show workflows
+    searchPanel.classList.add('hidden');
+    workflowsPanel.classList.remove('hidden');
+    panel.classList.add('open');
+    if (wfBtn) wfBtn.classList.add('active');
+    const searchBtn = document.getElementById('search-toolbar-btn');
+    if (searchBtn) searchBtn.classList.remove('active');
     try {
       const commands = await window.pocketAgent.commands.list(currentSessionId);
       const grid = document.getElementById('workflows-grid');
@@ -27,10 +33,13 @@ async function toggleWorkflows() {
 }
 
 function closeWorkflows() {
-  document.getElementById('workflows-area').classList.remove('active');
-  document.getElementById('mode-toggle-area').classList.remove('hidden');
-  document.getElementById('search-area').classList.remove('hidden');
-  document.getElementById('chat-area').classList.remove('hidden');
+  const panel = document.getElementById('slide-up-panel');
+  const workflowsPanel = document.getElementById('workflows-panel');
+  const wfBtn = document.getElementById('workflows-toolbar-btn');
+
+  workflowsPanel.classList.add('hidden');
+  panel.classList.remove('open');
+  if (wfBtn) wfBtn.classList.remove('active');
 }
 
 // Global Chat
@@ -351,7 +360,10 @@ function renderGlobalChatMessages() {
     container.appendChild(el);
   });
 
+  // Instant scroll to bottom (bypass CSS smooth scrolling)
+  container.style.scrollBehavior = 'auto';
   container.scrollTop = container.scrollHeight;
+  container.style.scrollBehavior = '';
 }
 
 function gchatToggleReaction(msg, emoji, wrapper) {
@@ -1241,6 +1253,10 @@ async function toggleGlobalChat() {
     updateHeaderTierBadge();
     document.getElementById('chat-username-badge').onclick = toggleTierTooltip;
 
+    // Close search/workflows panels if open
+    closeSearch();
+    closeWorkflows();
+
     tabsCont.classList.add('hidden');
     chatHeader.classList.remove('hidden');
     messagesEl.classList.add('hidden');
@@ -1259,6 +1275,8 @@ async function toggleGlobalChat() {
     if (scrollBottomBtn) scrollBottomBtn.classList.add('hidden');
     document.getElementById('gchat-scroll-top-btn').classList.remove('hidden');
     document.getElementById('gchat-scroll-bottom-btn').classList.remove('hidden');
+    input.value = '';
+    input.style.height = 'auto';
     input.placeholder = 'say something...';
 
     // Update floating toggle button — show agent icon, mark active
@@ -1307,6 +1325,8 @@ async function toggleGlobalChat() {
     document.getElementById('gchat-scroll-bottom-btn').classList.add('hidden');
     gchatScrollTopBtn.classList.remove('visible');
     gchatScrollBottomBtn.classList.remove('visible');
+    input.value = '';
+    input.style.height = 'auto';
     updateInputPlaceholder();
 
     // Update floating toggle button — show chat icon, remove active
