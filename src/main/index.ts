@@ -332,7 +332,7 @@ function ensureAgentWorkspace(): string {
 
     // Mark onboarding as completed for existing users who already have keys
     // (prevents re-triggering onboarding after updating to the embedded version)
-    if (SettingsManager.hasRequiredKeys() && !SettingsManager.get('onboarding.completed')) {
+    if (SettingsManager.hasRequiredKeys() && SettingsManager.get('onboarding.completed') !== 'true') {
       SettingsManager.set('onboarding.completed', 'true');
       console.log('[Main] Marked onboarding as completed for existing user');
     }
@@ -963,6 +963,11 @@ app.whenReady().then(async () => {
     } else {
       console.warn(`[Main] Failed to register global shortcut ${shortcut}`);
     }
+
+    // Run workspace setup and version migration unconditionally — this handles
+    // window bounds reset, onboarding fix, and config file updates regardless
+    // of whether the agent will be initialized (isFirstRun may skip initializeAgent).
+    ensureAgentWorkspace();
 
     // Initialize agent if not first run (window will be shown after splash completes)
     if (!SettingsManager.isFirstRun()) {
