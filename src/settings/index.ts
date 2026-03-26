@@ -315,10 +315,21 @@ class SettingsManagerClass {
   }
 
   /**
-   * Check if first run (no authentication set)
+   * Check if first run (no authentication set or onboarding not completed)
    */
   isFirstRun(): boolean {
-    return !this.hasRequiredKeys();
+    if (!this.hasRequiredKeys()) return true;
+    // If keys exist but onboarding was explicitly reset, show it again
+    const completed = this.get('onboarding.completed');
+    if (completed === 'false') return true;
+    return false;
+  }
+
+  /**
+   * Reset onboarding so it shows again on next app launch or window reload.
+   */
+  resetOnboarding(): void {
+    this.set('onboarding.completed', 'false');
   }
 
   /**

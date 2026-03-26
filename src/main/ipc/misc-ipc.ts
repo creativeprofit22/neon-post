@@ -3,7 +3,6 @@ import path from 'path';
 import fs from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { SettingsManager } from '../../settings';
 import { loadWorkflowCommands, loadWorkflowCommandsFromDir } from '../../config/commands-loader';
 import { isMacOS, getPermissionsStatus, openPermissionSettings } from '../../permissions';
 import type { PermissionType } from '../../permissions';
@@ -22,22 +21,15 @@ export function registerMiscIPC(deps: IPCDependencies): void {
     openFactsWindow,
     openDailyLogsWindow,
     openSoulWindow,
-    openSetupWindow,
     closeSplashScreen,
   } = deps;
 
-  // Splash screen completion
+  // Splash screen completion — always open chat window
+  // Onboarding is now embedded inside chat.html and handled client-side
   ipcMain.on('splash-complete', () => {
     console.log('[Main] Splash complete, showing main app');
     closeSplashScreen();
-
-    // Check for first run
-    if (SettingsManager.isFirstRun()) {
-      console.log('[Main] First run detected, showing setup wizard');
-      openSetupWindow();
-    } else {
-      openChatWindow();
-    }
+    openChatWindow();
   });
 
   // App window openers

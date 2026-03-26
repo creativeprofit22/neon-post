@@ -147,6 +147,7 @@ contextBridge.exposeInMainWorld('pocketAgent', {
     delete: (key: string) => ipcRenderer.invoke('settings:delete', key),
     getSchema: (category?: string) => ipcRenderer.invoke('settings:schema', category),
     isFirstRun: () => ipcRenderer.invoke('settings:isFirstRun'),
+    resetOnboarding: () => ipcRenderer.invoke('settings:resetOnboarding'),
     initializeKeychain: () => ipcRenderer.invoke('settings:initializeKeychain'),
     getAvailableModels: () => ipcRenderer.invoke('settings:getAvailableModels'),
   },
@@ -540,6 +541,7 @@ declare global {
           }>
         >;
         isFirstRun: () => Promise<boolean>;
+        resetOnboarding: () => Promise<{ success: boolean }>;
         initializeKeychain: () => Promise<{ available: boolean; error?: string }>;
         getAvailableModels: () => Promise<Array<{ id: string; name: string; provider: string }>>;
       };

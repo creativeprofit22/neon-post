@@ -1,12 +1,8 @@
-window.addEventListener('DOMContentLoaded', async () => {
-  // Show app version in titlebar
-  try {
-    const version = await window.pocketAgent.app.getVersion();
-    document.title = `Pocket Agent v${version}`;
-  } catch (err) {
-    console.error('Failed to load app version:', err);
-  }
-
+/**
+ * Full chat initialization — runs either immediately on load (no onboarding)
+ * or after onboarding completes (called by obFinishSetup).
+ */
+async function initializeChat() {
   // Load current model
   await updateModelBadge();
 
@@ -99,4 +95,36 @@ window.addEventListener('DOMContentLoaded', async () => {
     console.log('[Chat] Model changed to:', model);
     updateModelBadge();
   });
+}
+
+/**
+ * Called by onboarding.js after setup completes and the transition animation finishes.
+ */
+// eslint-disable-next-line no-unused-vars
+async function initializeChatAfterOnboarding() {
+  await initializeChat();
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  // Show app version in titlebar
+  try {
+    const version = await window.pocketAgent.app.getVersion();
+    document.title = `Pocket Agent v${version}`;
+  } catch (err) {
+    console.error('Failed to load app version:', err);
+  }
+
+  // Check if onboarding is needed
+  const onboardingActive = await checkAndShowOnboarding();
+
+  // Now that we know the state, reveal the UI (prevents sidebar flash)
+  document.body.classList.add('app-ready');
+
+  if (onboardingActive) {
+    // Onboarding is showing — chat init will happen after it completes
+    return;
+  }
+
+  // No onboarding needed — initialize chat immediately
+  await initializeChat();
 });

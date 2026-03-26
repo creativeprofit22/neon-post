@@ -460,23 +460,6 @@ function openSettingsWindow(tab?: string): void {
   setSettingsWindow(win);
 }
 
-function openSetupWindow(): void {
-  createWindow({
-    id: WIN.SETUP,
-    title: 'Welcome!',
-    htmlFile: 'setup.html',
-    width: 520,
-    height: 580,
-    extraOptions: { resizable: false, minimizable: false, closable: true },
-    onClosed: () => {
-      // After setup is closed, check if we can initialize
-      if (SettingsManager.hasRequiredKeys() && !AgentManager.isInitialized()) {
-        initializeAgent();
-      }
-    },
-  });
-}
-
 function openCustomizeWindow(): void {
   createWindow({
     id: WIN.CUSTOMIZE,
@@ -556,7 +539,6 @@ function buildIPCDeps(): IPCDependencies {
     openFactsWindow,
     openDailyLogsWindow,
     openSoulWindow,
-    openSetupWindow,
     closeSplashScreen,
     WIN,
   };

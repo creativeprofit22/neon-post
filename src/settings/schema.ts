@@ -436,6 +436,17 @@ Talk like texting a close friend. Chill, casual, real.
     type: 'string',
   },
 
+  // Onboarding settings
+  {
+    key: 'onboarding.completed',
+    defaultValue: '',
+    encrypted: false,
+    category: 'onboarding',
+    label: 'Onboarding Completed',
+    description: 'Whether the onboarding wizard has been completed',
+    type: 'boolean',
+  },
+
   // User Profile settings
   {
     key: 'profile.name',

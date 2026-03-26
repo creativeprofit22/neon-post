@@ -171,6 +171,11 @@ export function registerSettingsIPC(deps: IPCDependencies): void {
     return SettingsManager.isFirstRun();
   });
 
+  ipcMain.handle('settings:resetOnboarding', async () => {
+    SettingsManager.resetOnboarding();
+    return { success: true };
+  });
+
   ipcMain.handle('settings:initializeKeychain', async () => {
     return SettingsManager.initializeKeychain();
   });

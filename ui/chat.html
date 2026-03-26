@@ -29,6 +29,7 @@
   <link rel="stylesheet" href="chat/brain-panel.css">
   <link rel="stylesheet" href="chat/routines-panel.css">
   <link rel="stylesheet" href="chat/personalize-panel.css">
+  <link rel="stylesheet" href="chat/onboarding.css">
   <script src="shared/theme-loader.js"></script>
   <script type="module">
     import autoAnimate from 'https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.9/+esm';
@@ -86,7 +87,195 @@
   </aside>
 
   <!-- Main Content -->
-  <div class="main-content">
+  <div class="main-content" style="position: relative;">
+
+  <!-- Onboarding (shown on first run, removed after completion) -->
+  <div class="onboarding-container hidden" id="onboarding-container">
+    <div class="ob-logo"></div>
+
+    <h1>Pocket Agent</h1>
+    <p class="ob-subtitle">i'm Franky, your new 24/7 assistant</p>
+
+    <!-- Step: Keychain -->
+    <div class="ob-step active" id="ob-step-keychain">
+      <div id="ob-keychain-status"></div>
+      <div class="ob-status info">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18.709 3.495C16.817 2.554 14.5 2 12 2s-4.816.554-6.709 1.495c-.928.462-1.392.693-1.841 1.419S3 6.342 3 7.748v3.49c0 5.683 4.542 8.842 7.173 10.196c.734.377 1.1.566 1.827.566s1.093-.189 1.827-.566C16.457 20.08 21 16.92 21 11.237V7.748c0-1.406 0-2.108-.45-2.834s-.913-.957-1.841-1.419"/></svg>
+        <span id="ob-keychain-info-text">Pocket Agent uses your system's secure storage to protect API keys.</span>
+      </div>
+      <div class="ob-button-row">
+        <button class="ob-btn primary" id="ob-keychain-btn" onclick="obInitKeychain()">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2s10 4.477 10 10Z"/><path stroke-linecap="round" d="M12 13a2 2 0 1 0 0-4a2 2 0 0 0 0 4Zm0 0v3"/></g></svg>
+          Secure My Keys
+        </button>
+      </div>
+      <div class="ob-skip-link">
+        <a onclick="obSkipKeychain()">skip for now</a>
+      </div>
+    </div>
+
+    <!-- Step: macOS Permissions -->
+    <div class="ob-step" id="ob-step-permissions">
+      <div class="ob-status info">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18.709 3.495C16.817 2.554 14.5 2 12 2s-4.816.554-6.709 1.495c-.928.462-1.392.693-1.841 1.419S3 6.342 3 7.748v3.49c0 5.683 4.542 8.842 7.173 10.196c.734.377 1.1.566 1.827.566s1.093-.189 1.827-.566C16.457 20.08 21 16.92 21 11.237V7.748c0-1.406 0-2.108-.45-2.834s-.913-.957-1.841-1.419"/></svg>
+        <span>These permissions let me read iMessage, Safari, and control apps on your behalf. You can grant them now or later.</span>
+      </div>
+      <div id="ob-permissions-list"></div>
+      <div class="ob-button-row">
+        <button class="ob-btn secondary" onclick="obShowStep('ob-step-keychain')">Back</button>
+        <button class="ob-btn secondary" id="ob-perm-refresh-btn" onclick="obRefreshPermissions()">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m15.167 1l.598 1.118c.404.755.606 1.133.472 1.295c-.133.162-.573.031-1.454-.23A9.8 9.8 0 0 0 12 2.78c-5.247 0-9.5 4.128-9.5 9.22a8.97 8.97 0 0 0 1.27 4.61M8.834 23l-.598-1.118c-.404-.756-.606-1.134-.472-1.295c.133-.162.573-.032 1.454.23c.88.261 1.815.402 2.783.402c5.247 0 9.5-4.128 9.5-9.22a8.97 8.97 0 0 0-1.27-4.609"/></svg>
+          Refresh
+        </button>
+        <button class="ob-btn primary" onclick="obShowStep('ob-step-auth')">
+          Continue
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 6s6 4.419 6 6s-6 6-6 6"/></svg>
+        </button>
+      </div>
+      <div class="ob-skip-link">
+        <a onclick="obShowStep('ob-step-auth')">skip permissions</a>
+      </div>
+    </div>
+
+    <!-- Step: Choose Auth Method -->
+    <div class="ob-step" id="ob-step-auth">
+      <div class="ob-auth-options">
+        <div class="ob-auth-option" onclick="obSelectAuth('oauth', this)">
+          <div class="ob-auth-option-icon oauth">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M8 8c0-.575 0-.822.045-1.075A2.98 2.98 0 0 1 9.833 4.7c.24-.1.523-.165 1.09-.294l2.728-.623c3.39-.774 5.084-1.161 6.217-.27C21 4.405 21 6.126 21 9.568v4.864c0 3.442 0 5.164-1.132 6.055c-1.133.891-2.827.504-6.217-.27l-2.728-.623c-.567-.13-.85-.194-1.09-.294a2.98 2.98 0 0 1-1.788-2.225C8 16.822 8 16.575 8 16"/><path d="M13 9s3 2.21 3 3s-3 3-3 3m2.5-3H3"/></g></svg>
+          </div>
+          <div class="ob-auth-option-text">
+            <h3>Sign in with Claude</h3>
+            <p>Use your Claude Pro or Max subscription</p>
+          </div>
+          <div class="ob-auth-option-badges">
+            <span class="ob-auth-badge">Best Choice</span>
+            <span class="ob-auth-badge risk">
+              Use at own risk
+              <span class="risk-info">i</span>
+              <span class="ob-risk-tooltip">Anthropic may restrict accounts using unofficial OAuth integrations. This is not an officially supported auth method. Use at your own risk.</span>
+            </span>
+          </div>
+        </div>
+        <div class="ob-auth-option" onclick="obSelectAuth('api', this)">
+          <div class="ob-auth-option-icon api">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.5 14.5a6 6 0 1 0-5.47-3.53L2.5 18.5v3h3v-2h2v-2h2l3.53-3.53c.754.34 1.59.53 2.47.53m2-8l-1 1"/></svg>
+          </div>
+          <div class="ob-auth-option-text">
+            <h3>Use API Key</h3>
+            <p>Enter your Anthropic, Kimi, or GLM API key</p>
+          </div>
+        </div>
+      </div>
+      <div class="ob-skip-link">
+        <a onclick="obGoBackFromAuth()">back</a>
+      </div>
+    </div>
+
+    <!-- Step: OAuth Start -->
+    <div class="ob-step" id="ob-step-oauth">
+      <div id="ob-oauth-status"></div>
+      <div class="ob-status info">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.5"/><path stroke-width="1.5" d="M12 16v-4.5"/><path stroke-width="1.8" d="M12 8.012v-.01"/></g></svg>
+        <span>Click below to open Claude sign-in. After signing in, copy the code and paste it here.</span>
+      </div>
+      <div class="ob-button-row">
+        <button class="ob-btn secondary" onclick="obShowStep('ob-step-auth')">Back</button>
+        <button class="ob-btn oauth" id="ob-oauth-btn" onclick="obStartOAuth()">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M8 8c0-.575 0-.822.045-1.075A2.98 2.98 0 0 1 9.833 4.7c.24-.1.523-.165 1.09-.294l2.728-.623c3.39-.774 5.084-1.161 6.217-.27C21 4.405 21 6.126 21 9.568v4.864c0 3.442 0 5.164-1.132 6.055c-1.133.891-2.827.504-6.217-.27l-2.728-.623c-.567-.13-.85-.194-1.09-.294a2.98 2.98 0 0 1-1.788-2.225C8 16.822 8 16.575 8 16"/><path d="M13 9s3 2.21 3 3s-3 3-3 3m2.5-3H3"/></g></svg>
+          Sign in
+        </button>
+      </div>
+    </div>
+
+    <!-- Step: OAuth Code Entry -->
+    <div class="ob-step" id="ob-step-oauth-code">
+      <div id="ob-oauth-code-status"></div>
+      <div class="ob-status info">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.5"/><path stroke-width="1.5" d="M12 16v-4.5"/><path stroke-width="1.8" d="M12 8.012v-.01"/></g></svg>
+        <span>Paste the authorization code from your browser</span>
+      </div>
+      <div class="ob-form-group">
+        <label>Authorization Code</label>
+        <input type="text" id="ob-oauth-code" placeholder="paste the magic code here...">
+        <p class="ob-hint">After signing in, you'll see a code. Copy and paste it above.</p>
+      </div>
+      <div class="ob-button-row">
+        <button class="ob-btn secondary" onclick="obCancelOAuth()">Cancel</button>
+        <button class="ob-btn primary" id="ob-oauth-complete-btn" onclick="obCompleteOAuth()">
+          Continue
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 6s6 4.419 6 6s-6 6-6 6"/></svg>
+        </button>
+      </div>
+      <div class="ob-optional-section">
+        <div class="ob-optional-header" onclick="obToggleOptional(this)">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18 9s-4.419 6-6 6s-6-6-6-6"/></svg>
+          <h4>bonus: add more AI providers</h4>
+        </div>
+        <div class="ob-optional-content">
+          <div class="ob-form-group">
+            <label>Kimi (Moonshot) API Key</label>
+            <input type="password" id="ob-kimi-key-oauth" placeholder="sk-...">
+            <p class="ob-hint">Get from <a href="#" onclick="window.pocketAgent.app.openExternal('https://platform.moonshot.ai/'); return false;">platform.moonshot.ai</a></p>
+          </div>
+          <div class="ob-form-group">
+            <label>GLM (Z.AI) API Key</label>
+            <input type="password" id="ob-glm-key-oauth" placeholder="...">
+            <p class="ob-hint">Get from <a href="#" onclick="window.pocketAgent.app.openExternal('https://z.ai/manage-apikey/apikey-list'); return false;">z.ai</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step: API Key Entry -->
+    <div class="ob-step" id="ob-step-api">
+      <div id="ob-api-status"></div>
+      <div class="ob-status info" style="margin-bottom: 16px;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.5"/><path stroke-width="1.5" d="M12 16v-4.5"/><path stroke-width="1.8" d="M12 8.012v-.01"/></g></svg>
+        <span>Enter at least one key to get started. Add more for access to additional models.</span>
+      </div>
+      <div class="ob-form-group">
+        <label>Anthropic API Key</label>
+        <input type="password" id="ob-anthropic-key" placeholder="sk-ant-...">
+        <p class="ob-hint">Get from <a href="#" onclick="window.pocketAgent.app.openExternal('https://console.anthropic.com/settings/keys'); return false;">console.anthropic.com</a></p>
+      </div>
+      <div class="ob-form-group">
+        <label>Kimi (Moonshot) API Key</label>
+        <input type="password" id="ob-kimi-key-api" placeholder="sk-...">
+        <p class="ob-hint">Get from <a href="#" onclick="window.pocketAgent.app.openExternal('https://platform.moonshot.ai/'); return false;">platform.moonshot.ai</a></p>
+      </div>
+      <div class="ob-form-group">
+        <label>GLM (Z.AI) API Key</label>
+        <input type="password" id="ob-glm-key-api" placeholder="...">
+        <p class="ob-hint">Get from <a href="#" onclick="window.pocketAgent.app.openExternal('https://z.ai/manage-apikey/apikey-list'); return false;">z.ai</a></p>
+      </div>
+      <div class="ob-button-row">
+        <button class="ob-btn secondary" onclick="obShowStep('ob-step-auth')">Back</button>
+        <button class="ob-btn primary" id="ob-api-btn" onclick="obValidateAndSave()">
+          Continue
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 6s6 4.419 6 6s-6 6-6 6"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step: Success -->
+    <div class="ob-step" id="ob-step-success">
+      <div class="ob-success-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 14.5s1.5 0 3.5 3.5c0 0 5.559-9.167 10.5-11"/></svg>
+      </div>
+      <div class="ob-success-text">
+        <h2>you're good to go!</h2>
+        <p>let's start chatting</p>
+      </div>
+      <div class="ob-button-row" style="margin-top: 24px;">
+        <button class="ob-btn primary" onclick="obFinishSetup()">
+          Let's Chat!
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7.5 8.5h9m-9 4H13m-11-2c0-.77.013-1.523.04-2.25c.083-2.373.125-3.56 1.09-4.533c.965-.972 2.186-1.024 4.626-1.129A100 100 0 0 1 12 2.5c1.48 0 2.905.03 4.244.088c2.44.105 3.66.157 4.626 1.13c.965.972 1.007 2.159 1.09 4.532a64 64 0 0 1 0 4.5c-.083 2.373-.125 3.56-1.09 4.533c-.965.972-2.186 1.024-4.626 1.129q-1.102.047-2.275.07c-.74.014-1.111.02-1.437.145s-.6.358-1.148.828l-2.179 1.87A.73.73 0 0 1 8 20.77v-2.348l-.244-.01c-2.44-.105-3.66-.157-4.626-1.13c-.965-.972-1.007-2.159-1.09-4.532A64 64 0 0 1 2 10.5"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="chat-view">
   <!-- Hidden elements used by global chat -->
   <div class="hidden" id="stats"></div>
@@ -833,6 +1022,7 @@
   </div><!-- .app-layout -->
 
   <!-- Chat JavaScript (extracted from inline script) -->
+  <script src="chat/onboarding.js"></script>
   <script src="chat/sidebar.js"></script>
   <script src="chat/state.js"></script>
   <script src="chat/message-renderer.js"></script>
