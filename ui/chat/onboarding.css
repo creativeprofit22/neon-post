@@ -318,7 +318,6 @@ body:not(.onboarding-active) #chat-view {
   text-transform: none;
   color: var(--text-secondary);
   line-height: 1.5;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   z-index: 10;
   white-space: normal;
 }
@@ -350,12 +349,11 @@ body:not(.onboarding-active) #chat-view {
   font-size: 14px;
   font-family: inherit;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s;
 }
 
 .ob-form-group input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15), 0 0 20px rgba(168, 85, 247, 0.1);
 }
 
 .ob-form-group input::placeholder {
@@ -449,13 +447,11 @@ body:not(.onboarding-active) #chat-view {
 .ob-btn.primary {
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-secondary) 100%);
   color: white;
-  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
 }
 
 .ob-btn.primary:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%);
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.4);
 }
 
 .ob-btn.primary:active:not(:disabled) {
@@ -472,7 +468,6 @@ body:not(.onboarding-active) #chat-view {
   background: var(--border);
   color: var(--text-primary);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .ob-btn.secondary:active {
@@ -603,7 +598,6 @@ body:not(.onboarding-active) #chat-view {
   justify-content: center;
   margin: 0 auto 20px;
   animation: obSuccessPop 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 8px 24px rgba(168, 85, 247, 0.2);
 }
 
 @keyframes obSuccessPop {
