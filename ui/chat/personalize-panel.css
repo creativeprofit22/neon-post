@@ -5,7 +5,7 @@
 
 /* Header */
 #personalize-view .pz-header { background: var(--bg-secondary); padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
-#personalize-view .pz-header h1 { font-family: 'Archivo Black', sans-serif; font-size: 16px; font-weight: 700; margin: 0; }
+#personalize-view .pz-header h1 { font-family: 'Cal Sans', sans-serif; font-size: 14px; font-weight: 700; margin: 0; }
 #personalize-view .pz-header h1 span { background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 #personalize-view .pz-header-actions { display: flex; gap: 8px; }
 #personalize-view .pz-header-actions button { padding: 6px 14px; background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; }
@@ -20,7 +20,7 @@
 
 /* Nav sidebar */
 #personalize-view .pz-sidebar { width: 180px; background: var(--bg-secondary); border-right: 1px solid var(--border); padding: 16px 0; flex-shrink: 0; overflow-y: auto; }
-#personalize-view .pz-nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px; color: var(--text-secondary); cursor: pointer; font-family: 'Archivo Black', sans-serif; font-size: 13px; font-weight: 500; transition: all 0.15s ease; border-left: 3px solid transparent; }
+#personalize-view .pz-nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px; color: var(--text-secondary); cursor: pointer; font-family: 'Cal Sans', sans-serif; font-size: 13px; font-weight: 500; transition: all 0.15s ease; border-left: 3px solid transparent; }
 #personalize-view .pz-nav-item:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 #personalize-view .pz-nav-item.active { background: linear-gradient(90deg, rgba(168, 85, 247, 0.1) 0%, transparent 100%); color: var(--text-primary); border-left-color: var(--accent); }
 #personalize-view .pz-nav-item svg { width: 16px; height: 16px; opacity: 0.7; }
@@ -33,7 +33,7 @@
 #personalize-view .pz-tab.active { display: flex; }
 
 #personalize-view .pz-section-header { margin-bottom: 16px; }
-#personalize-view .pz-section-header h2 { font-family: 'Archivo Black', sans-serif; font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+#personalize-view .pz-section-header h2 { font-family: 'Cal Sans', sans-serif; font-size: 15px; font-weight: 600; margin-bottom: 4px; }
 #personalize-view .pz-section-header p { font-size: 13px; color: var(--text-secondary); }
 
 /* Editor */

@@ -532,7 +532,7 @@ mark.search-highlight.current {
 }
 
 .empty-state .empty-title {
-  font-family: 'Archivo Black', sans-serif;
+  font-family: 'Cal Sans', sans-serif;
   font-size: 24px;
   font-weight: 700;
   background: linear-gradient(135deg, var(--accent) 0%, var(--accent-secondary) 100%);

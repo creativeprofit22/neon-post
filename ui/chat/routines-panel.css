@@ -24,8 +24,8 @@
 }
 
 #routines-view .routines-header h1 {
-  font-family: 'Archivo Black', sans-serif;
-  font-size: 16px;
+  font-family: 'Cal Sans', sans-serif;
+  font-size: 14px;
   font-weight: 700;
   margin: 0;
 }
@@ -73,7 +73,7 @@
 #routines-view .rtn-section { margin-bottom: 24px; }
 
 #routines-view .rtn-section-title {
-  font-family: 'Archivo Black', sans-serif;
+  font-family: 'Cal Sans', sans-serif;
   font-size: 16px;
   font-weight: 600;
   margin-bottom: 4px;
