@@ -417,7 +417,7 @@ function closeSplashScreen(): void {
 function openChatWindow(): void {
   createWindow({
     id: WIN.CHAT,
-    title: 'Pocket Agent',
+    title: `Pocket Agent v${app.getVersion()}`,
     htmlFile: 'chat.html',
     width: 1020,
     height: 720,

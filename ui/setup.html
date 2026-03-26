@@ -8,43 +8,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Datatype:wght@400;500;600;700&family=Pixelify+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared/variables.css">
+  <link rel="stylesheet" href="shared/notyf-theme.css">
+  <link rel="stylesheet" href="shared/base.css">
   <style>
-    :root {
-      --bg-primary: #0a0a0b;
-      --bg-secondary: #141415;
-      --bg-tertiary: #1c1c1e;
-      --border: #2a2a2d;
-      --text-primary: #fafafa;
-      --text-secondary: #a1a1a6;
-      --text-muted: #636366;
-      --accent: #a855f7;
-      --accent-secondary: #ec4899;
-      --accent-hover: #c084fc;
-      --error: #ef4444;
-      --success: #22c55e;
-      --warning: #f59e0b;
-      --orange: #f97316;
-      --radius: 16px;
-      --radius-sm: 10px;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: 'Datatype', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      -webkit-font-smoothing: antialiased;
-    }
-
     .onboarding {
       flex: 1;
       display: flex;
@@ -733,9 +700,7 @@
       }
     }
   </style>
-  <script>
-    (function(){function _apply(p){var r=document.documentElement;if(!p){['bg-primary','bg-secondary','bg-tertiary','border','text-primary','text-secondary','text-muted','accent','accent-secondary','accent-hover','error','success','warning','orange','user-bubble','user-bubble-solid','assistant-bubble'].forEach(function(k){r.style.removeProperty('--'+k)});return}Object.keys(p).forEach(function(k){r.style.setProperty('--'+k,p[k])})}window.addEventListener('DOMContentLoaded',function(){if(!window.pocketAgent)return;Promise.all([window.pocketAgent.themes.list(),window.pocketAgent.themes.getSkin()]).then(function(res){var themes=res[0],skinId=res[1],t=themes[skinId];if(t)_apply(t.palette);window.pocketAgent.themes.onSkinChanged(function(id){var th=themes[id];if(th)_apply(th.palette)})}).catch(function(){})})})();
-  </script>
+  <script src="shared/theme-loader.js"></script>
 </head>
 <body>
   <div class="onboarding">
