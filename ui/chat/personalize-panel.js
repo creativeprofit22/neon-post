@@ -115,7 +115,21 @@ async function pzSavePersonality() {
 
 // ---- World ----
 
+function _pzInitWorldTabs() {
+  const tabs = document.getElementById('pz-world-mode-tabs');
+  if (!tabs) return;
+  tabs.querySelectorAll('.pz-mode-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.querySelectorAll('.pz-mode-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const target = tab.dataset.worldTab;
+      document.querySelectorAll('.pz-world-tab-content').forEach(p => p.style.display = p.dataset.worldPanel === target ? '' : 'none');
+    });
+  });
+}
+
 async function _pzLoadWorld() {
+  _pzInitWorldTabs();
   try {
     document.getElementById('pz-world-goals').value = await window.pocketAgent.settings.get('personalize.goals') || '';
     document.getElementById('pz-world-struggles').value = await window.pocketAgent.settings.get('personalize.struggles') || '';

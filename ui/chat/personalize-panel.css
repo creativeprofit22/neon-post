@@ -108,3 +108,8 @@
 #personalize-view .pz-mode-tab { padding: 6px 14px; background: transparent; color: var(--text-muted); border: none; border-radius: 7px; cursor: pointer; font-family: 'Roboto', sans-serif; font-size: 12px; font-weight: 500; white-space: nowrap; transition: all 0.15s ease; }
 #personalize-view .pz-mode-tab:hover { color: var(--text-secondary); background: var(--bg-tertiary); }
 #personalize-view .pz-mode-tab.active { color: var(--text-primary); background: var(--bg-tertiary); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2); }
+
+/* World tab content */
+#personalize-view .pz-world-tab-content { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+#personalize-view .pz-world-tab-content textarea { flex: 1; width: 100%; resize: none; background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; font-family: 'Roboto', sans-serif; font-size: 13px; line-height: 1.5; box-sizing: border-box; }
+#personalize-view .pz-world-tab-content textarea:focus { outline: none; border-color: var(--accent); }
