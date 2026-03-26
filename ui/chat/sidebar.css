@@ -29,10 +29,7 @@
   font-family: 'Cal Sans', sans-serif;
   font-size: 14px;
   font-weight: 700;
-  background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--text-primary);
   white-space: nowrap;
   opacity: 1;
   transition: opacity 0.15s ease;

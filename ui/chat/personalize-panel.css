@@ -6,7 +6,7 @@
 /* Header */
 #personalize-view .pz-header { background: var(--bg-secondary); padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
 #personalize-view .pz-header h1 { font-family: 'Cal Sans', sans-serif; font-size: 14px; font-weight: 700; margin: 0; }
-#personalize-view .pz-header h1 span { background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+#personalize-view .pz-header h1 span { color: var(--text-primary); }
 #personalize-view .pz-header-actions { display: flex; gap: 8px; }
 #personalize-view .pz-header-actions button { padding: 6px 14px; background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; }
 #personalize-view .pz-header-actions button:hover { background: var(--border); color: var(--text-primary); }
