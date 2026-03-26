@@ -16,7 +16,10 @@ import { getSoulTools } from './soul-tools';
 import { getSchedulerTools } from './scheduler-tools';
 import { getNotifyToolDefinition, handleNotifyTool } from './macos';
 import { getProjectTools } from './project-tools';
+import { getSwitchAgentTool } from './agent-mode-tools';
 import { wrapToolHandler, getToolTimeout, logActiveToolsStatus } from './diagnostics';
+import { getModeConfig } from '../agent/agent-modes';
+import type { AgentModeId } from '../agent/agent-modes';
 
 export { logActiveToolsStatus } from './diagnostics';
 
@@ -108,7 +111,7 @@ export function buildMCPServers(config: ToolsConfig): Record<string, MCPServerCo
  */
 export async function buildSdkMcpServers(
   config: ToolsConfig,
-  mode: 'general' | 'coder' = 'general'
+  mode: AgentModeId = 'general'
 ): Promise<Record<string, unknown> | null> {
   // Dynamically import SDK to avoid CommonJS issues
   // Using Function constructor for dynamic ESM imports in CommonJS context
@@ -201,9 +204,19 @@ export async function buildSdkMcpServers(
     );
     tools.push(notifyTool);
 
-    // Personal assistant tools — only registered in general mode
-    if (mode === 'general') {
-      // Memory tools (with diagnostics wrapper)
+    // Determine which tool sets this mode needs based on its allowedTools
+    const modeConfig = getModeConfig(mode);
+    const modeAllowedTools = modeConfig.allowedTools;
+    const needsMemoryTools = modeAllowedTools.some((t) =>
+      t.startsWith('mcp__pocket-agent__remember')
+    );
+    const needsSoulTools = modeAllowedTools.some((t) => t.startsWith('mcp__pocket-agent__soul_'));
+    const needsSchedulerTools = modeAllowedTools.some((t) =>
+      t.startsWith('mcp__pocket-agent__schedule_')
+    );
+
+    // Memory tools (mode-dependent)
+    if (needsMemoryTools) {
       const memoryTools = getMemoryTools();
       for (const memTool of memoryTools) {
         const wrappedHandler = wrapToolHandler(
@@ -232,8 +245,10 @@ export async function buildSdkMcpServers(
         );
         tools.push(sdkTool);
       }
+    }
 
-      // Soul tools (with diagnostics wrapper)
+    // Soul tools (mode-dependent)
+    if (needsSoulTools) {
       const soulTools = getSoulTools();
       for (const soulTool of soulTools) {
         const wrappedHandler = wrapToolHandler(
@@ -261,8 +276,10 @@ export async function buildSdkMcpServers(
         );
         tools.push(sdkTool);
       }
+    }
 
-      // Scheduler tools (with diagnostics wrapper)
+    // Scheduler tools (mode-dependent)
+    if (needsSchedulerTools) {
       const schedulerTools = getSchedulerTools();
       for (const schedTool of schedulerTools) {
         const wrappedHandler = wrapToolHandler(
@@ -321,6 +338,27 @@ export async function buildSdkMcpServers(
       );
       tools.push(sdkTool);
     }
+
+    // switch_agent tool (available in all modes)
+    const switchDef = getSwitchAgentTool();
+    const wrappedSwitchHandler = wrapToolHandler(
+      switchDef.name,
+      switchDef.handler,
+      getToolTimeout(switchDef.name)
+    );
+    const switchTool = tool(
+      switchDef.name,
+      switchDef.description,
+      {
+        mode: z.string(),
+        reason: z.string(),
+      },
+      async (args) => {
+        const result = await wrappedSwitchHandler(args);
+        return { content: [{ type: 'text', text: result }] };
+      }
+    );
+    tools.push(switchTool);
 
     // Create the SDK MCP server
     const server = createSdkMcpServer({
@@ -415,6 +453,15 @@ export function getCustomTools(config: ToolsConfig): Array<{
       handler: tool.handler,
     });
   }
+
+  // switch_agent tool (available in all modes)
+  const switchDef = getSwitchAgentTool();
+  tools.push({
+    name: switchDef.name,
+    description: switchDef.description,
+    input_schema: switchDef.input_schema as Record<string, unknown>,
+    handler: switchDef.handler as (input: unknown) => Promise<string>,
+  });
 
   return tools;
 }

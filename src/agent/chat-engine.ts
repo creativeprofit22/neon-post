@@ -19,6 +19,8 @@ import { MemoryManager } from '../memory';
 import { ToolsConfig, setCurrentSessionId, runWithSessionId } from '../tools';
 import { SettingsManager } from '../settings';
 import { SYSTEM_GUIDELINES } from '../config/system-guidelines';
+import { getModeConfig } from './agent-modes';
+import type { AgentModeId } from './agent-modes';
 import { getStreamConfig } from './chat-providers';
 import { getChatAgentTools, getServerTools } from './chat-tools';
 import { buildTemporalContext } from './context-extraction';
@@ -546,6 +548,17 @@ export class ChatEngine {
 
     staticParts.push(SYSTEM_GUIDELINES);
     console.log(`[ChatEngine] System guidelines injected: ${SYSTEM_GUIDELINES.length} chars`);
+
+    const sessionMode = (
+      sessionId ? this.memory.getSessionMode(sessionId) : 'general'
+    ) as AgentModeId;
+    const modeConfig = getModeConfig(sessionMode);
+    if (modeConfig.systemPrompt) {
+      staticParts.push(modeConfig.systemPrompt);
+      console.log(
+        `[ChatEngine] Mode prompt injected (${sessionMode}): ${modeConfig.systemPrompt.length} chars`
+      );
+    }
 
     // === Dynamic context ===
     const dynamicParts: string[] = [];

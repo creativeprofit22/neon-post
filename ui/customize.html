@@ -442,6 +442,43 @@
     .profile-content::-webkit-scrollbar-track { background: transparent; }
     .profile-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
+    /* Mode sub-tabs for System Prompt */
+    .mode-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+      padding: 4px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow-x: auto;
+    }
+
+    .mode-tab {
+      padding: 6px 14px;
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      font-family: 'Sora', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+
+    .mode-tab:hover {
+      color: var(--text-secondary);
+      background: var(--bg-tertiary);
+    }
+
+    .mode-tab.active {
+      color: var(--text-primary);
+      background: var(--bg-tertiary);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
     /* Toast */
     /* Utility classes */
     .hidden { display: none !important; }
@@ -673,7 +710,10 @@
       <div class="tab-content" id="tab-system-prompt">
         <div class="section-header">
           <h2>System Prompt</h2>
-          <p>Core guidelines and capabilities - managed by the developer, updated with app releases</p>
+          <p>Core guidelines and agent mode prompts — managed by the developer</p>
+        </div>
+        <div class="mode-tabs" id="prompt-mode-tabs">
+          <button class="mode-tab active" data-prompt-mode="system">System Guidelines</button>
         </div>
         <div class="readonly-badge">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -792,12 +832,51 @@
     }
 
     // === System Prompt ===
+    let systemPromptContent = '';
+    let agentModes = [];
+
     async function loadSystemPrompt() {
       try {
-        const content = await window.pocketAgent.customize.getSystemPrompt();
-        document.getElementById('system-prompt-display').textContent = content || '(agent not initialized)';
+        const [content, modes] = await Promise.all([
+          window.pocketAgent.customize.getSystemPrompt(),
+          window.pocketAgent.customize.getAgentModes(),
+        ]);
+        systemPromptContent = content || '(agent not initialized)';
+        agentModes = modes || [];
+
+        // Build mode tabs
+        const tabsContainer = document.getElementById('prompt-mode-tabs');
+        tabsContainer.innerHTML = '<button class="mode-tab active" data-prompt-mode="system">System Guidelines</button>';
+        for (const mode of agentModes) {
+          if (!mode.systemPrompt) continue; // Skip modes with no prompt (e.g. coder)
+          const btn = document.createElement('button');
+          btn.className = 'mode-tab';
+          btn.dataset.promptMode = mode.id;
+          btn.textContent = mode.name;
+          btn.title = mode.description;
+          tabsContainer.appendChild(btn);
+        }
+
+        // Wire up tab clicks
+        tabsContainer.querySelectorAll('.mode-tab').forEach(tab => {
+          tab.addEventListener('click', () => {
+            tabsContainer.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const modeId = tab.dataset.promptMode;
+            if (modeId === 'system') {
+              document.getElementById('system-prompt-display').textContent = systemPromptContent;
+            } else {
+              const mode = agentModes.find(m => m.id === modeId);
+              document.getElementById('system-prompt-display').textContent = mode ? mode.systemPrompt : '(no prompt)';
+            }
+          });
+        });
+
+        // Show system guidelines by default
+        document.getElementById('system-prompt-display').textContent = systemPromptContent;
       } catch (error) {
         console.error('Error loading system prompt:', error);
+        document.getElementById('system-prompt-display').textContent = '(error loading prompt)';
       }
     }
 

@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import type { AgentModeId } from '../agent/agent-modes';
 import {
   type Message,
   type SmartContextOptions,
@@ -560,7 +561,7 @@ export class MemoryManager {
 
   createSession(
     name: string,
-    mode: 'general' | 'coder' = 'coder',
+    mode: AgentModeId = 'coder',
     workingDirectory?: string | null
   ): Session {
     return _createSession(this.db, name, mode, workingDirectory);
@@ -602,11 +603,11 @@ export class MemoryManager {
     return _getSessionMessageCount(this.db, sessionId);
   }
 
-  getSessionMode(sessionId: string): 'general' | 'coder' {
+  getSessionMode(sessionId: string): AgentModeId {
     return _getSessionMode(this.db, sessionId);
   }
 
-  setSessionMode(sessionId: string, mode: 'general' | 'coder'): boolean {
+  setSessionMode(sessionId: string, mode: AgentModeId): boolean {
     return _setSessionMode(this.db, sessionId, mode);
   }
 

@@ -677,6 +677,16 @@ async function initializeAgent(): Promise<void> {
   };
   AgentManager.on('model:changed', modelChangedHandler);
 
+  // Forward session mode changes (from switch_agent tool) to chat window
+  AgentManager.on(
+    'sessionModeChanged',
+    (sessionId: string, newMode: string, _icon: string, _name: string) => {
+      if (getWindow(WIN.CHAT)) {
+        getWindow(WIN.CHAT)?.webContents.send('agent:sessionModeChanged', sessionId, newMode);
+      }
+    }
+  );
+
   // Initialize iOS channel (WebSocket server for mobile companion app)
   // Must be initialized BEFORE scheduler so push notifications work for jobs that fire during init
   const iosEnabled = SettingsManager.getBoolean('ios.enabled');

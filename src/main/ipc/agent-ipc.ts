@@ -157,9 +157,10 @@ export function registerAgentIPC(deps: IPCDependencies): void {
     return { success: stopped };
   });
 
-  // Agent mode (General / Coder)
+  // Agent mode (General / Coder / Researcher / Writer / Therapist)
   ipcMain.handle('agent:setMode', async (_, mode: string) => {
-    if (mode !== 'general' && mode !== 'coder') {
+    const { isValidModeId } = await import('../../agent/agent-modes');
+    if (!isValidModeId(mode)) {
       return { success: false, error: 'Invalid mode' };
     }
     AgentManager.setMode(mode);
@@ -181,7 +182,8 @@ export function registerAgentIPC(deps: IPCDependencies): void {
   });
 
   ipcMain.handle('agent:setSessionMode', async (_, sessionId: string, mode: string) => {
-    if (mode !== 'general' && mode !== 'coder') {
+    const { isValidModeId, getModeConfig } = await import('../../agent/agent-modes');
+    if (!isValidModeId(mode)) {
       return { success: false, error: 'Invalid mode' };
     }
     const memory = getMemory();
@@ -192,13 +194,14 @@ export function registerAgentIPC(deps: IPCDependencies): void {
     }
 
     const session = memory?.getSession(sessionId);
+    const modeConfig = getModeConfig(mode);
     console.log(
       `[Sessions] Mode switch: session=${sessionId} "${session?.name}" ${session?.mode}->${mode} | current working_directory=${session?.working_directory || 'null'}`
     );
 
     // Don't create working directory on mode switch — it's created lazily on first message.
-    // When switching to general: clear working directory (keep directory on disk)
-    if (mode === 'general' && session?.working_directory) {
+    // When switching to chat-engine mode: clear working directory (keep directory on disk)
+    if (modeConfig.engine === 'chat' && session?.working_directory) {
       console.log(
         `[Sessions] Clearing working directory (kept on disk): ${session.working_directory}`
       );

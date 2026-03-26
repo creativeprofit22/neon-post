@@ -6,6 +6,7 @@ import {
   validateToolsConfig,
   getCurrentSessionId,
 } from '../tools';
+import { setSwitchModeCallback, setGetSessionIdCallback } from '../tools/agent-mode-tools';
 import { closeBrowserManager } from '../browser';
 import { SettingsManager } from '../settings';
 import { EventEmitter } from 'events';
@@ -13,6 +14,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { setStatusEmitter } from './safety';
+import { type AgentModeId, isValidModeId, getModeConfig } from './agent-modes';
 import { PersistentSDKSession, TurnResult } from './persistent-session';
 import { ChatEngine } from './chat-engine';
 import { PROVIDER_CONFIGS, getProviderForModel } from './providers';
@@ -453,7 +455,7 @@ class AgentManagerClass extends EventEmitter {
   private projectRoot: string = process.cwd();
   private workspace: string = process.cwd(); // Isolated working directory for agent
   private model: string = 'claude-opus-4-6';
-  private mode: 'general' | 'coder' = 'coder';
+  private mode: AgentModeId = 'coder';
   private chatEngine: ChatEngine | null = null;
   private toolsConfig: ToolsConfig | null = null;
   private initialized: boolean = false;
@@ -480,6 +482,7 @@ class AgentManagerClass extends EventEmitter {
   private sdkToolTimers: Map<string, { timer: ReturnType<typeof setTimeout>; sessionId: string }> =
     new Map();
   private pendingProjectSwitch: Set<string> = new Set();
+  private pendingModeSwitch: Set<string> = new Set();
 
   private constructor() {
     super();
@@ -541,10 +544,16 @@ class AgentManagerClass extends EventEmitter {
 
     // Read persisted mode from settings
     const savedMode = SettingsManager.get('agent.mode');
-    if (savedMode === 'general' || savedMode === 'coder') {
-      this.mode = savedMode;
+    if (isValidModeId(savedMode as string)) {
+      this.mode = savedMode as AgentModeId;
       console.log('[AgentManager] Mode:', this.mode);
     }
+
+    // Set up switch_agent tool callbacks
+    setSwitchModeCallback(async (sessionId, newMode, reason) => {
+      return this.switchSessionMode(sessionId, newMode, reason);
+    });
+    setGetSessionIdCallback(() => getCurrentSessionId());
 
     // Backfill message embeddings asynchronously (for semantic retrieval)
     this.backfillMessageEmbeddings().catch((e) => {
@@ -594,16 +603,53 @@ class AgentManagerClass extends EventEmitter {
     this.emit('model:changed', model);
   }
 
-  getMode(): 'general' | 'coder' {
+  getMode(): AgentModeId {
     return this.mode;
   }
 
-  setMode(mode: 'general' | 'coder'): void {
+  setMode(mode: AgentModeId): void {
     if (this.mode === mode) return;
     const previousMode = this.mode;
     this.mode = mode;
     console.log(`[AgentManager] Default mode changed: ${previousMode} -> ${mode}`);
     this.emit('mode:changed', mode);
+  }
+
+  /**
+   * Switch a session's mode at runtime (called by the switch_agent tool).
+   * Kills the current engine's session so the next message picks up the new mode.
+   */
+  async switchSessionMode(
+    sessionId: string,
+    newMode: AgentModeId,
+    reason: string
+  ): Promise<string> {
+    if (!this.memory) return 'Error: AgentManager not initialized';
+
+    const currentMode = this.memory.getSessionMode(sessionId);
+    if (currentMode === newMode) {
+      return `Already in ${newMode} mode.`;
+    }
+
+    const modeConfig = getModeConfig(newMode);
+
+    // Update mode in DB
+    this.memory.setSessionMode(sessionId, newMode);
+
+    // Don't close the persistent session immediately — this tool runs mid-turn,
+    // and killing the subprocess now causes "Session closed" errors.
+    // Flag it for deferred closure after the current turn completes (same pattern as pendingProjectSwitch).
+    this.pendingModeSwitch.add(sessionId);
+    this.sdkSessionIdBySession.delete(sessionId);
+    this.memory.clearSdkSessionId(sessionId);
+
+    // Emit mode change event for UI
+    this.emit('sessionModeChanged', sessionId, newMode, modeConfig.icon, modeConfig.name);
+
+    console.log(
+      `[AgentManager] Session ${sessionId} switched: ${currentMode} → ${newMode} (${reason})`
+    );
+    return `Switched to ${modeConfig.name} mode. ${reason}`;
   }
 
   async processMessage(
@@ -617,9 +663,10 @@ class AgentManagerClass extends EventEmitter {
       throw new Error('AgentManager not initialized - call initialize() first');
     }
 
-    // Route by per-session mode (not global mode)
+    // Route by per-session mode engine type (chat vs sdk)
     const sessionMode = this.memory.getSessionMode(sessionId);
-    if (sessionMode === 'general' && this.chatEngine) {
+    const sessionModeConfig = getModeConfig(sessionMode);
+    if (sessionModeConfig.engine === 'chat' && this.chatEngine) {
       const result = await this.chatEngine.processMessage(
         userMessage,
         channel,
@@ -1195,6 +1242,20 @@ class AgentManagerClass extends EventEmitter {
           this.persistentSessions.delete(sessionId);
           this.sdkSessionIdBySession.delete(sessionId);
           memory.clearSdkSessionId(sessionId);
+        }
+      }
+
+      // If switch_agent was called during this turn, close the persistent session
+      // so the next message routes to the new engine/mode.
+      if (this.pendingModeSwitch.has(sessionId)) {
+        this.pendingModeSwitch.delete(sessionId);
+        const switchedSession = this.persistentSessions.get(sessionId);
+        if (switchedSession) {
+          console.log(
+            `[AgentManager] Closing session ${sessionId} after mode switch — new mode takes effect next message`
+          );
+          switchedSession.close();
+          this.persistentSessions.delete(sessionId);
         }
       }
 

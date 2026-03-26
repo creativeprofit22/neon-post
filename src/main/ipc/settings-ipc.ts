@@ -205,6 +205,18 @@ export function registerSettingsIPC(deps: IPCDependencies): void {
     return AgentManager.getDeveloperPrompt() || '';
   });
 
+  // Customize - Agent modes (read-only, for system prompt tab)
+  ipcMain.handle('customize:getAgentModes', async () => {
+    const { getAllModes } = await import('../../agent/agent-modes.js');
+    return getAllModes().map((m) => ({
+      id: m.id,
+      name: m.name,
+      icon: m.icon,
+      systemPrompt: m.systemPrompt,
+      description: m.description,
+    }));
+  });
+
   // Location and timezone lookup
   ipcMain.handle('location:lookup', async (_, query: string) => {
     if (!query || query.length < 2) return [];

@@ -1,9 +1,10 @@
 import Database from 'better-sqlite3';
+import type { AgentModeId } from '../agent/agent-modes';
 
 export interface Session {
   id: string;
   name: string;
-  mode?: 'general' | 'coder';
+  mode?: AgentModeId;
   working_directory?: string | null;
   created_at: string;
   updated_at: string;
@@ -18,7 +19,7 @@ export interface Session {
 export function createSession(
   db: Database.Database,
   name: string,
-  mode: 'general' | 'coder' = 'coder',
+  mode: AgentModeId = 'coder',
   workingDirectory?: string | null
 ): Session {
   // Check for duplicate name
@@ -109,7 +110,7 @@ export function getSessions(db: Database.Database): Session[] {
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
-    mode: (row.mode as 'general' | 'coder') || 'coder',
+    mode: (row.mode as AgentModeId) || 'coder',
     working_directory: row.working_directory,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -244,20 +245,20 @@ export function getSessionMessageCount(db: Database.Database, sessionId: string)
 /**
  * Get the mode for a session (defaults to 'coder' for legacy sessions)
  */
-export function getSessionMode(db: Database.Database, sessionId: string): 'general' | 'coder' {
+export function getSessionMode(db: Database.Database, sessionId: string): AgentModeId {
   const row = db.prepare('SELECT mode FROM sessions WHERE id = ?').get(sessionId) as
     | { mode: string | null }
     | undefined;
-  return (row?.mode as 'general' | 'coder') || 'coder';
+  return (row?.mode as AgentModeId) || 'coder';
 }
 
 /**
- * Set the mode for a session (only allowed when session has no messages)
+ * Set the mode for a session
  */
 export function setSessionMode(
   db: Database.Database,
   sessionId: string,
-  mode: 'general' | 'coder'
+  mode: AgentModeId
 ): boolean {
   const result = db
     .prepare(

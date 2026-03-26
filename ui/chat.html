@@ -1762,44 +1762,46 @@
       align-items: center;
     }
 
-    .mode-toggle {
-      display: flex;
+    .mode-select {
       height: 30px;
       box-sizing: border-box;
       background: var(--bg-tertiary);
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
-      overflow: hidden;
-    }
-
-    .mode-btn {
-      border: none;
-      background: transparent;
-      color: var(--text-muted);
+      color: var(--text-secondary);
       font-size: 12px;
       font-weight: 500;
       font-family: inherit;
-      padding: 6px 12px;
+      padding: 0 24px 0 10px;
       cursor: pointer;
-      transition: all 0.2s ease;
-      white-space: nowrap;
+      transition: all 0.15s ease;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath fill='%23636366' d='M0 0l4 5 4-5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
     }
 
-    .mode-btn:hover {
+    .mode-select:hover {
+      border-color: var(--accent);
       color: var(--text-primary);
     }
 
-    .mode-btn.active {
-      background: var(--accent);
-      color: #fff;
+    .mode-select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.15);
     }
 
-    .mode-toggle.locked {
+    .mode-select option {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      font-size: 13px;
+    }
+
+    .mode-select.locked {
       opacity: 0.6;
       pointer-events: none;
-    }
-
-    .mode-toggle.locked .mode-btn {
       cursor: default;
     }
 
@@ -4005,10 +4007,13 @@
   <!-- Toolbar Row (Mode Toggle + Search + Workflows) -->
   <div id="toolbar-row">
     <div id="mode-toggle-area">
-      <div class="mode-toggle">
-        <button class="mode-btn" id="mode-btn-general" onclick="playNormalClick(); setAgentMode('general')">General</button>
-        <button class="mode-btn active" id="mode-btn-coder" onclick="playNormalClick(); setAgentMode('coder')">Coder</button>
-      </div>
+      <select class="mode-select" id="mode-select" onchange="playNormalClick(); setAgentMode(this.value)">
+        <option value="general">General</option>
+        <option value="coder" selected>Coder</option>
+        <option value="researcher">Researcher</option>
+        <option value="writer">Writer</option>
+        <option value="therapist">Therapist</option>
+      </select>
     </div>
     <div id="search-area">
       <!-- Toggle Button (shown by default) -->
@@ -7721,6 +7726,15 @@
         // Global mode changed — doesn't affect current session, just new ones
         console.log('[Chat] Global default mode changed:', mode);
       });
+
+      // Listen for session mode changes (from switch_agent tool)
+      window.pocketAgent.agent.onSessionModeChanged((sessionId, mode) => {
+        console.log('[Chat] Session mode changed via switch_agent:', sessionId, mode);
+        if (sessionId === currentSessionId) {
+          currentAgentMode = mode;
+          updateModeButtons(mode);
+        }
+      });
     }
 
     async function setAgentMode(mode) {
@@ -7751,12 +7765,8 @@
     }
 
     function updateModeButtons(mode) {
-      const generalBtn = document.getElementById('mode-btn-general');
-      const coderBtn = document.getElementById('mode-btn-coder');
-      if (!generalBtn || !coderBtn) return;
-
-      generalBtn.classList.toggle('active', mode === 'general');
-      coderBtn.classList.toggle('active', mode === 'coder');
+      const select = document.getElementById('mode-select');
+      if (select) select.value = mode;
     }
 
     async function updateModeUIForSession(sessionId) {
@@ -7765,12 +7775,12 @@
         currentAgentMode = mode || 'coder';
         updateModeButtons(currentAgentMode);
 
-        // Lock toggle if session has messages
-        const toggle = document.querySelector('.mode-toggle');
-        if (toggle) {
+        // Lock select if session has messages
+        const select = document.getElementById('mode-select');
+        if (select) {
           const history = await window.pocketAgent.agent.getHistory(1, sessionId);
           const hasMessages = history && history.length > 0;
-          toggle.classList.toggle('locked', hasMessages);
+          select.classList.toggle('locked', hasMessages);
         }
       } catch (err) {
         console.error('Failed to update mode UI for session:', err);

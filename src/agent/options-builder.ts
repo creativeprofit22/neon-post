@@ -12,6 +12,8 @@ import { SettingsManager } from '../settings';
 import { buildCanUseToolCallback, buildPreToolUseHook } from './safety';
 import { getProviderForModel } from './providers';
 import { buildTemporalContext } from './context-extraction';
+import { getModeConfig } from './agent-modes';
+import type { AgentModeId } from './agent-modes';
 
 // ── SDK type aliases (mirrors the ones in index.ts) ──
 
@@ -132,9 +134,10 @@ export async function buildPersistentOptions(
   sessionId: string,
   sdkSessionId?: string
 ): Promise<SDKOptions> {
-  // Determine session mode — coder mode gets lean context (SDK preset + CLAUDE.md only)
-  const sessionMode = memory.getSessionMode(sessionId);
-  const isCoder = sessionMode === 'coder';
+  // Determine session mode and get mode config from registry
+  const sessionMode = memory.getSessionMode(sessionId) as AgentModeId;
+  const modeConfig = getModeConfig(sessionMode);
+  const isLeanMode = sessionMode === 'coder'; // Coder gets SDK preset + CLAUDE.md only, no identity/guidelines
 
   // === Static context (set once at session creation) ===
   // NOTE: CLAUDE.md (instructions) is NOT included here because the SDK
@@ -142,13 +145,12 @@ export async function buildPersistentOptions(
   // Including it here would inject it twice.
   const staticParts: string[] = [];
 
-  // Personalize, guidelines, and profile are only needed for general (personal assistant) mode
-  if (isCoder) {
+  // Personalize, guidelines, and profile — skipped for coder (uses workspace CLAUDE.md)
+  if (isLeanMode) {
     console.log(
-      `[AgentManager] Coder mode — skipping identity, user context, guidelines, capabilities (SDK uses workspace CLAUDE.md)`
+      `[AgentManager] ${modeConfig.name} mode — skipping identity, user context, guidelines (SDK uses workspace CLAUDE.md)`
     );
-  }
-  if (!isCoder) {
+  } else {
     // 1. Agent Identity: name, description, personality
     const identity = SettingsManager.getFormattedIdentity();
     if (identity) {
@@ -168,6 +170,12 @@ export async function buildPersistentOptions(
     console.log(`[AgentManager] System guidelines injected: ${SYSTEM_GUIDELINES.length} chars`);
   }
 
+  // 4. Mode-specific system prompt (from registry)
+  if (modeConfig.systemPrompt) {
+    staticParts.push(modeConfig.systemPrompt);
+    console.log(`[AgentManager] Mode prompt injected: ${modeConfig.systemPrompt.length} chars`);
+  }
+
   // Look up per-session working directory (falls back to global workspace)
   const sessionWorkingDir = memory.getSessionWorkingDirectory(sessionId);
   const effectiveCwd = sessionWorkingDir || config.workspace;
@@ -175,16 +183,9 @@ export async function buildPersistentOptions(
     `[AgentManager] buildPersistentOptions session=${sessionId} mode=${sessionMode} | sessionWorkingDir=${sessionWorkingDir || 'null'} | effectiveCwd=${effectiveCwd}`
   );
 
-  // Log prompt summary for the mode
-  if (isCoder) {
-    console.log(
-      `[AgentManager] Coder mode prompt — static: ${staticParts.join('').length} chars (SDK reads CLAUDE.md from workspace cwd)`
-    );
-  } else {
-    console.log(
-      `[AgentManager] General mode prompt — static: ${staticParts.join('\n\n').length} chars`
-    );
-  }
+  console.log(
+    `[AgentManager] ${modeConfig.name} mode prompt — static: ${staticParts.join('\n\n').length} chars`
+  );
 
   // Get thinking level config — only Anthropic models support thinking/effort.
   // Non-Anthropic providers (Kimi, GLM) use Anthropic-compatible APIs but may not
@@ -218,12 +219,12 @@ export async function buildPersistentOptions(
     hooks: {
       PreToolUse: [buildPreToolUseHook()],
       // Dynamic context injection: fresh facts/soul/temporal for each message
-      // Coder mode skips all personal assistant context for lean coding sessions
+      // Lean modes (coder) skip personal assistant context
       UserPromptSubmit: [
         {
           hooks: [
             async () => {
-              if (isCoder) {
+              if (isLeanMode) {
                 return {
                   hookSpecificOutput: {
                     hookEventName: 'UserPromptSubmit' as const,
@@ -307,64 +308,8 @@ export async function buildPersistentOptions(
         },
       ],
     },
-    allowedTools: [
-      // Built-in SDK tools
-      'Read',
-      'Write',
-      'Edit',
-      'Bash',
-      'Glob',
-      'Grep',
-      'WebSearch',
-      'WebFetch',
-      // Plan mode tools
-      'EnterPlanMode',
-      'ExitPlanMode',
-      'AskUserQuestion',
-      // Agent Teams tools
-      'TeammateTool',
-      'TeamCreate',
-      'SendMessage',
-      'TaskCreate',
-      'TaskGet',
-      'TaskUpdate',
-      'TaskList',
-      // Background task tools (persist across turns with persistent sessions)
-      'TaskOutput',
-      'TaskStop',
-      'BashOutput',
-      'KillBash',
-      // Custom MCP tools - browser & system
-      'mcp__pocket-agent__browser',
-      'mcp__pocket-agent__notify',
-      // Custom MCP tools - project
-      'mcp__pocket-agent__set_project',
-      'mcp__pocket-agent__get_project',
-      'mcp__pocket-agent__clear_project',
-      // Coder-only tools
-      ...(isCoder ? ['mcp__grep__searchGitHub'] : []),
-      // Personal assistant tools — only in general mode
-      ...(isCoder
-        ? []
-        : [
-            // Memory
-            'mcp__pocket-agent__remember',
-            'mcp__pocket-agent__forget',
-            'mcp__pocket-agent__list_facts',
-            'mcp__pocket-agent__memory_search',
-            'mcp__pocket-agent__daily_log',
-            // Soul
-            'mcp__pocket-agent__soul_set',
-            'mcp__pocket-agent__soul_get',
-            'mcp__pocket-agent__soul_list',
-            'mcp__pocket-agent__soul_delete',
-            // Scheduler
-            'mcp__pocket-agent__schedule_task',
-            'mcp__pocket-agent__create_reminder',
-            'mcp__pocket-agent__list_scheduled_tasks',
-            'mcp__pocket-agent__delete_scheduled_task',
-          ]),
-    ],
+    // Use mode registry for allowed tools
+    allowedTools: [...modeConfig.allowedTools],
     persistSession: true,
     ...(sdkSessionId && { resume: sdkSessionId }),
   };
@@ -381,16 +326,16 @@ export async function buildPersistentOptions(
     // Build child process MCP servers (e.g., computer use)
     const mcpServers = buildMCPServers(config.toolsConfig);
 
-    // Build SDK MCP servers (in-process tools like browser, notify, memory)
-    // Coder mode only registers coding-relevant tools (browser, notify, project)
+    // Build SDK MCP servers (in-process tools — scoped by mode)
     const sdkMcpServers = await buildSdkMcpServers(config.toolsConfig, sessionMode);
 
-    // Merge both types + remote MCP servers (coder only)
+    // Merge both types + remote MCP servers (mode-dependent)
+    const needsGrep = modeConfig.mcpServers?.includes('grep');
     const allServers: Record<string, unknown> = {
       ...mcpServers,
       ...(sdkMcpServers || {}),
-      // Grep MCP — remote code search across 1M+ public GitHub repos (coder only)
-      ...(isCoder ? { grep: { type: 'http', url: 'https://mcp.grep.app' } } : {}),
+      // Grep MCP — remote code search across 1M+ public GitHub repos
+      ...(needsGrep ? { grep: { type: 'http', url: 'https://mcp.grep.app' } } : {}),
     };
 
     if (Object.keys(allServers).length > 0) {

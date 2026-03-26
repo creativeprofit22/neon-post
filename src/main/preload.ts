@@ -20,6 +20,12 @@ contextBridge.exposeInMainWorld('pocketAgent', {
       ipcRenderer.on('agent:modeChanged', listener);
       return () => ipcRenderer.removeListener('agent:modeChanged', listener);
     },
+    onSessionModeChanged: (callback: (sessionId: string, mode: string) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, sessionId: string, mode: string) =>
+        callback(sessionId, mode);
+      ipcRenderer.on('agent:sessionModeChanged', listener);
+      return () => ipcRenderer.removeListener('agent:sessionModeChanged', listener);
+    },
     onStatus: (
       callback: (status: {
         type: string;
@@ -112,6 +118,7 @@ contextBridge.exposeInMainWorld('pocketAgent', {
   // ─── Customize ───────────────────────────────────────────────────────
   customize: {
     getSystemPrompt: () => ipcRenderer.invoke('customize:getSystemPrompt'),
+    getAgentModes: () => ipcRenderer.invoke('customize:getAgentModes'),
   },
 
   // ─── Location & Timezone ─────────────────────────────────────────────
@@ -350,6 +357,7 @@ declare global {
           mode: string
         ) => Promise<{ success: boolean; error?: string }>;
         onModeChanged: (callback: (mode: string) => void) => () => void;
+        onSessionModeChanged: (callback: (sessionId: string, mode: string) => void) => () => void;
         onStatus: (
           callback: (status: {
             type: string;
@@ -451,6 +459,15 @@ declare global {
 
       customize: {
         getSystemPrompt: () => Promise<string>;
+        getAgentModes: () => Promise<
+          Array<{
+            id: string;
+            name: string;
+            icon: string;
+            systemPrompt: string;
+            description: string;
+          }>
+        >;
       };
 
       location: {

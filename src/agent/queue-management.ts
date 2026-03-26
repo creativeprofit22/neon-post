@@ -72,7 +72,7 @@ export function clearQueue(
  */
 export function stopQuery(
   maps: QueueMaps,
-  mode: 'general' | 'coder',
+  mode: string,
   chatEngine: ChatEngine | null,
   sessionId?: string,
   clearQueuedMessages: boolean = true
@@ -157,7 +157,7 @@ export function stopQuery(
  */
 export function isQueryProcessing(
   maps: Pick<QueueMaps, 'processingBySession'>,
-  mode: 'general' | 'coder',
+  mode: string,
   chatEngine: ChatEngine | null,
   sessionId?: string
 ): boolean {
