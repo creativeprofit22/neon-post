@@ -344,6 +344,8 @@ function ensureAgentWorkspace(): string {
     SettingsManager.delete('window.settingsBounds');
     SettingsManager.delete('window.customizeBounds');
     SettingsManager.delete('window.factsBounds');
+    SettingsManager.delete('window.dailyLogsBounds');
+    SettingsManager.delete('window.soulBounds');
     console.log('[Main] Cleared saved window bounds for fresh layout');
 
     // Update version file
