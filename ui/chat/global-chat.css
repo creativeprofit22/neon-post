@@ -163,7 +163,7 @@
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  background: #ef4444;
+  background: var(--error);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
@@ -245,7 +245,7 @@
 }
 
 #global-chat-header .chat-status.connected {
-  background: #22c55e;
+  background: var(--success);
   opacity: 1;
 }
 
@@ -758,7 +758,7 @@
 }
 
 .message.global-chat-admin {
-  border-left: 2px solid #f59e0b;
+  border-left: 2px solid var(--warning);
 }
 
 .message.global-chat-self.global-chat-admin {
@@ -968,7 +968,7 @@
 .gchat-reaction.active {
   background: rgba(168, 85, 247, 0.15);
   border-color: rgba(168, 85, 247, 0.4);
-  color: #c084fc;
+  color: var(--accent-hover);
 }
 
 .gchat-reaction .reaction-emoji {
@@ -1222,7 +1222,7 @@
 }
 
 #mention-highlight .mention-hl {
-  color: #22d3ee;
+  color: var(--cyan);
   font-weight: 600;
 }
 
@@ -1233,6 +1233,6 @@
 
 /* @Mention highlight in chat bubbles */
 .gchat-mention {
-  color: #22d3ee;
+  color: var(--cyan);
   font-weight: 600;
 }

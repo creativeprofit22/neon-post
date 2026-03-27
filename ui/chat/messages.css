@@ -182,7 +182,7 @@
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: #0088cc;
+  color: var(--telegram);
   margin-bottom: 6px;
   font-weight: 500;
   opacity: 0.9;
@@ -284,8 +284,8 @@
   font-weight: 600;
   letter-spacing: 0.3px;
   color: var(--accent-hover);
-  background: #1f1528;
-  border: 1px solid #352547;
+  background: var(--badge-bg);
+  border: 1px solid var(--badge-border);
   padding: 2px 6px;
   border-radius: 6px;
 }
@@ -305,7 +305,7 @@
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.3px;
-  color: #229ED9;
+  color: var(--telegram);
   background: #0d1a22;
   border: 1px solid #1a3344;
   padding: 2px 6px;
@@ -315,7 +315,7 @@
 .message.from-telegram .telegram-badge svg {
   width: 10px;
   height: 10px;
-  fill: #229ED9;
+  fill: var(--telegram);
 }
 
 /* iOS message badge */
@@ -332,8 +332,8 @@
   gap: 4px;
   font-size: 9px;
   color: var(--accent-hover);
-  background: #1f1528;
-  border: 1px solid #352547;
+  background: var(--badge-bg);
+  border: 1px solid var(--badge-border);
   padding: 2px 6px;
   border-radius: 6px;
 }
@@ -358,8 +358,8 @@
   font-weight: 600;
   letter-spacing: 0.3px;
   color: var(--accent-hover);
-  background: #1f1528;
-  border: 1px solid #352547;
+  background: var(--badge-bg);
+  border: 1px solid var(--badge-border);
   padding: 2px 6px;
   border-radius: 6px;
 }

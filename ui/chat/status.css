@@ -157,7 +157,7 @@
 
 /* Subagent active state - purple/pink vibe */
 .status-indicator.subagent-active {
-  border-color: #a855f7;
+  border-color: var(--accent);
   background: linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%);
 }
 
@@ -183,7 +183,7 @@
 
 /* Tool blocked state - red/orange warning vibe */
 .status-indicator.tool-blocked {
-  border-color: #ef4444;
+  border-color: var(--error);
   background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(249, 115, 22, 0.15) 100%);
   animation: blocked-pulse 0.5s ease-in-out 2;
 }
@@ -203,7 +203,7 @@
 }
 
 .status-indicator.tool-blocked .status-detail {
-  color: #f97316;
+  color: var(--orange);
 }
 
 @keyframes blocked-pulse {
@@ -213,7 +213,7 @@
 
 /* Pocket CLI active state - green/cyan vibe */
 .status-indicator.pocket-cli-active {
-  border-color: #22c55e;
+  border-color: var(--success);
   background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(103, 232, 249, 0.1) 100%);
 }
 
@@ -234,7 +234,7 @@
 }
 
 .status-indicator.pocket-cli-active .status-detail {
-  color: #22c55e;
+  color: var(--success);
 }
 
 /* Agent Teams active state - blue/cyan vibe */
@@ -323,7 +323,7 @@
 
 /* Plan mode status indicator */
 .status-indicator.plan-mode-active {
-  border-color: #a855f7;
+  border-color: var(--accent);
   background: linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%);
 }
 
@@ -332,11 +332,16 @@
     90deg,
     #a855f7 0%,
     #8b5cf6 50%,
-    #a855f7 100%
+    var(--accent) 100%
   );
   background-size: 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: shimmer 2s ease-in-out infinite;
+}
+
+t infinite;
+}
+shimmer 2s ease-in-out infinite;
 }

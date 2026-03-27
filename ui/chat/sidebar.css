@@ -244,7 +244,7 @@
 .sidebar-session-telegram {
   display: flex;
   align-items: center;
-  color: #0088cc;
+  color: var(--telegram);
   flex-shrink: 0;
 }
 

@@ -232,7 +232,7 @@ body:not(.onboarding-active) #chat-view {
 }
 
 .ob-auth-option-icon.api {
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: linear-gradient(135deg, var(--success), #059669);
 }
 
 .ob-auth-option-icon.oauth {
