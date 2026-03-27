@@ -332,7 +332,10 @@ function ensureAgentWorkspace(): string {
 
     // Mark onboarding as completed for existing users who already have keys
     // (prevents re-triggering onboarding after updating to the embedded version)
-    if (SettingsManager.hasRequiredKeys() && SettingsManager.get('onboarding.completed') !== 'true') {
+    if (
+      SettingsManager.hasRequiredKeys() &&
+      SettingsManager.get('onboarding.completed') !== 'true'
+    ) {
       SettingsManager.set('onboarding.completed', 'true');
       console.log('[Main] Marked onboarding as completed for existing user');
     }

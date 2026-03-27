@@ -11,7 +11,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-// Mock the embeddings module (required before importing memory)
+// Mock the embeddings module (requires native dependencies)
 vi.mock('../../src/memory/embeddings', () => ({
   initEmbeddings: vi.fn(),
   hasEmbeddings: vi.fn(() => false),

@@ -26,31 +26,29 @@ function makeAgentDone(totalTurns: number, totalUsage: { inputTokens: number; ou
   return { type: 'agent_done' as const, totalTurns, totalUsage };
 }
 
-// ── Mock Agent class ──────────────────────────────────────────────────
+// ── Mock agentLoop ───────────────────────────────────────────────────
 
 let capturedAgentOptions: Record<string, unknown> | null = null;
+let capturedMessages: Array<Record<string, unknown>> | null = null;
 let mockAgentEvents: Array<Record<string, unknown>> = [];
 
 vi.mock('@kenkaiiii/gg-agent', () => ({
-  Agent: class MockAgent {
-    constructor(options: Record<string, unknown>) {
-      capturedAgentOptions = options;
-    }
-    prompt(_message: string) {
-      return {
-        [Symbol.asyncIterator]() {
-          let i = 0;
-          return {
-            async next() {
-              if (i < mockAgentEvents.length) {
-                return { value: mockAgentEvents[i++], done: false };
-              }
-              return { value: undefined, done: true };
-            },
-          };
-        },
-      };
-    }
+  agentLoop: (messages: Array<Record<string, unknown>>, options: Record<string, unknown>) => {
+    capturedMessages = messages;
+    capturedAgentOptions = options;
+    return {
+      [Symbol.asyncIterator]() {
+        let i = 0;
+        return {
+          async next() {
+            if (i < mockAgentEvents.length) {
+              return { value: mockAgentEvents[i++], done: false };
+            }
+            return { value: undefined, done: true };
+          },
+        };
+      },
+    };
   },
 }));
 
@@ -118,6 +116,7 @@ function createEngine() {
     saveMessage: vi.fn(() => 1),
     embedMessage: vi.fn(async () => {}),
     getSmartContext: vi.fn(async () => ({ recentMessages: [], rollingSummary: null })),
+    getSessionMode: vi.fn(() => 'general'),
   };
 
   const statusEmitter = vi.fn();
@@ -145,6 +144,7 @@ describe('ChatEngine', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     capturedAgentOptions = null;
+    capturedMessages = null;
     mockAgentEvents = [];
 
     // Reset default mock implementations
@@ -207,15 +207,17 @@ describe('ChatEngine', () => {
       expect(typeof result.wasCompacted).toBe('boolean');
     });
 
-    it('passes system prompt to Agent', async () => {
+    it('passes system prompt as first message', async () => {
       setDefaultAgentEvents('Hi');
       const { engine } = createEngine();
 
       await engine.processMessage('hi', 'desktop', 'test-session');
 
-      expect(capturedAgentOptions).not.toBeNull();
-      expect(typeof capturedAgentOptions!.system).toBe('string');
-      expect((capturedAgentOptions!.system as string)).toContain('Test system guidelines');
+      expect(capturedMessages).not.toBeNull();
+      const systemMsg = capturedMessages!.find(m => m.role === 'system');
+      expect(systemMsg).toBeDefined();
+      expect(typeof systemMsg!.content).toBe('string');
+      expect((systemMsg!.content as string)).toContain('Test system guidelines');
     });
 
     it('passes model from settings to Agent', async () => {

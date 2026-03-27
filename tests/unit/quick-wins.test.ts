@@ -82,6 +82,7 @@ function createEngine() {
     saveMessage: vi.fn(() => 1),
     embedMessage: vi.fn(async () => {}),
     getSmartContext: vi.fn(async () => ({ recentMessages: [], rollingSummary: null })),
+    getSessionMode: vi.fn(() => 'general'),
   };
   const engine = new ChatEngine({
     memory: memory as never,

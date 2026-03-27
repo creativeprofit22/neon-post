@@ -207,9 +207,7 @@ export async function buildSdkMcpServers(
     // Determine which tool sets this mode needs based on its allowedTools
     const modeConfig = getModeConfig(mode);
     const modeAllowedTools = modeConfig.allowedTools;
-    const needsMemoryTools = modeAllowedTools.some((t) =>
-      t.startsWith('mcp__neon-post__remember')
-    );
+    const needsMemoryTools = modeAllowedTools.some((t) => t.startsWith('mcp__neon-post__remember'));
     const needsSoulTools = modeAllowedTools.some((t) => t.startsWith('mcp__neon-post__soul_'));
     const needsSchedulerTools = modeAllowedTools.some((t) =>
       t.startsWith('mcp__neon-post__schedule_')

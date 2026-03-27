@@ -6,6 +6,74 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+// Mock better-sqlite3 to avoid native module issues
+// Provides a minimal in-memory SQL simulation using Maps
+vi.mock('better-sqlite3', () => {
+  class MockDatabase {
+    private store = new Map<string, { value: string; encrypted: number; category: string }>();
+    private _closed = false;
+
+    exec(_sql: string): void {
+      // No-op: table creation is handled implicitly by the Map
+    }
+
+    prepare(sql: string) {
+      const db = this;
+      return {
+        run(...params: unknown[]) {
+          if (sql.includes('INSERT') && sql.includes('IGNORE')) {
+            // INSERT OR IGNORE — only insert if key doesn't exist
+            const [key, value, encrypted, category] = params as [string, string, number, string];
+            if (!db.store.has(key)) {
+              db.store.set(key, { value, encrypted, category });
+            }
+            return { changes: db.store.has(key) ? 0 : 1, lastInsertRowid: 1 };
+          }
+          if (sql.includes('INSERT') && sql.includes('ON CONFLICT')) {
+            // UPSERT
+            const [key, value, encrypted, category] = params as [string, string, number, string];
+            db.store.set(key, { value, encrypted, category });
+            return { changes: 1, lastInsertRowid: 1 };
+          }
+          if (sql.includes('DELETE')) {
+            const key = params[0] as string;
+            const had = db.store.has(key);
+            db.store.delete(key);
+            return { changes: had ? 1 : 0 };
+          }
+          return { changes: 0, lastInsertRowid: 0 };
+        },
+        get(...params: unknown[]) {
+          if (sql.includes('SELECT') && sql.includes('WHERE key')) {
+            const key = params[0] as string;
+            const row = db.store.get(key);
+            if (row) return { value: row.value, encrypted: row.encrypted };
+            return undefined;
+          }
+          return undefined;
+        },
+        all() {
+          if (sql.includes('SELECT key, value, encrypted')) {
+            return Array.from(db.store.entries()).map(([key, row]) => ({
+              key,
+              value: row.value,
+              encrypted: row.encrypted,
+            }));
+          }
+          return [];
+        },
+      };
+    }
+
+    close(): void {
+      this._closed = true;
+    }
+  }
+
+  return { default: MockDatabase, __esModule: true };
+});
+
 import Database from 'better-sqlite3';
 
 // Mock Electron's safeStorage API before any imports
