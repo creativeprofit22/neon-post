@@ -91,98 +91,66 @@
 
   <!-- Onboarding (shown on first run, removed after completion) -->
   <div class="onboarding-container hidden" id="onboarding-container">
+    <!-- Progress bar (thin line below titlebar) -->
+    <div class="ob-progress-bar" id="ob-progress-bar"><div class="ob-progress-fill" id="ob-progress-fill"></div></div>
+    <!-- Top nav (back left, skip right) -->
+    <div class="ob-top-nav" id="ob-top-nav"><a id="ob-nav-back" class="hidden">back</a><span class="ob-nav-spacer"></span><a id="ob-nav-skip" class="hidden">skip</a></div>
+
     <div class="ob-logo"></div>
 
     <h1>Pocket Agent</h1>
     <p class="ob-subtitle">i'm Franky, your new 24/7 assistant</p>
 
-    <!-- Step: Keychain -->
-    <div class="ob-step active" id="ob-step-keychain">
-      <div id="ob-keychain-status"></div>
-      <div class="ob-status info">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18.709 3.495C16.817 2.554 14.5 2 12 2s-4.816.554-6.709 1.495c-.928.462-1.392.693-1.841 1.419S3 6.342 3 7.748v3.49c0 5.683 4.542 8.842 7.173 10.196c.734.377 1.1.566 1.827.566s1.093-.189 1.827-.566C16.457 20.08 21 16.92 21 11.237V7.748c0-1.406 0-2.108-.45-2.834s-.913-.957-1.841-1.419"/></svg>
-        <span id="ob-keychain-info-text">Pocket Agent uses your system's secure storage to protect API keys.</span>
-      </div>
+    <!-- Step: Welcome -->
+    <div class="ob-step active" id="ob-step-welcome">
+      <p class="ob-welcome-text">let's get you set up. it only takes a minute. we'll secure your keys, connect an AI provider, and personalize your experience.</p>
       <div class="ob-button-row">
-        <button class="ob-btn primary" id="ob-keychain-btn" onclick="obInitKeychain()">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2s10 4.477 10 10Z"/><path stroke-linecap="round" d="M12 13a2 2 0 1 0 0-4a2 2 0 0 0 0 4Zm0 0v3"/></g></svg>
-          Secure My Keys
+        <button class="ob-btn primary" onclick="obShowStep('ob-step-keychain')">
+          Begin Setup
         </button>
       </div>
-      <div class="ob-skip-link">
-        <a onclick="obSkipKeychain()">skip for now</a>
+    </div>
+
+    <!-- Step: Keychain -->
+    <div class="ob-step" id="ob-step-keychain">
+      <p class="ob-step-desc" id="ob-keychain-info-text">pocket agent uses your system's secure storage to protect API keys.</p>
+      <div class="ob-button-row">
+        <button class="ob-btn primary" id="ob-keychain-btn" onclick="obInitKeychain()">
+          Secure My Keys
+        </button>
       </div>
     </div>
 
     <!-- Step: macOS Permissions -->
     <div class="ob-step" id="ob-step-permissions">
-      <div class="ob-status info">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18.709 3.495C16.817 2.554 14.5 2 12 2s-4.816.554-6.709 1.495c-.928.462-1.392.693-1.841 1.419S3 6.342 3 7.748v3.49c0 5.683 4.542 8.842 7.173 10.196c.734.377 1.1.566 1.827.566s1.093-.189 1.827-.566C16.457 20.08 21 16.92 21 11.237V7.748c0-1.406 0-2.108-.45-2.834s-.913-.957-1.841-1.419"/></svg>
-        <span>These permissions let me read iMessage, Safari, and control apps on your behalf. You can grant them now or later.</span>
-      </div>
+      <p class="ob-step-desc">these optional permissions help me work better on your Mac. you can always change them later in System Settings.</p>
       <div id="ob-permissions-list"></div>
       <div class="ob-button-row">
-        <button class="ob-btn secondary" onclick="obShowStep('ob-step-keychain')">Back</button>
         <button class="ob-btn secondary" id="ob-perm-refresh-btn" onclick="obRefreshPermissions()">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m15.167 1l.598 1.118c.404.755.606 1.133.472 1.295c-.133.162-.573.031-1.454-.23A9.8 9.8 0 0 0 12 2.78c-5.247 0-9.5 4.128-9.5 9.22a8.97 8.97 0 0 0 1.27 4.61M8.834 23l-.598-1.118c-.404-.756-.606-1.134-.472-1.295c.133-.162.573-.032 1.454.23c.88.261 1.815.402 2.783.402c5.247 0 9.5-4.128 9.5-9.22a8.97 8.97 0 0 0-1.27-4.609"/></svg>
           Refresh
         </button>
         <button class="ob-btn primary" onclick="obShowStep('ob-step-auth')">
           Continue
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 6s6 4.419 6 6s-6 6-6 6"/></svg>
         </button>
-      </div>
-      <div class="ob-skip-link">
-        <a onclick="obShowStep('ob-step-auth')">skip permissions</a>
       </div>
     </div>
 
     <!-- Step: Choose Auth Method -->
     <div class="ob-step" id="ob-step-auth">
-      <div class="ob-auth-options">
-        <div class="ob-auth-option" onclick="obSelectAuth('oauth', this)">
-          <div class="ob-auth-option-icon oauth">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M8 8c0-.575 0-.822.045-1.075A2.98 2.98 0 0 1 9.833 4.7c.24-.1.523-.165 1.09-.294l2.728-.623c3.39-.774 5.084-1.161 6.217-.27C21 4.405 21 6.126 21 9.568v4.864c0 3.442 0 5.164-1.132 6.055c-1.133.891-2.827.504-6.217-.27l-2.728-.623c-.567-.13-.85-.194-1.09-.294a2.98 2.98 0 0 1-1.788-2.225C8 16.822 8 16.575 8 16"/><path d="M13 9s3 2.21 3 3s-3 3-3 3m2.5-3H3"/></g></svg>
-          </div>
-          <div class="ob-auth-option-text">
-            <h3>Sign in with Claude</h3>
-            <p>Use your Claude Pro or Max subscription</p>
-          </div>
-          <div class="ob-auth-option-badges">
-            <span class="ob-auth-badge">Best Choice</span>
-            <span class="ob-auth-badge risk">
-              Use at own risk
-              <span class="risk-info">i</span>
-              <span class="ob-risk-tooltip">Anthropic may restrict accounts using unofficial OAuth integrations. This is not an officially supported auth method. Use at your own risk.</span>
-            </span>
-          </div>
-        </div>
-        <div class="ob-auth-option" onclick="obSelectAuth('api', this)">
-          <div class="ob-auth-option-icon api">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.5 14.5a6 6 0 1 0-5.47-3.53L2.5 18.5v3h3v-2h2v-2h2l3.53-3.53c.754.34 1.59.53 2.47.53m2-8l-1 1"/></svg>
-          </div>
-          <div class="ob-auth-option-text">
-            <h3>Use API Key</h3>
-            <p>Enter your Anthropic, Kimi, or GLM API key</p>
-          </div>
-        </div>
+      <p class="ob-step-desc">how would you like to connect?</p>
+      <div class="ob-auth-options-simple">
+        <button class="ob-btn primary" onclick="obSelectAuth('oauth', this)">Sign in with Claude</button>
+        <button class="ob-btn secondary" onclick="obSelectAuth('api', this)">Use API Key</button>
       </div>
-      <div class="ob-skip-link">
-        <a onclick="obGoBackFromAuth()">back</a>
-      </div>
+      <p class="ob-auth-hint">Claude sign-in uses your Pro or Max subscription. API key works with Anthropic, Kimi, or GLM.</p>
     </div>
 
     <!-- Step: OAuth Start -->
     <div class="ob-step" id="ob-step-oauth">
-      <div id="ob-oauth-status"></div>
-      <div class="ob-status info">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.5"/><path stroke-width="1.5" d="M12 16v-4.5"/><path stroke-width="1.8" d="M12 8.012v-.01"/></g></svg>
-        <span>Click below to open Claude sign-in. After signing in, copy the code and paste it here.</span>
-      </div>
+      <p class="ob-step-desc">click below to open Claude sign-in. after signing in, copy the code and paste it here.</p>
       <div class="ob-button-row">
         <button class="ob-btn secondary" onclick="obShowStep('ob-step-auth')">Back</button>
         <button class="ob-btn oauth" id="ob-oauth-btn" onclick="obStartOAuth()">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M8 8c0-.575 0-.822.045-1.075A2.98 2.98 0 0 1 9.833 4.7c.24-.1.523-.165 1.09-.294l2.728-.623c3.39-.774 5.084-1.161 6.217-.27C21 4.405 21 6.126 21 9.568v4.864c0 3.442 0 5.164-1.132 6.055c-1.133.891-2.827.504-6.217-.27l-2.728-.623c-.567-.13-.85-.194-1.09-.294a2.98 2.98 0 0 1-1.788-2.225C8 16.822 8 16.575 8 16"/><path d="M13 9s3 2.21 3 3s-3 3-3 3m2.5-3H3"/></g></svg>
           Sign in
         </button>
       </div>
@@ -190,11 +158,7 @@
 
     <!-- Step: OAuth Code Entry -->
     <div class="ob-step" id="ob-step-oauth-code">
-      <div id="ob-oauth-code-status"></div>
-      <div class="ob-status info">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.5"/><path stroke-width="1.5" d="M12 16v-4.5"/><path stroke-width="1.8" d="M12 8.012v-.01"/></g></svg>
-        <span>Paste the authorization code from your browser</span>
-      </div>
+      <p class="ob-step-desc">paste the authorization code from your browser</p>
       <div class="ob-form-group">
         <label>Authorization Code</label>
         <input type="text" id="ob-oauth-code" placeholder="paste the magic code here...">
@@ -204,7 +168,6 @@
         <button class="ob-btn secondary" onclick="obCancelOAuth()">Cancel</button>
         <button class="ob-btn primary" id="ob-oauth-complete-btn" onclick="obCompleteOAuth()">
           Continue
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 6s6 4.419 6 6s-6 6-6 6"/></svg>
         </button>
       </div>
       <div class="ob-optional-section">
@@ -229,11 +192,7 @@
 
     <!-- Step: API Key Entry -->
     <div class="ob-step" id="ob-step-api">
-      <div id="ob-api-status"></div>
-      <div class="ob-status info" style="margin-bottom: 16px;">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" stroke-width="1.5"/><path stroke-width="1.5" d="M12 16v-4.5"/><path stroke-width="1.8" d="M12 8.012v-.01"/></g></svg>
-        <span>Enter at least one key to get started. Add more for access to additional models.</span>
-      </div>
+      <p class="ob-step-desc">enter at least one key to get started. add more for access to additional models.</p>
       <div class="ob-form-group">
         <label>Anthropic API Key</label>
         <input type="password" id="ob-anthropic-key" placeholder="sk-ant-...">
@@ -253,24 +212,153 @@
         <button class="ob-btn secondary" onclick="obShowStep('ob-step-auth')">Back</button>
         <button class="ob-btn primary" id="ob-api-btn" onclick="obValidateAndSave()">
           Continue
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 6s6 4.419 6 6s-6 6-6 6"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step: Your Name -->
+    <div class="ob-step" id="ob-step-name">
+      <div class="ob-step-label">what should I call you?</div>
+      <div class="ob-form-group">
+        <input type="text" id="ob-name-input" placeholder="your name">
+      </div>
+      <div class="ob-button-row">
+        <button class="ob-btn primary" onclick="obSaveName()">
+          Continue
+        </button>
+      </div>
+    </div>
+
+    <!-- Step: Your Location -->
+    <div class="ob-step" id="ob-step-location">
+      <div class="ob-step-label">where are you based?</div>
+      <div class="ob-form-group">
+        <div class="ob-autocomplete-wrapper">
+          <input type="text" id="ob-location-input" placeholder="type a city name..." autocomplete="off">
+          <div class="ob-autocomplete-dropdown" id="ob-location-dropdown"></div>
+        </div>
+      </div>
+      <input type="hidden" id="ob-timezone-value">
+      <div class="ob-button-row">
+        <button class="ob-btn primary" onclick="obSaveLocation()">
+          Continue
+        </button>
+      </div>
+    </div>
+
+    <!-- Step: Your Occupation -->
+    <div class="ob-step" id="ob-step-occupation">
+      <div class="ob-step-label">what do you do?</div>
+      <div class="ob-form-group">
+        <input type="text" id="ob-occupation-input" placeholder="developer, designer, student...">
+      </div>
+      <div class="ob-button-row">
+        <button class="ob-btn primary" onclick="obSaveOccupation()">
+          Continue
+        </button>
+      </div>
+    </div>
+
+    <!-- Step: Your Birthday -->
+    <div class="ob-step" id="ob-step-birthday">
+      <div class="ob-step-label">when's your birthday?</div>
+      <div class="ob-form-group">
+        <div class="ob-birthday-row">
+          <select id="ob-birthday-month">
+            <option value="">month</option>
+            <option value="January">January</option>
+            <option value="February">February</option>
+            <option value="March">March</option>
+            <option value="April">April</option>
+            <option value="May">May</option>
+            <option value="June">June</option>
+            <option value="July">July</option>
+            <option value="August">August</option>
+            <option value="September">September</option>
+            <option value="October">October</option>
+            <option value="November">November</option>
+            <option value="December">December</option>
+          </select>
+          <select id="ob-birthday-day">
+            <option value="">day</option>
+          </select>
+        </div>
+      </div>
+      <div class="ob-button-row">
+        <button class="ob-btn primary" onclick="obSaveBirthday()">
+          Continue
+        </button>
+      </div>
+    </div>
+
+    <!-- Step: Agent Name -->
+    <div class="ob-step" id="ob-step-agent-name">
+      <div class="ob-step-label">what would you like to call me?</div>
+      <div class="ob-form-group">
+        <input type="text" id="ob-agent-name-input" placeholder="Franky" value="Franky">
+      </div>
+      <div class="ob-button-row">
+        <button class="ob-btn primary" onclick="obSaveAgentName()">
+          Continue
+        </button>
+      </div>
+    </div>
+
+    <!-- Step: Your Goals -->
+    <div class="ob-step" id="ob-step-goals">
+      <div class="ob-step-label">what are you working toward?</div>
+      <div class="ob-form-group">
+        <textarea id="ob-goals-input" rows="4" placeholder="launch my startup, learn piano..."></textarea>
+      </div>
+      <div class="ob-button-row">
+        <button class="ob-btn primary" onclick="obSaveGoals()">
+          Continue
+        </button>
+      </div>
+    </div>
+
+    <!-- Step: Your Struggles -->
+    <div class="ob-step" id="ob-step-struggles">
+      <div class="ob-step-label">what are your biggest struggles?</div>
+      <div class="ob-form-group">
+        <textarea id="ob-struggles-input" rows="4" placeholder="time management, staying focused..."></textarea>
+      </div>
+      <div class="ob-button-row">
+        <button class="ob-btn primary" onclick="obSaveStruggles()">
+          Continue
+        </button>
+      </div>
+    </div>
+
+    <!-- Step: Fun Facts -->
+    <div class="ob-step" id="ob-step-funfacts">
+      <div class="ob-step-label">anything else I should know?</div>
+      <div class="ob-form-group">
+        <textarea id="ob-funfacts-input" rows="4" placeholder="I have a dog named Max, I'm vegetarian..."></textarea>
+      </div>
+      <div class="ob-button-row">
+        <button class="ob-btn primary" onclick="obSaveFunFacts()">
+          Continue
+        </button>
+      </div>
+    </div>
+
+    <!-- Step: Pocket CLI -->
+    <div class="ob-step" id="ob-step-cli">
+      <div class="ob-step-desc">pocket CLI lets your agent interact with real services like Twitter, YouTube, Hacker News, and more.</div>
+      <div class="ob-button-row">
+        <button class="ob-btn primary" id="ob-cli-install-btn" onclick="obInstallCli()">
+          Install Pocket CLI
         </button>
       </div>
     </div>
 
     <!-- Step: Success -->
     <div class="ob-step" id="ob-step-success">
-      <div class="ob-success-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 14.5s1.5 0 3.5 3.5c0 0 5.559-9.167 10.5-11"/></svg>
-      </div>
-      <div class="ob-success-text">
-        <h2>you're good to go!</h2>
-        <p>let's start chatting</p>
-      </div>
-      <div class="ob-button-row" style="margin-top: 24px;">
+      <div class="ob-step-desc">you're all set! everything's configured, let's start chatting</div>
+      <div class="ob-button-row">
         <button class="ob-btn primary" onclick="obFinishSetup()">
           Let's Chat!
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7.5 8.5h9m-9 4H13m-11-2c0-.77.013-1.523.04-2.25c.083-2.373.125-3.56 1.09-4.533c.965-.972 2.186-1.024 4.626-1.129A100 100 0 0 1 12 2.5c1.48 0 2.905.03 4.244.088c2.44.105 3.66.157 4.626 1.13c.965.972 1.007 2.159 1.09 4.532a64 64 0 0 1 0 4.5c-.083 2.373-.125 3.56-1.09 4.533c-.965.972-2.186 1.024-4.626 1.129q-1.102.047-2.275.07c-.74.014-1.111.02-1.437.145s-.6.358-1.148.828l-2.179 1.87A.73.73 0 0 1 8 20.77v-2.348l-.244-.01c-2.44-.105-3.66-.157-4.626-1.13c-.965-.972-1.007-2.159-1.09-4.532A64 64 0 0 1 2 10.5"/></svg>
         </button>
       </div>
     </div>
@@ -783,98 +871,14 @@
       </div>
     </div>
     <div class="routines-content">
-      <section class="rtn-section">
-        <div class="rtn-grid">
-          <div class="rtn-row">
-            <label>Job Name</label>
-            <div class="rtn-name-session">
-              <input type="text" id="rtn-job-name" placeholder="morning-vibes"/>
-              <select id="rtn-job-session"><option value="default">Default</option></select>
-            </div>
-          </div>
-          <div class="rtn-row schedule-row">
-            <label>When</label>
-            <div class="rtn-schedule-tabs">
-              <div class="rtn-schedule-tab active" data-type="daily">Daily</div>
-              <div class="rtn-schedule-tab" data-type="weekdays">Weekdays</div>
-              <div class="rtn-schedule-tab" data-type="interval">Every...</div>
-              <div class="rtn-schedule-tab" data-type="custom">Specific Days</div>
-            </div>
-            <div class="rtn-schedule-options active" id="rtn-options-daily">
-              <div class="rtn-time-picker">
-                <select id="rtn-hour-daily"></select>
-                <span class="separator">:</span>
-                <select id="rtn-minute-daily"></select>
-                <select id="rtn-ampm-daily"><option value="AM">AM</option><option value="PM">PM</option></select>
-              </div>
-            </div>
-            <div class="rtn-schedule-options" id="rtn-options-weekdays">
-              <div class="rtn-time-picker">
-                <select id="rtn-hour-weekdays"></select>
-                <span class="separator">:</span>
-                <select id="rtn-minute-weekdays"></select>
-                <select id="rtn-ampm-weekdays"><option value="AM">AM</option><option value="PM">PM</option></select>
-              </div>
-            </div>
-            <div class="rtn-schedule-options" id="rtn-options-interval">
-              <div class="rtn-interval-input">
-                <select id="rtn-interval-hours">
-                  <option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="12">12</option><option value="24">24</option>
-                </select>
-                <span class="rtn-interval-label">hrs</span>
-                <select id="rtn-interval-minutes">
-                  <option value="0">0</option><option value="5">5</option><option value="10">10</option><option value="15">15</option><option value="20">20</option><option value="30" selected>30</option><option value="45">45</option>
-                </select>
-                <span class="rtn-interval-label">mins</span>
-              </div>
-            </div>
-            <div class="rtn-schedule-options" id="rtn-options-custom">
-              <div class="rtn-day-selector">
-                <button type="button" class="rtn-day-btn" data-day="0">Sun</button>
-                <button type="button" class="rtn-day-btn" data-day="1">Mon</button>
-                <button type="button" class="rtn-day-btn" data-day="2">Tue</button>
-                <button type="button" class="rtn-day-btn" data-day="3">Wed</button>
-                <button type="button" class="rtn-day-btn" data-day="4">Thu</button>
-                <button type="button" class="rtn-day-btn" data-day="5">Fri</button>
-                <button type="button" class="rtn-day-btn" data-day="6">Sat</button>
-              </div>
-              <div class="rtn-time-picker">
-                <select id="rtn-hour-custom"></select>
-                <span class="separator">:</span>
-                <select id="rtn-minute-custom"></select>
-                <select id="rtn-ampm-custom"><option value="AM">AM</option><option value="PM">PM</option></select>
-              </div>
-            </div>
-          </div>
-          <div class="rtn-row">
-            <label>Source</label>
-            <select id="rtn-prompt-source" onchange="rtnHandlePromptSourceChange()"><option value="custom">Custom prompt</option></select>
-          </div>
-          <div class="rtn-row full-width" id="rtn-prompt-row">
-            <label>Prompt</label>
-            <textarea id="rtn-job-prompt" placeholder="what should i do when this kicks off?"></textarea>
-          </div>
-          <div class="rtn-row">
-            <label></label>
-            <button class="rtn-create-btn" onclick="playNormalClick(); rtnCreateJob()">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12.001 5v14.002m7.001-7H5"/></svg>
-              Let's Go!
-            </button>
+      <div class="rtn-grid">
+        <div id="rtn-jobs-list" class="rtn-jobs-list">
+          <div class="rtn-empty">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l2 2"/></g></svg>
+            <p>Loading...</p>
           </div>
         </div>
-      </section>
-      <section class="rtn-section">
-        <h2 class="rtn-section-title">Running on Autopilot</h2>
-        <p class="rtn-section-desc">Your scheduled routines.</p>
-        <div class="rtn-grid">
-          <div id="rtn-jobs-list" class="rtn-jobs-list">
-            <div class="rtn-empty">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l2 2"/></g></svg>
-              <p>Loading...</p>
-            </div>
-          </div>
-        </div>
-      </section>
+      </div>
     </div>
   </div><!-- #routines-view -->
 
@@ -891,7 +895,7 @@
       <nav class="pz-sidebar">
         <div class="pz-nav-item active" data-tab="agent-name">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path stroke-width="1.5" d="M12 4V2m7 20a7 7 0 1 0-14 0"/><path stroke-width="2" d="M9.5 7.5h.01m4.98 0h.01"/><path stroke-width="1.5" d="M5.5 6.667c0-.62 0-.93.068-1.185a2 2 0 0 1 1.414-1.414C7.237 4 7.547 4 8.167 4h7.666c.62 0 .93 0 1.185.068a2 2 0 0 1 1.414 1.414c.068.255.068.565.068 1.185c0 1.24 0 1.86-.136 2.368a4 4 0 0 1-2.829 2.829c-.508.136-1.128.136-2.368.136h-2.334c-1.24 0-1.86 0-2.368-.136a4 4 0 0 1-2.829-2.829C5.5 8.527 5.5 7.907 5.5 6.667"/></g></svg>
-          Agent's Name
+          Agent Details
         </div>
         <div class="pz-nav-item" data-tab="profile">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M17 8.5a5 5 0 1 0-10 0a5 5 0 0 0 10 0"/><path d="M19 20.5a7 7 0 1 0-14 0"/></g></svg>
@@ -911,11 +915,13 @@
         </div>
       </nav>
       <div class="pz-content">
-        <!-- Agent's Name Tab -->
+        <!-- Agent Details Tab -->
         <div class="pz-tab active" id="pz-tab-agent-name">
-          <div class="pz-section-header"><h2>Agent's Name</h2><p>What should I be called?</p></div>
-          <div class="pz-name-input-container"><input type="text" class="pz-name-input" id="pz-agent-name-input" placeholder="Frankie"></div>
-          <div class="pz-form-section" style="margin-top: 20px;">
+          <div class="pz-section-header"><h2>Agent Details</h2><p>Who am I?</p></div>
+          <div class="pz-form-section">
+            <div class="pz-form-group"><label for="pz-agent-name-input">Agent Name</label><input type="text" class="pz-name-input" id="pz-agent-name-input" placeholder="Frankie"></div>
+          </div>
+          <div class="pz-form-section">
             <div class="pz-form-group"><label for="pz-agent-description">Brief Description</label><textarea id="pz-agent-description" rows="3" placeholder="Who is this agent? What do they do?" style="resize: vertical;"></textarea><span class="hint">A short intro injected into the system prompt</span></div>
           </div>
           <div style="flex: 1;"></div>

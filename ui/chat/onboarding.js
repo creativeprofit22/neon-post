@@ -12,6 +12,12 @@
 let obSelectedAuth = null;
 let obKeychainInitialized = false;
 let obPermissionsShown = false;
+let _obNotyf = null;
+
+function _obToast(msg, type) {
+  if (!_obNotyf) _obNotyf = new Notyf({ duration: 3500, position: { x: 'right', y: 'bottom' }, dismissible: true, types: [{ type: 'success', background: '#4ade80' }, { type: 'error', background: '#f87171' }] });
+  _obNotyf[type === 'error' ? 'error' : 'success'](msg);
+}
 
 /**
  * Check if onboarding is needed and show it if so.
@@ -81,11 +87,10 @@ function obShowStep(stepId) {
     const btn = document.getElementById('ob-keychain-btn');
     btn.disabled = false;
     if (obKeychainInitialized) {
-      btn.innerHTML = OB_ICONS.check + ' Secured';
+      btn.textContent = 'Secured';
     } else {
-      btn.innerHTML = OB_ICONS.lock + ' Secure My Keys';
+      btn.textContent = 'Secure My Keys';
     }
-    document.getElementById('ob-keychain-status').innerHTML = '';
   } else if (stepId === 'ob-step-permissions') {
     const btn = document.getElementById('ob-perm-refresh-btn');
     btn.disabled = false;
@@ -94,27 +99,23 @@ function obShowStep(stepId) {
   } else if (stepId === 'ob-step-auth') {
     document.querySelectorAll('.ob-auth-option').forEach(el => el.classList.remove('selected'));
   } else if (stepId === 'ob-step-oauth') {
-    document.getElementById('ob-oauth-status').innerHTML = '';
     const btn = document.getElementById('ob-oauth-btn');
     btn.disabled = false;
-    btn.innerHTML = OB_ICONS.signin + ' Sign in';
+    btn.textContent = 'Sign in';
   } else if (stepId === 'ob-step-oauth-code') {
-    document.getElementById('ob-oauth-code-status').innerHTML = '';
     document.getElementById('ob-oauth-code').value = '';
     const btn = document.getElementById('ob-oauth-complete-btn');
     btn.disabled = false;
-    btn.innerHTML = 'Continue ' + OB_ICONS.arrow;
+    btn.textContent = 'Continue';
   } else if (stepId === 'ob-step-api') {
-    document.getElementById('ob-api-status').innerHTML = '';
     const btn = document.getElementById('ob-api-btn');
     btn.disabled = false;
-    btn.innerHTML = 'Continue ' + OB_ICONS.arrow;
+    btn.textContent = 'Continue';
   }
 }
 
 async function obInitKeychain() {
   const btn = document.getElementById('ob-keychain-btn');
-  const statusDiv = document.getElementById('ob-keychain-status');
 
   btn.disabled = true;
   btn.innerHTML = '<span class="ob-spinner"></span> Initializing...';
@@ -123,18 +124,18 @@ async function obInitKeychain() {
     const result = await window.pocketAgent.settings.initializeKeychain();
     if (result.available) {
       obKeychainInitialized = true;
-      statusDiv.innerHTML = `<div class="ob-status success">${OB_ICONS.check} Secure storage enabled! Your keys are safe with me</div>`;
-      setTimeout(() => obCheckAndShowPermissions(), 1000);
+      _obToast('Secure storage enabled!', 'success');
+      setTimeout(() => obCheckAndShowPermissions(), 800);
     } else {
       const platform = window.pocketAgent.app.getPlatform();
-      statusDiv.innerHTML = `<div class="ob-status error">${OB_ICONS.cross} ${result.error || getPlatformText(platform).storageFallback}</div>`;
+      _obToast(result.error || getPlatformText(platform).storageFallback, 'error');
       btn.disabled = false;
-      btn.innerHTML = OB_ICONS.lock + ' Try Again';
+      btn.textContent = 'Try Again';
     }
   } catch (err) {
-    statusDiv.innerHTML = `<div class="ob-status error">${OB_ICONS.cross} <span>${err.message || 'Failed to initialize secure storage'}</span></div>`;
+    _obToast(err.message || 'Failed to initialize secure storage', 'error');
     btn.disabled = false;
-    btn.innerHTML = OB_ICONS.lock + ' Try Again';
+    btn.textContent = 'Try Again';
   }
 }
 
@@ -174,7 +175,7 @@ async function obRefreshPermissions() {
       const iconClass = s.granted ? 'granted' : 'missing';
       const iconSvg = s.granted ? OB_ICONS.check : OB_ICONS.minus;
       const hint = (!s.granted && s.type === 'full-disk-access')
-        ? '<p style="color: var(--orange); margin-top: 2px;">Requires app restart to detect</p>'
+        ? '<p style="color: var(--text-muted); margin-top: 2px;">may show as missing even when granted. this is normal.</p>'
         : '';
       const actionHtml = s.granted
         ? ''
@@ -238,7 +239,6 @@ function obToggleOptional(header) {
 
 async function obStartOAuth() {
   const btn = document.getElementById('ob-oauth-btn');
-  const statusDiv = document.getElementById('ob-oauth-status');
 
   btn.disabled = true;
   btn.innerHTML = '<span class="ob-spinner"></span> Opening browser...';
@@ -249,29 +249,27 @@ async function obStartOAuth() {
       obShowStep('ob-step-oauth-code');
       document.getElementById('ob-oauth-code').focus();
     } else {
-      statusDiv.innerHTML = `<div class="ob-status error">${OB_ICONS.cross} ${result.error || 'Failed to open browser. Please try again.'}</div>`;
+      _obToast(result.error || 'Failed to open browser. Please try again.', 'error');
     }
   } catch (err) {
-    statusDiv.innerHTML = `<div class="ob-status error">${OB_ICONS.cross} ${err.message || 'Connection failed'}</div>`;
+    _obToast(err.message || 'Connection failed', 'error');
   }
 
   btn.disabled = false;
-  btn.innerHTML = OB_ICONS.signin + ' Sign in';
+  btn.textContent = 'Sign in';
 }
 
 async function obCompleteOAuth() {
   const code = document.getElementById('ob-oauth-code').value.trim();
-  const statusDiv = document.getElementById('ob-oauth-code-status');
   const btn = document.getElementById('ob-oauth-complete-btn');
 
   if (!code) {
-    statusDiv.innerHTML = `<div class="ob-status error">${OB_ICONS.cross} Please paste the authorization code from your browser</div>`;
+    _obToast('Please paste the authorization code from your browser', 'error');
     return;
   }
 
   btn.disabled = true;
   btn.innerHTML = '<span class="ob-spinner"></span> Verifying...';
-  statusDiv.innerHTML = '';
 
   try {
     const result = await window.pocketAgent.auth.completeOAuth(code);
@@ -281,16 +279,16 @@ async function obCompleteOAuth() {
       if (kimiKey) await window.pocketAgent.settings.set('moonshot.apiKey', kimiKey);
       const glmKey = document.getElementById('ob-glm-key-oauth').value.trim();
       if (glmKey) await window.pocketAgent.settings.set('glm.apiKey', glmKey);
-      obShowStep('ob-step-success');
+      obShowStep('ob-step-name');
     } else {
-      statusDiv.innerHTML = `<div class="ob-status error">${OB_ICONS.cross} ${result.error || 'Invalid code. Please try again.'}</div>`;
+      _obToast(result.error || 'Invalid code. Please try again.', 'error');
     }
   } catch (err) {
-    statusDiv.innerHTML = `<div class="ob-status error">${OB_ICONS.cross} ${err.message || 'Verification failed'}</div>`;
+    _obToast(err.message || 'Verification failed', 'error');
   }
 
   btn.disabled = false;
-  btn.innerHTML = 'Continue ' + OB_ICONS.arrow;
+  btn.textContent = 'Continue';
 }
 
 async function obCancelOAuth() {
@@ -300,7 +298,6 @@ async function obCancelOAuth() {
     console.error('Failed to cancel OAuth:', err);
   }
   document.getElementById('ob-oauth-code').value = '';
-  document.getElementById('ob-oauth-code-status').innerHTML = '';
   obShowStep('ob-step-auth');
 }
 
@@ -308,30 +305,28 @@ async function obValidateAndSave() {
   const anthropicKey = document.getElementById('ob-anthropic-key').value.trim();
   const kimiKey = document.getElementById('ob-kimi-key-api').value.trim();
   const glmKey = document.getElementById('ob-glm-key-api').value.trim();
-  const statusDiv = document.getElementById('ob-api-status');
   const btn = document.getElementById('ob-api-btn');
 
   if (!anthropicKey && !kimiKey && !glmKey) {
-    statusDiv.innerHTML = `<div class="ob-status error">${OB_ICONS.cross} Please enter at least one API key</div>`;
+    _obToast('Please enter at least one API key', 'error');
     return;
   }
 
   if (anthropicKey && !/^sk-ant-[A-Za-z0-9_-]{90,}$/.test(anthropicKey)) {
-    statusDiv.innerHTML = `<div class="ob-status error">${OB_ICONS.cross} Anthropic keys start with "sk-ant-"</div>`;
+    _obToast('Anthropic keys start with "sk-ant-"', 'error');
     return;
   }
 
   btn.disabled = true;
   btn.innerHTML = '<span class="ob-spinner"></span> Validating...';
-  statusDiv.innerHTML = '';
 
   try {
     if (anthropicKey) {
       const result = await window.pocketAgent.validate.anthropicKey(anthropicKey);
       if (!result.valid) {
-        statusDiv.innerHTML = `<div class="ob-status error">${OB_ICONS.cross} ${result.error || 'Invalid Anthropic API key'}</div>`;
+        _obToast(result.error || 'Invalid Anthropic API key', 'error');
         btn.disabled = false;
-        btn.innerHTML = 'Continue ' + OB_ICONS.arrow;
+        btn.textContent = 'Continue';
         return;
       }
     }
@@ -352,11 +347,11 @@ async function obValidateAndSave() {
       }
     }
 
-    obShowStep('ob-step-success');
+    obShowStep('ob-step-name');
   } catch (err) {
-    statusDiv.innerHTML = `<div class="ob-status error">${OB_ICONS.cross} ${err.message || 'Validation failed'}</div>`;
+    _obToast(err.message || 'Validation failed', 'error');
     btn.disabled = false;
-    btn.innerHTML = 'Continue ' + OB_ICONS.arrow;
+    btn.textContent = 'Continue';
   }
 }
 
@@ -392,7 +387,257 @@ async function obFinishSetup() {
   }, 500);
 }
 
-// Enter key handlers
+// ---- Progress indicator ----
+
+const OB_STEP_ORDER = [
+  'ob-step-welcome', 'ob-step-keychain', 'ob-step-permissions', 'ob-step-auth',
+  'ob-step-oauth', 'ob-step-oauth-code', 'ob-step-api',
+  'ob-step-name', 'ob-step-location', 'ob-step-occupation',
+  'ob-step-birthday', 'ob-step-agent-name',
+  'ob-step-goals', 'ob-step-struggles', 'ob-step-funfacts',
+  'ob-step-cli', 'ob-step-success',
+];
+
+// Nav config: stepId → { back: stepId|fn|null, skip: stepId|fn|null }
+const OB_NAV_CONFIG = {
+  'ob-step-welcome': { back: null, skip: null },
+  'ob-step-keychain': { back: null, skip: () => obSkipKeychain() },
+  'ob-step-permissions': { back: 'ob-step-keychain', skip: 'ob-step-auth' },
+  'ob-step-auth': { back: () => obGoBackFromAuth(), skip: null },
+  'ob-step-oauth': { back: 'ob-step-auth', skip: null },
+  'ob-step-oauth-code': { back: () => obCancelOAuth(), skip: null },
+  'ob-step-api': { back: 'ob-step-auth', skip: null },
+  'ob-step-name': { back: null, skip: 'ob-step-location' },
+  'ob-step-location': { back: 'ob-step-name', skip: 'ob-step-occupation' },
+  'ob-step-occupation': { back: 'ob-step-location', skip: 'ob-step-birthday' },
+  'ob-step-birthday': { back: 'ob-step-occupation', skip: 'ob-step-agent-name' },
+  'ob-step-agent-name': { back: 'ob-step-birthday', skip: 'ob-step-personality' },
+  'ob-step-personality': { back: 'ob-step-agent-name', skip: 'ob-step-goals' },
+  'ob-step-goals': { back: 'ob-step-personality', skip: 'ob-step-struggles' },
+  'ob-step-struggles': { back: 'ob-step-goals', skip: 'ob-step-funfacts' },
+  'ob-step-funfacts': { back: 'ob-step-struggles', skip: 'ob-step-cli' },
+  'ob-step-cli': { back: 'ob-step-funfacts', skip: 'ob-step-success' },
+  'ob-step-success': { back: null, skip: null },
+};
+
+function obUpdateUI(stepId) {
+  // Show logo/title only on welcome step
+  const isWelcome = stepId === 'ob-step-welcome';
+  const logo = document.querySelector('.onboarding-container .ob-logo');
+  const h1 = document.querySelector('.onboarding-container h1');
+  const subtitle = document.querySelector('.onboarding-container .ob-subtitle');
+  if (logo) logo.style.display = isWelcome ? '' : 'none';
+  if (h1) h1.style.display = isWelcome ? '' : 'none';
+  if (subtitle) subtitle.style.display = isWelcome ? '' : 'none';
+
+  // Update progress bar
+  const fill = document.getElementById('ob-progress-fill');
+  const idx = OB_STEP_ORDER.indexOf(stepId);
+  const total = OB_STEP_ORDER.length - 1; // -1 so success = 100%
+  if (fill) fill.style.width = total > 0 ? `${(idx / total) * 100}%` : '0%';
+
+  // Update top nav back/skip
+  const nav = OB_NAV_CONFIG[stepId] || { back: null, skip: null };
+  const backEl = document.getElementById('ob-nav-back');
+  const skipEl = document.getElementById('ob-nav-skip');
+
+  if (backEl) {
+    if (nav.back) {
+      backEl.classList.remove('hidden');
+      backEl.onclick = typeof nav.back === 'function' ? nav.back : () => obShowStep(nav.back);
+    } else {
+      backEl.classList.add('hidden');
+      backEl.onclick = null;
+    }
+  }
+
+  if (skipEl) {
+    if (nav.skip) {
+      skipEl.classList.remove('hidden');
+      skipEl.onclick = typeof nav.skip === 'function' ? nav.skip : () => obShowStep(nav.skip);
+    } else {
+      skipEl.classList.add('hidden');
+      skipEl.onclick = null;
+    }
+  }
+}
+
+// Patch obShowStep to include progress + nav update
+const _obShowStepOriginal = obShowStep;
+// eslint-disable-next-line no-func-assign
+obShowStep = function(stepId) {
+  _obShowStepOriginal(stepId);
+  obUpdateUI(stepId);
+
+  // Auto-focus text inputs on personalization steps
+  const focusMap = {
+    'ob-step-name': 'ob-name-input',
+    'ob-step-location': 'ob-location-input',
+    'ob-step-occupation': 'ob-occupation-input',
+    'ob-step-agent-name': 'ob-agent-name-input',
+  };
+  if (focusMap[stepId]) {
+    setTimeout(() => {
+      const el = document.getElementById(focusMap[stepId]);
+      if (el) el.focus();
+    }, 100);
+  }
+};
+
+// ---- Personalization save functions ----
+
+async function obSaveName() {
+  const value = document.getElementById('ob-name-input').value.trim();
+  if (value) await window.pocketAgent.settings.set('profile.name', value);
+  obShowStep('ob-step-location');
+}
+
+async function obSaveLocation() {
+  const value = document.getElementById('ob-location-input').value.trim();
+  const timezone = document.getElementById('ob-timezone-value').value;
+  if (value) await window.pocketAgent.settings.set('profile.location', value);
+  if (timezone) await window.pocketAgent.settings.set('profile.timezone', timezone);
+  obShowStep('ob-step-occupation');
+}
+
+async function obSaveOccupation() {
+  const value = document.getElementById('ob-occupation-input').value.trim();
+  if (value) await window.pocketAgent.settings.set('profile.occupation', value);
+  obShowStep('ob-step-birthday');
+}
+
+async function obSaveBirthday() {
+  const month = document.getElementById('ob-birthday-month').value;
+  const day = document.getElementById('ob-birthday-day').value;
+  if (month && day) await window.pocketAgent.settings.set('profile.birthday', `${month} ${day}`);
+  obShowStep('ob-step-agent-name');
+}
+
+async function obSaveAgentName() {
+  const value = document.getElementById('ob-agent-name-input').value.trim();
+  if (value) await window.pocketAgent.settings.set('personalize.agentName', value);
+  obShowStep('ob-step-goals');
+}
+
+async function obSaveGoals() {
+  const value = document.getElementById('ob-goals-input').value.trim();
+  if (value) await window.pocketAgent.settings.set('personalize.goals', value);
+  obShowStep('ob-step-struggles');
+}
+
+async function obSaveStruggles() {
+  const value = document.getElementById('ob-struggles-input').value.trim();
+  if (value) await window.pocketAgent.settings.set('personalize.struggles', value);
+  obShowStep('ob-step-funfacts');
+}
+
+async function obSaveFunFacts() {
+  const value = document.getElementById('ob-funfacts-input').value.trim();
+  if (value) await window.pocketAgent.settings.set('personalize.funFacts', value);
+  obShowStep('ob-step-cli');
+}
+
+function obSkipToSuccess() {
+  obShowStep('ob-step-success');
+}
+
+// ---- Location autocomplete ----
+
+let _obLocationLookupTimeout = null;
+
+function _obSetupLocationAutocomplete() {
+  const input = document.getElementById('ob-location-input');
+  const dropdown = document.getElementById('ob-location-dropdown');
+  if (!input || !dropdown) return;
+
+  input.addEventListener('input', (e) => {
+    const query = e.target.value.trim();
+    if (_obLocationLookupTimeout) clearTimeout(_obLocationLookupTimeout);
+    if (query.length < 2) { dropdown.classList.remove('show'); return; }
+
+    _obLocationLookupTimeout = setTimeout(async () => {
+      try {
+        const results = await window.pocketAgent.location.lookup(query);
+        if (results.length === 0) { dropdown.classList.remove('show'); return; }
+        dropdown.innerHTML = results.map(r => `
+          <div class="ob-autocomplete-item" data-display="${r.display}" data-timezone="${r.timezone}">
+            <div class="city">${r.city}</div>
+            <div class="details">${r.province ? r.province + ', ' : ''}${r.country} - ${r.timezone}</div>
+          </div>
+        `).join('');
+        dropdown.querySelectorAll('.ob-autocomplete-item').forEach(item => {
+          item.addEventListener('click', () => {
+            input.value = item.dataset.display;
+            document.getElementById('ob-timezone-value').value = item.dataset.timezone;
+            dropdown.classList.remove('show');
+          });
+        });
+        dropdown.classList.add('show');
+      } catch (e) { console.error('[Onboarding] Error looking up location:', e); }
+    }, 300);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!input.contains(e.target) && !dropdown.contains(e.target)) dropdown.classList.remove('show');
+  });
+  input.addEventListener('keydown', (e) => { if (e.key === 'Escape') dropdown.classList.remove('show'); });
+}
+
+// ---- Birthday day picker ----
+
+function _obSetupBirthdayPicker() {
+  const daySelect = document.getElementById('ob-birthday-day');
+  if (!daySelect) return;
+  for (let i = 1; i <= 31; i++) {
+    const opt = document.createElement('option');
+    opt.value = i; opt.textContent = i;
+    daySelect.appendChild(opt);
+  }
+}
+
+// ---- CLI install ----
+
+const _obCliIsWindows = typeof window.pocketAgent?.app?.getPlatform === 'function' && window.pocketAgent.app.getPlatform() === 'win32';
+
+const _obCliCommands = {
+  install: _obCliIsWindows
+    ? [
+        '$installDir = Join-Path $env:LOCALAPPDATA "pocket-agent-cli"',
+        'New-Item -ItemType Directory -Force -Path $installDir | Out-Null',
+        '$release = Invoke-RestMethod "https://api.github.com/repos/KenKaiii/pocket-agent-cli/releases/latest"',
+        '$asset = $release.assets | Where-Object { $_.name -like "*windows*amd64*" } | Select-Object -First 1',
+        'if (-not $asset) { throw "No Windows release asset found" }',
+        '$zipPath = Join-Path $env:TEMP "pocket_cli.zip"',
+        'Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zipPath',
+        'Expand-Archive -Path $zipPath -DestinationPath $installDir -Force',
+        'Remove-Item $zipPath -Force',
+        '$userPath = [Environment]::GetEnvironmentVariable("Path", "User")',
+        'if ($userPath -notlike "*$installDir*") { [Environment]::SetEnvironmentVariable("Path", "$userPath;$installDir", "User") }',
+        'Write-Output "Installed to $installDir"',
+      ].join('; ')
+    : 'curl -fsSL https://raw.githubusercontent.com/KenKaiii/pocket-agent-cli/main/scripts/install.sh -o /tmp/pocket-cli-install.sh && sed -i "" "s/^.*exec .*$//" /tmp/pocket-cli-install.sh && bash /tmp/pocket-cli-install.sh && rm -f /tmp/pocket-cli-install.sh',
+};
+
+async function obInstallCli() {
+  const btn = document.getElementById('ob-cli-install-btn');
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="ob-spinner"></span> Installing...';
+
+  try {
+    await window.pocketAgent.shell.runCommand(_obCliCommands.install);
+    _obToast('Pocket CLI installed!', 'success');
+    btn.innerHTML = OB_ICONS.check + ' Installed';
+    setTimeout(() => obShowStep('ob-step-success'), 1500);
+  } catch (err) {
+    _obToast(err.message || 'Installation failed. You can install later from Settings.', 'error');
+    btn.disabled = false;
+    btn.innerHTML = 'Retry Install ' + OB_ICONS.arrow;
+  }
+}
+
+// ---- Enter key handlers & init ----
+
 document.addEventListener('DOMContentLoaded', () => {
   const anthropicInput = document.getElementById('ob-anthropic-key');
   if (anthropicInput) {
@@ -406,4 +651,20 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.key === 'Enter') obCompleteOAuth();
     });
   }
+
+  // Enter key for personalization text inputs
+  const enterKeyMap = {
+    'ob-name-input': obSaveName,
+    'ob-occupation-input': obSaveOccupation,
+    'ob-agent-name-input': obSaveAgentName,
+    'ob-location-input': obSaveLocation,
+  };
+  Object.entries(enterKeyMap).forEach(([id, fn]) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') fn(); });
+  });
+
+  // Setup location autocomplete and birthday picker
+  _obSetupLocationAutocomplete();
+  _obSetupBirthdayPicker();
 });

@@ -178,7 +178,7 @@ body:not(.onboarding-active) #chat-view {
 .ob-step {
   display: none;
   width: 100%;
-  max-width: 440px;
+  max-width: 560px;
   animation: obStepIn 0.3s ease;
 }
 
@@ -569,10 +569,61 @@ body:not(.onboarding-active) #chat-view {
   font-weight: 500;
 }
 
-/* Skip link */
+/* Progress bar (thin line below titlebar) */
+.ob-progress-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: var(--border);
+  z-index: 10;
+}
+
+.ob-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 0 2px 2px 0;
+}
+
+/* Top nav (back left, skip right) — pinned to top of container */
+.ob-top-nav {
+  position: absolute;
+  top: 12px;
+  left: 24px;
+  right: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+  -webkit-app-region: no-drag;
+}
+
+.ob-top-nav a {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: pointer;
+  padding: 6px 0;
+}
+
+.ob-top-nav a:hover {
+  color: var(--text-secondary);
+  text-decoration: underline;
+}
+
+.ob-top-nav .ob-nav-spacer {
+  flex: 1;
+}
+
+/* Skip link (legacy, kept for compatibility) */
 .ob-skip-link {
   margin-top: 20px;
   text-align: center;
+  display: none;
 }
 
 .ob-skip-link a {
@@ -585,6 +636,206 @@ body:not(.onboarding-active) #chat-view {
 .ob-skip-link a:hover {
   color: var(--text-secondary);
   text-decoration: underline;
+}
+
+/* Skip links container (skip-all at bottom) */
+.ob-skip-links {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.ob-skip-links a {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.ob-skip-links a:hover {
+  color: var(--text-secondary);
+  text-decoration: underline;
+}
+
+.ob-skip-links .ob-skip-all {
+  font-size: 12px;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.ob-skip-links .ob-skip-all:hover {
+  opacity: 1;
+}
+
+/* Progress dots */
+.ob-progress {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 24px;
+  animation: obTextIn 0.5s ease 0.2s both;
+}
+
+.ob-progress-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+  transition: all 0.3s ease;
+}
+
+.ob-progress-dot.active {
+  background: var(--accent);
+  transform: scale(1.3);
+}
+
+.ob-progress-dot.done {
+  background: var(--text-muted);
+}
+
+/* Textarea in form groups */
+.ob-form-group textarea {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.ob-form-group textarea:focus {
+  border-color: var(--accent);
+}
+
+.ob-form-group textarea::placeholder {
+  color: var(--text-muted);
+}
+
+/* Location autocomplete (onboarding) */
+.ob-autocomplete-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.ob-autocomplete-wrapper input {
+  width: 100%;
+}
+
+.ob-autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+  display: none;
+}
+
+.ob-autocomplete-dropdown.show {
+  display: block;
+}
+
+.ob-autocomplete-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s ease;
+}
+
+.ob-autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.ob-autocomplete-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.ob-autocomplete-item .city {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.ob-autocomplete-item .details {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+/* Birthday selects */
+.ob-birthday-row {
+  display: flex;
+  gap: 12px;
+}
+
+.ob-birthday-row select {
+  flex: 1;
+  padding: 12px 14px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='none' stroke='%23888' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+.ob-birthday-row select:focus {
+  border-color: var(--accent);
+}
+
+/* CLI install info */
+/* Welcome text + step descriptions (same clean style) */
+.ob-welcome-text,
+.ob-step-desc,
+.ob-step-label {
+  font-size: 20px;
+  color: var(--text-secondary);
+  line-height: 1.35;
+  text-align: center;
+  max-width: 100%;
+  margin: 0 auto 24px;
+  animation: obTextIn 0.3s ease both;
+}
+
+.ob-welcome-text {
+  animation: obTextIn 0.5s ease 0.2s both;
+}
+
+/* Auth options simple (stacked buttons) */
+.ob-auth-options-simple {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ob-auth-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 16px;
+  line-height: 1.6;
 }
 
 /* Success */
