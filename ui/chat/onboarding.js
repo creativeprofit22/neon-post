@@ -602,9 +602,9 @@ const _obCliIsWindows = typeof window.pocketAgent?.app?.getPlatform === 'functio
 const _obCliCommands = {
   install: _obCliIsWindows
     ? [
-        '$installDir = Join-Path $env:LOCALAPPDATA "neon-post-cli"',
+        '$installDir = Join-Path $env:LOCALAPPDATA "pocket-agent-cli"',
         'New-Item -ItemType Directory -Force -Path $installDir | Out-Null',
-        '$release = Invoke-RestMethod "https://api.github.com/repos/KenKaiii/neon-post-cli/releases/latest"',
+        '$release = Invoke-RestMethod "https://api.github.com/repos/KenKaiii/pocket-agent-cli/releases/latest"',
         '$asset = $release.assets | Where-Object { $_.name -like "*windows*amd64*" } | Select-Object -First 1',
         'if (-not $asset) { throw "No Windows release asset found" }',
         '$zipPath = Join-Path $env:TEMP "pocket_cli.zip"',
@@ -615,7 +615,7 @@ const _obCliCommands = {
         'if ($userPath -notlike "*$installDir*") { [Environment]::SetEnvironmentVariable("Path", "$userPath;$installDir", "User") }',
         'Write-Output "Installed to $installDir"',
       ].join('; ')
-    : 'curl -fsSL https://raw.githubusercontent.com/KenKaiii/neon-post-cli/main/scripts/install.sh -o /tmp/pocket-cli-install.sh && sed -i "" "s/^.*exec .*$//" /tmp/pocket-cli-install.sh && bash /tmp/pocket-cli-install.sh && rm -f /tmp/pocket-cli-install.sh',
+    : 'curl -fsSL https://raw.githubusercontent.com/KenKaiii/pocket-agent-cli/main/scripts/install.sh -o /tmp/pocket-cli-install.sh && sed -i "" "s/^.*exec .*$//" /tmp/pocket-cli-install.sh && bash /tmp/pocket-cli-install.sh && rm -f /tmp/pocket-cli-install.sh',
 };
 
 async function obInstallCli() {

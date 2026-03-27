@@ -227,8 +227,8 @@ export function registerAgentIPC(deps: IPCDependencies): void {
   // Read media file as data URI (for displaying agent-generated images in chat)
   ipcMain.handle('agent:readMedia', async (_, filePath: string) => {
     try {
-      // Security: only allow reading from the Pocket-agent media directory
-      const mediaDir = path.join(app.getPath('documents'), 'Pocket-agent', 'media');
+      // Security: only allow reading from the Neon-post media directory
+      const mediaDir = path.join(app.getPath('documents'), 'Neon-post', 'media');
       const resolvedPath = path.resolve(filePath);
       if (!resolvedPath.startsWith(mediaDir)) {
         throw new Error('Access denied: path outside media directory');

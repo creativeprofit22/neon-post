@@ -71,12 +71,12 @@ const WIN = {
 /**
  * Get the agent's isolated workspace directory.
  * This is separate from the app's project root to prevent conflicts.
- * Located in ~/Documents/Pocket-agent/  (falls back to userData if Documents is unavailable,
+ * Located in ~/Documents/Neon-post/  (falls back to userData if Documents is unavailable,
  * e.g. iCloud Drive syncing or broken symlink on macOS).
  */
 function getAgentWorkspace(): string {
   const documentsPath = app.getPath('documents');
-  const workspace = path.join(documentsPath, 'Pocket-agent');
+  const workspace = path.join(documentsPath, 'Neon-post');
 
   // Verify the Documents path is actually reachable on disk.
   // On macOS with iCloud Drive, ~/Documents can be a symlink to
@@ -99,7 +99,7 @@ function getAgentWorkspace(): string {
 
 /**
  * Create a per-session working directory for Coder mode.
- * Creates ~/Documents/Pocket-agent/<sessionName>/ and populates
+ * Creates ~/Documents/Neon-post/<sessionName>/ and populates
  * .claude/commands/ with coder-specific commands from bundled assets.
  * Does NOT copy CLAUDE.md — coder mode uses the project's own CLAUDE.md
  * via the SDK's settingSources: ['project'] + cwd.

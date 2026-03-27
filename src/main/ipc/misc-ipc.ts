@@ -75,8 +75,8 @@ export function registerMiscIPC(deps: IPCDependencies): void {
   });
 
   ipcMain.handle('app:openPath', async (_, filePath: string) => {
-    // Security: only allow opening paths within the Pocket-agent documents directory
-    const allowedDir = path.join(app.getPath('documents'), 'Pocket-agent');
+    // Security: only allow opening paths within the Neon-post documents directory
+    const allowedDir = path.join(app.getPath('documents'), 'Neon-post');
     const resolvedPath = path.resolve(filePath);
     if (!resolvedPath.startsWith(allowedDir)) {
       console.warn('[Main] Blocked openPath outside allowed directory:', filePath);
@@ -88,7 +88,7 @@ export function registerMiscIPC(deps: IPCDependencies): void {
   // Open an image in the default viewer — handles both local paths and URLs
   ipcMain.handle('app:openImage', async (_, src: string) => {
     try {
-      const mediaDir = path.join(app.getPath('documents'), 'Pocket-agent', 'media');
+      const mediaDir = path.join(app.getPath('documents'), 'Neon-post', 'media');
       if (src.startsWith('http://') || src.startsWith('https://')) {
         // Remote URL — download to media dir first
         if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
@@ -189,8 +189,8 @@ export function registerMiscIPC(deps: IPCDependencies): void {
       ]
     : [
         'which pocket',
-        'curl -fsSL https://api.github.com/repos/KenKaiii/neon-post-cli/',
-        'curl -fsSL https://raw.githubusercontent.com/KenKaiii/neon-post-cli/main/scripts/install.sh -o /tmp/pocket-cli-install.sh && sed',
+        'curl -fsSL https://api.github.com/repos/KenKaiii/pocket-agent-cli/',
+        'curl -fsSL https://raw.githubusercontent.com/KenKaiii/pocket-agent-cli/main/scripts/install.sh -o /tmp/pocket-cli-install.sh && sed',
       ];
 
   // Validate the `strings` version-check command

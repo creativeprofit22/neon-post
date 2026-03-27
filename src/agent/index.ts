@@ -1591,7 +1591,7 @@ class AgentManagerClass extends EventEmitter {
       if (b.type !== 'image' || !b.source) continue;
 
       try {
-        const mediaDir = path.join(os.homedir(), 'Documents', 'Pocket-agent', 'media');
+        const mediaDir = path.join(os.homedir(), 'Documents', 'Neon-post', 'media');
         if (!fs.existsSync(mediaDir)) {
           fs.mkdirSync(mediaDir, { recursive: true });
         }
