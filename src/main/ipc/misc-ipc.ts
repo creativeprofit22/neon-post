@@ -189,8 +189,8 @@ export function registerMiscIPC(deps: IPCDependencies): void {
       ]
     : [
         'which pocket',
-        'curl -fsSL https://api.github.com/repos/KenKaiii/pocket-agent-cli/',
-        'curl -fsSL https://raw.githubusercontent.com/KenKaiii/pocket-agent-cli/main/scripts/install.sh -o /tmp/pocket-cli-install.sh && sed',
+        'curl -fsSL https://api.github.com/repos/KenKaiii/neon-post-cli/',
+        'curl -fsSL https://raw.githubusercontent.com/KenKaiii/neon-post-cli/main/scripts/install.sh -o /tmp/pocket-cli-install.sh && sed',
       ];
 
   // Validate the `strings` version-check command

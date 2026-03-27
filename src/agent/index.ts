@@ -424,7 +424,7 @@ export interface AgentConfig {
   memory: MemoryManager;
   projectRoot?: string;
   workspace?: string; // Isolated working directory for agent file operations
-  dataDir?: string; // App data directory (e.g. ~/Library/Application Support/pocket-agent)
+  dataDir?: string; // App data directory (e.g. ~/Library/Application Support/neon-post)
   model?: string;
   tools?: ToolsConfig;
 }

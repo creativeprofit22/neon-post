@@ -340,7 +340,7 @@ describe('Safety - Tool Call Validation', () => {
   });
 
   it('validates browser navigate action', () => {
-    const result = validateToolCall('mcp__pocket-agent__browser', {
+    const result = validateToolCall('mcp__neon-post__browser', {
       action: 'navigate',
       url: 'file:///etc/passwd',
     });

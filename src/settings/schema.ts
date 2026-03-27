@@ -189,7 +189,7 @@ export const SETTINGS_SCHEMA: SettingDefinition[] = [
   },
   {
     key: 'ios.relayUrl',
-    defaultValue: 'wss://pocket-agent-relay.buzzbeamaustralia.workers.dev',
+    defaultValue: 'wss://neon-post-relay.buzzbeamaustralia.workers.dev',
     encrypted: false,
     category: 'ios',
     label: 'Relay URL',
@@ -366,7 +366,7 @@ export const SETTINGS_SCHEMA: SettingDefinition[] = [
   {
     key: 'personalize.description',
     defaultValue:
-      'You are a personal AI assistant who lives inside Pocket Agent. You help with whatever the user needs, remember everything, and keep things fun along the way.',
+      'You are a personal AI assistant who lives inside Neon Post. You help with whatever the user needs, remember everything, and keep things fun along the way.',
     encrypted: false,
     category: 'personalize',
     label: 'Agent Description',

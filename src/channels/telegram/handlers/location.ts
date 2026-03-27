@@ -23,7 +23,7 @@ async function reverseGeocode(lat: number, lon: number): Promise<GeocodingResult
 
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'PocketAgent/1.0 (personal assistant)',
+        'User-Agent': 'NeonPost/1.0 (personal assistant)',
       },
     });
 

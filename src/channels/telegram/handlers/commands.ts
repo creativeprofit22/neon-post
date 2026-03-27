@@ -28,12 +28,12 @@ export function registerCommandHandlers(deps: CommandHandlerDeps): void {
     const isGroup = chatType === 'group' || chatType === 'supergroup';
 
     await ctx.reply(
-      `Welcome to Pocket Agent!\n\n` +
+      `Welcome to Neon Post!\n\n` +
         `I'm your personal AI assistant with persistent memory. ` +
         `I remember our conversations across sessions.\n\n` +
         `Your user ID: ${userId}\n\n` +
         `Commands:\n` +
-        `/help - How to use Pocket Agent\n` +
+        `/help - How to use Neon Post\n` +
         `/new - Fresh start (keeps facts & reminders)\n` +
         `/model - List or switch AI models\n` +
         `/status - Show agent status\n` +
@@ -47,7 +47,7 @@ export function registerCommandHandlers(deps: CommandHandlerDeps): void {
 
   // /help command
   bot.command('help', async (ctx) => {
-    const helpText = `<b>Pocket Agent</b>
+    const helpText = `<b>Neon Post</b>
 
 Your AI assistant with persistent memory. I remember our conversations and learn about you over time.
 

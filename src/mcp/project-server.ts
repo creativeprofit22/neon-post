@@ -12,10 +12,10 @@ import * as path from 'path';
 
 const DB_PATH =
   process.platform === 'darwin'
-    ? path.join(process.env.HOME || '', 'Library/Application Support/pocket-agent/pocket-agent.db')
+    ? path.join(process.env.HOME || '', 'Library/Application Support/neon-post/neon-post.db')
     : process.platform === 'linux'
-      ? path.join(process.env.HOME || '', '.config/pocket-agent/pocket-agent.db')
-      : path.join(process.env.USERPROFILE || '', 'AppData/Roaming/pocket-agent/pocket-agent.db');
+      ? path.join(process.env.HOME || '', '.config/neon-post/neon-post.db')
+      : path.join(process.env.USERPROFILE || '', 'AppData/Roaming/neon-post/neon-post.db');
 
 // Types
 interface MCPRequest {
@@ -143,7 +143,7 @@ async function handleSetProject(args: Record<string, unknown>): Promise<string> 
 
   const db = getDb();
   if (!db) {
-    return JSON.stringify({ error: 'Database not found. Please start Pocket Agent first.' });
+    return JSON.stringify({ error: 'Database not found. Please start Neon Post first.' });
   }
 
   try {
@@ -247,7 +247,7 @@ async function handleRequest(request: MCPRequest): Promise<MCPResponse> {
         result: {
           protocolVersion: '2024-11-05',
           capabilities: { tools: {} },
-          serverInfo: { name: 'pocket-agent-project', version: '1.0.0' },
+          serverInfo: { name: 'neon-post-project', version: '1.0.0' },
         },
       };
 

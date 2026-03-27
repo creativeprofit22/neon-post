@@ -1,6 +1,6 @@
-# Pocket Agent - Comprehensive Features & Systems Mapping
+# Neon Post - Comprehensive Features & Systems Mapping
 
-**Project**: Pocket Agent Desktop App  
+**Project**: Neon Post Desktop App  
 **Version**: Latest  
 **Description**: Personal AI assistant that remembers you, learns from your interactions, and automates tasks. Lives in your menu bar 24/7 with desktop, Telegram, and iOS interfaces.
 
@@ -703,7 +703,7 @@ Telegram User → grammy handler → format message →
 
 **Relay Mode** (Default)
 - Connects to cloud relay server for remote access
-- URL: `wss://pocket-agent-relay.buzzbeamaustralia.workers.dev`
+- URL: `wss://neon-post-relay.buzzbeamaustralia.workers.dev`
 - Instance ID for identification
 - Works across networks (no port forwarding)
 - Auto-reconnect on wake/unlock
@@ -1075,7 +1075,7 @@ Main orchestrator for running agent conversations.
 
 ## 📊 DATABASE SCHEMA
 
-### Location: SQLite (default: `~/Library/Application Support/pocket-agent/pocket-agent.db`)
+### Location: SQLite (default: `~/Library/Application Support/neon-post/neon-post.db`)
 
 ```sql
 -- Sessions (isolated conversation threads)
@@ -1399,7 +1399,7 @@ Channel sends to user
 
 ## 📝 CONCLUSION
 
-**Pocket Agent** is a sophisticated AI assistant desktop application with:
+**Neon Post** is a sophisticated AI assistant desktop application with:
 
 - **45+ tools** across memory, scheduling, calendar, tasks, browser automation, and system integration
 - **3 communication channels** (Desktop, Telegram, iOS) with full feature parity
@@ -1415,4 +1415,4 @@ The system is built for **long-term usefulness** - the more you use it, the bett
 ---
 
 **Last Updated**: March 11, 2025  
-**Repository**: https://github.com/KenKaiii/pocket-agent
+**Repository**: https://github.com/KenKaiii/neon-post

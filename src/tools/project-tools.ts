@@ -20,9 +20,9 @@ function getDbPath(): string {
   const homeDir = process.env.HOME || process.env.USERPROFILE || '';
 
   const possiblePaths = [
-    path.join(homeDir, 'Library/Application Support/pocket-agent/pocket-agent.db'), // macOS
-    path.join(homeDir, '.config/pocket-agent/pocket-agent.db'), // Linux
-    path.join(homeDir, 'AppData/Roaming/pocket-agent/pocket-agent.db'), // Windows
+    path.join(homeDir, 'Library/Application Support/neon-post/neon-post.db'), // macOS
+    path.join(homeDir, '.config/neon-post/neon-post.db'), // Linux
+    path.join(homeDir, 'AppData/Roaming/neon-post/neon-post.db'), // Windows
   ];
 
   for (const p of possiblePaths) {
@@ -120,7 +120,7 @@ export async function handleSetProjectTool(input: unknown): Promise<string> {
 
   const db = getDb();
   if (!db) {
-    return JSON.stringify({ error: 'Database not found. Please start Pocket Agent first.' });
+    return JSON.stringify({ error: 'Database not found. Please start Neon Post first.' });
   }
 
   try {

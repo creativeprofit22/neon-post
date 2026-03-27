@@ -108,7 +108,7 @@ jobs:
             release/latest-mac.yml
             release/latest.yml
           body: |
-            ## Pocket Agent ${{ github.ref_name }}
+            ## Neon Post ${{ github.ref_name }}
 
             A persistent personal AI assistant with memory and scheduling.
 
@@ -125,10 +125,10 @@ jobs:
 
             **macOS:**
             1. Download the DMG for your Mac
-            2. Open the DMG and drag Pocket Agent to Applications
+            2. Open the DMG and drag Neon Post to Applications
             3. Launch and enter your Anthropic API key
 
             **Windows:**
             1. Download the setup .exe for your architecture
             2. Run the installer (you may need to click "More info" → "Run anyway" if unsigned)
-            3. Launch Pocket Agent and enter your Anthropic API key
+            3. Launch Neon Post and enter your Anthropic API key

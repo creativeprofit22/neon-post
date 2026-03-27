@@ -156,7 +156,7 @@ export async function createTray(): Promise<void> {
   }
 
   tray = new Tray(icon);
-  tray.setToolTip('Pocket Agent');
+  tray.setToolTip('Neon Post');
 
   // Double-click opens chat
   tray.on('double-click', () => {
@@ -179,7 +179,7 @@ export function updateTrayMenu(): void {
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: `Pocket Agent v${app.getVersion()}`,
+      label: `Neon Post v${app.getVersion()}`,
       enabled: false,
       icon: menuIcon,
     },
@@ -209,7 +209,7 @@ export function updateTrayMenu(): void {
       label: 'Reboot',
       click: async () => {
         await callbacks?.restartAgent();
-        callbacks?.showNotification('Pocket Agent', 'Back online! ✨');
+        callbacks?.showNotification('Neon Post', 'Back online! ✨');
       },
     },
     { type: 'separator' },

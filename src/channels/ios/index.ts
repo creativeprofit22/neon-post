@@ -44,7 +44,7 @@ import { SettingsManager } from '../../settings';
 
 export type { iOSMessageCallback, ConnectedDevice };
 
-const DEFAULT_RELAY_URL = 'wss://pocket-agent-relay.buzzbeamaustralia.workers.dev';
+const DEFAULT_RELAY_URL = 'wss://neon-post-relay.buzzbeamaustralia.workers.dev';
 
 type Backend = iOSWebSocketServer | iOSRelayClient;
 

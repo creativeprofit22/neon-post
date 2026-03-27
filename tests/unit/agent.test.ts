@@ -678,13 +678,13 @@ describe('AgentManager', () => {
       const options: SDKOptions = {
         allowedTools: [
           'Read', 'Write', 'Edit', 'Bash',
-          'mcp__pocket-agent__browser',
-          'mcp__pocket-agent__remember',
+          'mcp__neon-post__browser',
+          'mcp__neon-post__remember',
         ],
       };
 
       expect(options.allowedTools).toContain('Read');
-      expect(options.allowedTools).toContain('mcp__pocket-agent__browser');
+      expect(options.allowedTools).toContain('mcp__neon-post__browser');
     });
 
     it('should support setting sources', () => {

@@ -113,7 +113,7 @@ export function initializeUpdater(): void {
     } else if (msg.includes('read-only volume')) {
       currentStatus = {
         status: 'error',
-        error: 'Move Pocket Agent to Applications folder to enable updates.',
+        error: 'Move Neon Post to Applications folder to enable updates.',
       };
     } else if (
       msg.includes('net::ERR_') ||

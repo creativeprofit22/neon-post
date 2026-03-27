@@ -86,7 +86,7 @@ export function wireIosChannelHandlers(deps: IPCDependencies): void {
       const currentIosChannel = getIosChannel();
       if (result.response && currentIosChannel) {
         currentIosChannel
-          .sendPushNotifications('Pocket Agent', result.response, {
+          .sendPushNotifications('Neon Post', result.response, {
             sessionId: message.sessionId,
             type: 'response',
           })
@@ -239,7 +239,7 @@ export function wireIosChannelHandlers(deps: IPCDependencies): void {
   });
 
   iosChannel.setAppInfoHandler(() => {
-    return { version: app.getVersion(), name: 'Pocket Agent' };
+    return { version: app.getVersion(), name: 'Neon Post' };
   });
 
   iosChannel.setSkinHandler((skinId: string) => {

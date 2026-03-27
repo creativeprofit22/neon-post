@@ -1,5 +1,5 @@
 /**
- * Pre-tool-use safety validation for Pocket Agent
+ * Pre-tool-use safety validation for Neon Post
  *
  * Blocks dangerous commands that should NEVER be executed under any circumstances.
  * These patterns represent catastrophic operations with no legitimate use case.
@@ -102,7 +102,7 @@ export function validateToolCall(
   }
 
   // Browser URL validation
-  if (toolName === 'mcp__pocket-agent__browser') {
+  if (toolName === 'mcp__neon-post__browser') {
     const url = (input.url as string) || '';
     const action = (input.action as string) || '';
 

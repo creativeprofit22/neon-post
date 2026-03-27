@@ -1,4 +1,4 @@
-# Pocket Agent
+# Neon Post
 
 A persistent desktop AI assistant powered by Claude Agent SDK that runs 24/7 as a system tray application with continuous memory, Telegram integration, browser automation, and scheduled task management.
 

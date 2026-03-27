@@ -151,8 +151,8 @@ const TIER_CONFIG = [
   { name: 'Legendary', threshold: 500, badge: '\u2694\uFE0F', cssClass: 'tier-legendary' },
   { name: 'Mythic', threshold: 750, badge: '\uD83D\uDC51', cssClass: 'tier-mythic' },
 ];
-const CHAT_WS_URL = 'wss://pocket-agent-chat-production.up.railway.app';
-const CHAT_API_URL = 'https://pocket-agent-chat-production.up.railway.app';
+const CHAT_WS_URL = 'wss://neon-post-chat-production.up.railway.app';
+const CHAT_API_URL = 'https://neon-post-chat-production.up.railway.app';
 const GCHAT_REACTIONS = ['🔥', '👍', '😂', '💀'];
 
 // Allowed file types

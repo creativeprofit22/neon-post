@@ -87,7 +87,7 @@ function getAgentWorkspace(): string {
     return workspace;
   } catch {
     // Documents path is unreachable — fall back to Electron's userData directory
-    // (~/Library/Application Support/pocket-agent/ on macOS)
+    // (~/Library/Application Support/neon-post/ on macOS)
     const fallback = path.join(app.getPath('userData'), 'workspace');
     console.warn(
       `[Main] Documents path unreachable (${documentsPath}), using fallback: ${fallback}`
@@ -435,7 +435,7 @@ function closeSplashScreen(): void {
 function openChatWindow(): void {
   createWindow({
     id: WIN.CHAT,
-    title: `Pocket Agent v${app.getVersion()}`,
+    title: `Neon Post v${app.getVersion()}`,
     htmlFile: 'chat.html',
     width: 1020,
     height: 720,
@@ -446,7 +446,7 @@ function openChatWindow(): void {
 function openCronWindow(): void {
   createWindow({
     id: WIN.CRON,
-    title: 'My Routines - Pocket Agent',
+    title: 'My Routines - Neon Post',
     htmlFile: 'cron.html',
     width: 700,
     height: 500,
@@ -465,7 +465,7 @@ function openSettingsWindow(tab?: string): void {
 
   const win = createWindow({
     id: WIN.SETTINGS,
-    title: 'Tweaks - Pocket Agent',
+    title: 'Tweaks - Neon Post',
     htmlFile: 'settings.html',
     width: 700,
     height: 600,
@@ -481,7 +481,7 @@ function openSettingsWindow(tab?: string): void {
 function openCustomizeWindow(): void {
   createWindow({
     id: WIN.CUSTOMIZE,
-    title: 'Make It Yours - Pocket Agent',
+    title: 'Make It Yours - Neon Post',
     htmlFile: 'customize.html',
     width: 800,
     height: 650,
@@ -492,7 +492,7 @@ function openCustomizeWindow(): void {
 function openFactsWindow(): void {
   createWindow({
     id: WIN.FACTS,
-    title: 'My Brain - Pocket Agent',
+    title: 'My Brain - Neon Post',
     htmlFile: 'facts.html',
     width: 700,
     height: 550,
@@ -503,7 +503,7 @@ function openFactsWindow(): void {
 function openDailyLogsWindow(): void {
   createWindow({
     id: WIN.DAILY_LOGS,
-    title: 'Daily Logs - Pocket Agent',
+    title: 'Daily Logs - Neon Post',
     htmlFile: 'daily-logs.html',
     width: 700,
     height: 550,
@@ -514,7 +514,7 @@ function openDailyLogsWindow(): void {
 function openSoulWindow(): void {
   createWindow({
     id: WIN.SOUL,
-    title: 'My Approach - Pocket Agent',
+    title: 'My Approach - Neon Post',
     htmlFile: 'soul.html',
     width: 700,
     height: 550,
@@ -577,7 +577,7 @@ function setupIPC(): void {
 
 async function initializeAgent(): Promise<void> {
   const userDataPath = app.getPath('userData');
-  const dbPath = path.join(userDataPath, 'pocket-agent.db');
+  const dbPath = path.join(userDataPath, 'neon-post.db');
 
   // Check if we have required API keys
   if (!SettingsManager.hasRequiredKeys()) {
@@ -820,7 +820,7 @@ async function initializeAgent(): Promise<void> {
     }
   }
 
-  console.log('[Main] Pocket Agent initialized');
+  console.log('[Main] Neon Post initialized');
   updateTrayMenu();
 }
 
@@ -915,7 +915,7 @@ app.whenReady().then(async () => {
     }
 
     const userDataPath = app.getPath('userData');
-    const dbPath = path.join(userDataPath, 'pocket-agent.db');
+    const dbPath = path.join(userDataPath, 'neon-post.db');
     console.log('[Main] DB path:', dbPath);
 
     // Initialize settings first (uses same DB)

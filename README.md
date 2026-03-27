@@ -1,7 +1,7 @@
-# 🐱 Pocket Agent
+# 🐱 Neon Post
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/KenKaiii/pocket-agent/main/assets/icon_rounded_1024.png" alt="Pocket Agent" width="200">
+  <img src="https://raw.githubusercontent.com/KenKaiii/neon-post/main/assets/icon_rounded_1024.png" alt="Neon Post" width="200">
 </p>
 
 <p align="center">
@@ -9,13 +9,13 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/KenKaiii/pocket-agent/releases/latest"><img src="https://img.shields.io/github/v/release/KenKaiii/pocket-agent?include_prereleases&style=for-the-badge" alt="GitHub release"></a>
+  <a href="https://github.com/KenKaiii/neon-post/releases/latest"><img src="https://img.shields.io/github/v/release/KenKaiii/neon-post?include_prereleases&style=for-the-badge" alt="GitHub release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
   <a href="https://youtube.com/@kenkaidoesai"><img src="https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="YouTube"></a>
   <a href="https://skool.com/kenkai"><img src="https://img.shields.io/badge/Skool-Community-7C3AED?style=for-the-badge" alt="Skool"></a>
 </p>
 
-**Pocket Agent** is a personal AI that lives in your menu bar 24/7. It remembers everything, learns who you are, and actually gets better at helping you over time.
+**Neon Post** is a personal AI that lives in your menu bar 24/7. It remembers everything, learns who you are, and actually gets better at helping you over time.
 
 It's not just a chatbot. It extracts facts about you, runs automations while you sleep, manages your calendar and tasks, and evolves to work with *you specifically*. Talk to it from your desktop or Telegram. Set up routines that do stuff on your behalf. It's an assistant that's always there.
 
@@ -25,7 +25,7 @@ It's not just a chatbot. It extracts facts about you, runs automations while you
 
 Every AI assistant starts from zero. Every. Single. Time.
 
-Pocket Agent keeps everything. Not just chat logs, but facts about your life, your projects, your preferences. It uses semantic search to pull up stuff from months ago. And it has a "soul" system that learns *how* to work with you better over time.
+Neon Post keeps everything. Not just chat logs, but facts about your life, your projects, your preferences. It uses semantic search to pull up stuff from months ago. And it has a "soul" system that learns *how* to work with you better over time.
 
 The more you use it, the more useful it becomes.
 
@@ -77,8 +77,8 @@ Edit the identity file to change how it talks. Make it formal, casual, terse, ve
 
 | Mac | Link |
 |-----|------|
-| Apple Silicon (M1/M2/M3/M4) | [Download](https://github.com/KenKaiii/pocket-agent/releases/latest) |
-| Intel | [Download](https://github.com/KenKaiii/pocket-agent/releases/latest) |
+| Apple Silicon (M1/M2/M3/M4) | [Download](https://github.com/KenKaiii/neon-post/releases/latest) |
+| Intel | [Download](https://github.com/KenKaiii/neon-post/releases/latest) |
 
 ### Setup
 
@@ -96,7 +96,7 @@ That's it.
 If you want to talk to it from your phone:
 
 1. Create a bot with [@BotFather](https://t.me/botfather) on Telegram
-2. Copy the token into Pocket Agent settings
+2. Copy the token into Neon Post settings
 3. Message your bot
 
 **Group chats:** You can add the bot to groups. Use `/link SessionName` to connect that group to a specific session. Each group can have its own isolated conversation.
@@ -154,8 +154,8 @@ Most people won't need this stuff, but it's there if you do.
 ## 🛠️ For developers
 
 ```bash
-git clone https://github.com/KenKaiii/pocket-agent.git
-cd pocket-agent
+git clone https://github.com/KenKaiii/neon-post.git
+cd neon-post
 npm install
 npm run dev
 ```
@@ -182,5 +182,5 @@ MIT
 </p>
 
 <p align="center">
-  <a href="https://github.com/KenKaiii/pocket-agent/releases/latest"><img src="https://img.shields.io/badge/Download-Latest%20Release-blue?style=for-the-badge" alt="Download"></a>
+  <a href="https://github.com/KenKaiii/neon-post/releases/latest"><img src="https://img.shields.io/badge/Download-Latest%20Release-blue?style=for-the-badge" alt="Download"></a>
 </p>

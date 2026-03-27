@@ -3,7 +3,7 @@
  * MCP Server for Browser Tools
  *
  * Uses puppeteer-core directly for browser automation.
- * For Electron tier features, use the Pocket Agent chat UI.
+ * For Electron tier features, use the Neon Post chat UI.
  */
 
 import { createInterface } from 'readline';
@@ -261,7 +261,7 @@ async function handleNotify(args: Record<string, unknown>): Promise<string> {
           `$text[0].AppendChild($xml.CreateTextNode('${safeTitle}')) | Out-Null; ` +
           `$text[1].AppendChild($xml.CreateTextNode('${safeBody}')) | Out-Null; ` +
           `$toast = [Windows.UI.Notifications.ToastNotification]::new($xml); ` +
-          `[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Pocket Agent').Show($toast)`,
+          `[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Neon Post').Show($toast)`,
       ]);
       return await new Promise<string>((resolve) => {
         ps.on('close', (code) => {
@@ -337,7 +337,7 @@ async function handleRequest(request: MCPRequest): Promise<MCPResponse> {
         result: {
           protocolVersion: '2024-11-05',
           capabilities: { tools: {} },
-          serverInfo: { name: 'pocket-agent-browser', version: '1.0.0' },
+          serverInfo: { name: 'neon-post-browser', version: '1.0.0' },
         },
       };
 

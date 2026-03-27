@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com;">
-  <title>Welcome to Pocket Agent</title>
+  <title>Welcome to Neon Post</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&family=Cal+Sans&display=swap" rel="stylesheet">
@@ -706,7 +706,7 @@
   <div class="onboarding">
     <div class="logo"></div>
 
-    <h1>Pocket Agent</h1>
+    <h1>Neon Post</h1>
     <p class="subtitle">i'm Franky, your new 24/7 assistant</p>
 
     <!-- Step 0: Secure Storage Initialization -->
@@ -715,7 +715,7 @@
 
       <div class="status info">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18.709 3.495C16.817 2.554 14.5 2 12 2s-4.816.554-6.709 1.495c-.928.462-1.392.693-1.841 1.419S3 6.342 3 7.748v3.49c0 5.683 4.542 8.842 7.173 10.196c.734.377 1.1.566 1.827.566s1.093-.189 1.827-.566C16.457 20.08 21 16.92 21 11.237V7.748c0-1.406 0-2.108-.45-2.834s-.913-.957-1.841-1.419"/></svg>
-        <span id="keychain-info-text">Pocket Agent uses your system's secure storage to protect API keys.</span>
+        <span id="keychain-info-text">Neon Post uses your system's secure storage to protect API keys.</span>
       </div>
 
       <div class="button-row">
@@ -936,19 +936,19 @@
     const platformText = (() => {
       if (platform === 'darwin') {
         return {
-          storageInfo: "Pocket Agent uses your Mac's Keychain to securely store API keys. You may be prompted for your Mac password.",
+          storageInfo: "Neon Post uses your Mac's Keychain to securely store API keys. You may be prompted for your Mac password.",
           storageFallback: 'Could not access Keychain. Keys will be stored unencrypted.',
           trayHint: 'double-click the tray icon to start chatting',
         };
       } else if (platform === 'win32') {
         return {
-          storageInfo: "Pocket Agent uses Windows Credential Store to securely store API keys.",
+          storageInfo: "Neon Post uses Windows Credential Store to securely store API keys.",
           storageFallback: 'Could not access Credential Store. Keys will be stored unencrypted.',
           trayHint: 'double-click the system tray icon to start chatting',
         };
       } else {
         return {
-          storageInfo: "Pocket Agent uses your system keyring to securely store API keys. You may be prompted for your keyring password.",
+          storageInfo: "Neon Post uses your system keyring to securely store API keys. You may be prompted for your keyring password.",
           storageFallback: 'Could not access system keyring. Keys will be stored unencrypted.',
           trayHint: 'click the tray icon to start chatting',
         };

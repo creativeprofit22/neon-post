@@ -1,12 +1,12 @@
-# Pocket Agent - Features & Systems Index
+# Neon Post - Features & Systems Index
 
-**Quick reference guide to all features, tools, and systems in Pocket Agent**
+**Quick reference guide to all features, tools, and systems in Neon Post**
 
 ---
 
 ## 🚀 QUICK START
 
-**New to Pocket Agent?** Start with:
+**New to Neon Post?** Start with:
 1. [Chat Tools](#chat-tools) - What you can do conversationally
 2. [Memory System](#memory-system) - How it remembers you
 3. [Channels](#channels) - Where you can use it

@@ -208,11 +208,11 @@ export async function buildSdkMcpServers(
     const modeConfig = getModeConfig(mode);
     const modeAllowedTools = modeConfig.allowedTools;
     const needsMemoryTools = modeAllowedTools.some((t) =>
-      t.startsWith('mcp__pocket-agent__remember')
+      t.startsWith('mcp__neon-post__remember')
     );
-    const needsSoulTools = modeAllowedTools.some((t) => t.startsWith('mcp__pocket-agent__soul_'));
+    const needsSoulTools = modeAllowedTools.some((t) => t.startsWith('mcp__neon-post__soul_'));
     const needsSchedulerTools = modeAllowedTools.some((t) =>
-      t.startsWith('mcp__pocket-agent__schedule_')
+      t.startsWith('mcp__neon-post__schedule_')
     );
 
     // Memory tools (mode-dependent)
@@ -362,12 +362,12 @@ export async function buildSdkMcpServers(
 
     // Create the SDK MCP server
     const server = createSdkMcpServer({
-      name: 'pocket-agent-tools',
+      name: 'neon-post-tools',
       version: '1.0.0',
       tools,
     });
 
-    return { 'pocket-agent': server };
+    return { 'neon-post': server };
   } catch (error) {
     console.error('[Tools] Failed to build SDK MCP servers:', error);
     return null;

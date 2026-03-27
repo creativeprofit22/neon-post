@@ -311,7 +311,7 @@ export class iOSWebSocketServer {
       to: token,
       title,
       body: body.length > 200 ? body.substring(0, 200) + '...' : body,
-      sound: 'pocket-agent-notif.mp3',
+      sound: 'neon-post-notif.mp3',
       categoryId: 'REPLY',
       ...(data ? { data } : {}),
     }));
@@ -784,7 +784,7 @@ export class iOSWebSocketServer {
             break;
           }
           case 'app:info': {
-            const info = this.onGetAppInfo?.() || { version: 'unknown', name: 'Pocket Agent' };
+            const info = this.onGetAppInfo?.() || { version: 'unknown', name: 'Neon Post' };
             ws.send(JSON.stringify({ type: 'app:info', ...info }));
             break;
           }

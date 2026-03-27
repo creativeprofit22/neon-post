@@ -33,7 +33,7 @@ interface AgentMode {
   engine: 'chat' | 'sdk';       // Which engine processes messages
   systemPrompt: string;          // Mode-specific system prompt (injected alongside identity/context)
   allowedTools: string[];        // Scoped tool list (SDK tool names + MCP tool names)
-  mcpServers?: string[];         // Which MCP servers to register ('pocket-agent', 'grep', etc.)
+  mcpServers?: string[];         // Which MCP servers to register ('neon-post', 'grep', etc.)
   description: string;           // One-line description shown in UI
 }
 ```

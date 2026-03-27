@@ -73,7 +73,7 @@ export async function sendToAllChannels(
   }
   const plainResponse = stripMarkdown(response);
   if (channels.onNotification) {
-    channels.onNotification('Pocket Agent', plainResponse.slice(0, 200));
+    channels.onNotification('Neon Post', plainResponse.slice(0, 200));
   }
 
   // Send to iOS devices
@@ -111,7 +111,7 @@ export async function sendReminderToAllChannels(
 ): Promise<void> {
   // Always send to desktop (notification + chat to the correct session)
   if (channels.onNotification) {
-    channels.onNotification('Pocket Agent', message);
+    channels.onNotification('Neon Post', message);
   }
   if (channels.onChatMessage) {
     channels.onChatMessage(`${type}_reminder`, message, message, sessionId);

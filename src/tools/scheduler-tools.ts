@@ -25,9 +25,9 @@ import { formatDateTime, formatDuration, formatScheduleDisplay } from '../utils/
 function getDbPath(): string {
   const homeDir = process.env.HOME || process.env.USERPROFILE || '';
   const possiblePaths = [
-    path.join(homeDir, 'Library/Application Support/pocket-agent/pocket-agent.db'),
-    path.join(homeDir, '.config/pocket-agent/pocket-agent.db'),
-    path.join(homeDir, 'AppData/Roaming/pocket-agent/pocket-agent.db'),
+    path.join(homeDir, 'Library/Application Support/neon-post/neon-post.db'),
+    path.join(homeDir, '.config/neon-post/neon-post.db'),
+    path.join(homeDir, 'AppData/Roaming/neon-post/neon-post.db'),
   ];
   for (const p of possiblePaths) {
     if (fs.existsSync(p)) return p;
@@ -167,7 +167,7 @@ async function handleCreateJob(
   try {
     const dbPath = getDbPath();
     if (!fs.existsSync(dbPath)) {
-      return JSON.stringify({ error: 'Database not found. Start Pocket Agent first.' });
+      return JSON.stringify({ error: 'Database not found. Start Neon Post first.' });
     }
 
     const db = new Database(dbPath);

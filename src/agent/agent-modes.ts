@@ -50,34 +50,34 @@ const SDK_CORE_TOOLS = [
   'KillBash',
 ];
 
-const BROWSER_TOOLS = ['mcp__pocket-agent__browser'];
-const NOTIFY_TOOLS = ['mcp__pocket-agent__notify'];
+const BROWSER_TOOLS = ['mcp__neon-post__browser'];
+const NOTIFY_TOOLS = ['mcp__neon-post__notify'];
 const PROJECT_TOOLS = [
-  'mcp__pocket-agent__set_project',
-  'mcp__pocket-agent__get_project',
-  'mcp__pocket-agent__clear_project',
+  'mcp__neon-post__set_project',
+  'mcp__neon-post__get_project',
+  'mcp__neon-post__clear_project',
 ];
 const MEMORY_TOOLS = [
-  'mcp__pocket-agent__remember',
-  'mcp__pocket-agent__forget',
-  'mcp__pocket-agent__list_facts',
-  'mcp__pocket-agent__memory_search',
-  'mcp__pocket-agent__daily_log',
+  'mcp__neon-post__remember',
+  'mcp__neon-post__forget',
+  'mcp__neon-post__list_facts',
+  'mcp__neon-post__memory_search',
+  'mcp__neon-post__daily_log',
 ];
 const SOUL_TOOLS = [
-  'mcp__pocket-agent__soul_set',
-  'mcp__pocket-agent__soul_get',
-  'mcp__pocket-agent__soul_list',
-  'mcp__pocket-agent__soul_delete',
+  'mcp__neon-post__soul_set',
+  'mcp__neon-post__soul_get',
+  'mcp__neon-post__soul_list',
+  'mcp__neon-post__soul_delete',
 ];
 const SCHEDULER_TOOLS = [
-  'mcp__pocket-agent__schedule_task',
-  'mcp__pocket-agent__create_reminder',
-  'mcp__pocket-agent__list_scheduled_tasks',
-  'mcp__pocket-agent__delete_scheduled_task',
+  'mcp__neon-post__schedule_task',
+  'mcp__neon-post__create_reminder',
+  'mcp__neon-post__list_scheduled_tasks',
+  'mcp__neon-post__delete_scheduled_task',
 ];
 const GREP_TOOLS = ['mcp__grep__searchGitHub'];
-const SWITCH_TOOL = ['mcp__pocket-agent__switch_agent'];
+const SWITCH_TOOL = ['mcp__neon-post__switch_agent'];
 
 // ── System prompts ──
 
@@ -154,7 +154,7 @@ export const AGENT_MODES: Record<AgentModeId, AgentMode> = {
       ...SCHEDULER_TOOLS,
       ...SWITCH_TOOL,
     ],
-    mcpServers: ['pocket-agent'],
+    mcpServers: ['neon-post'],
     description: 'Personal assistant — remembers, schedules, browses, manages life',
   },
   coder: {
@@ -171,7 +171,7 @@ export const AGENT_MODES: Record<AgentModeId, AgentMode> = {
       ...GREP_TOOLS,
       ...SWITCH_TOOL,
     ],
-    mcpServers: ['pocket-agent', 'grep'],
+    mcpServers: ['neon-post', 'grep'],
     description: 'Full coding agent with file access and GitHub search',
   },
   researcher: {
@@ -188,7 +188,7 @@ export const AGENT_MODES: Record<AgentModeId, AgentMode> = {
       ...MEMORY_TOOLS,
       ...SWITCH_TOOL,
     ],
-    mcpServers: ['pocket-agent'],
+    mcpServers: ['neon-post'],
     description: 'Deep research — web search, browsing, note-taking',
   },
   writer: {
@@ -198,7 +198,7 @@ export const AGENT_MODES: Record<AgentModeId, AgentMode> = {
     engine: 'chat',
     systemPrompt: WRITER_PROMPT,
     allowedTools: [...MEMORY_TOOLS, ...SOUL_TOOLS, ...NOTIFY_TOOLS, ...SWITCH_TOOL],
-    mcpServers: ['pocket-agent'],
+    mcpServers: ['neon-post'],
     description: 'Focused writing — no web search, no browser distractions',
   },
   therapist: {
@@ -208,7 +208,7 @@ export const AGENT_MODES: Record<AgentModeId, AgentMode> = {
     engine: 'chat',
     systemPrompt: THERAPIST_PROMPT,
     allowedTools: [...MEMORY_TOOLS, ...SOUL_TOOLS, ...NOTIFY_TOOLS, ...SWITCH_TOOL],
-    mcpServers: ['pocket-agent'],
+    mcpServers: ['neon-post'],
     description: 'Supportive listening — talk through stress, decisions, feelings',
   },
 };

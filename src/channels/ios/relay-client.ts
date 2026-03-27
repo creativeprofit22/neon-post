@@ -302,7 +302,7 @@ export class iOSRelayClient {
       to: token,
       title,
       body: body.length > 200 ? body.substring(0, 200) + '...' : body,
-      sound: 'pocket-agent-notif.mp3',
+      sound: 'neon-post-notif.mp3',
       categoryId: 'REPLY',
       ...(data ? { data } : {}),
     }));
@@ -888,7 +888,7 @@ export class iOSRelayClient {
         break;
       }
       case 'app:info': {
-        const info = this.onGetAppInfo?.() || { version: 'unknown', name: 'Pocket Agent' };
+        const info = this.onGetAppInfo?.() || { version: 'unknown', name: 'Neon Post' };
         this.sendToRelay(client.relayClientId, { type: 'app:info', ...info });
         break;
       }

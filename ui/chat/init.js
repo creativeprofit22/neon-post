@@ -109,7 +109,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Show app version in titlebar
   try {
     const version = await window.pocketAgent.app.getVersion();
-    document.title = `Pocket Agent v${version}`;
+    document.title = `Neon Post v${version}`;
   } catch (err) {
     console.error('Failed to load app version:', err);
   }
