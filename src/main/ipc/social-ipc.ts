@@ -2,6 +2,8 @@ import { ipcMain } from 'electron';
 import Anthropic from '@anthropic-ai/sdk';
 import { SettingsManager } from '../../settings';
 import { searchContent } from '../../social/scraping/index';
+import { KieClient } from '../../image';
+import type { ImageModelId } from '../../image';
 import type { ScrapingPlatform } from '../../social/scraping/index';
 import type { GeneratedContentType } from '../../memory/generated-content';
 import type { SocialPostStatus } from '../../memory/social-posts';
@@ -117,7 +119,7 @@ export function registerSocialIpc(deps: IPCDependencies): void {
 
   ipcMain.handle('social:validateApifyKey', async (_, apiKey: string) => {
     try {
-      const trimmed = (apiKey || '').trim();
+      const trimmed = (apiKey || '').trim() || SettingsManager.get('apify.apiKey') || '';
       if (!trimmed) return { valid: false, error: 'API key is empty' };
       // Apify supports both Bearer token and ?token= query param — use query param as it's more reliable
       const response = await fetch(
@@ -139,11 +141,13 @@ export function registerSocialIpc(deps: IPCDependencies): void {
 
   ipcMain.handle('social:validateRapidAPIKey', async (_, apiKey: string) => {
     try {
+      const resolvedKey = (apiKey || '').trim() || SettingsManager.get('rapidapi.apiKey') || '';
+      if (!resolvedKey) return { valid: false, error: 'API key is empty' };
       const response = await fetch(
         'https://tiktok-scraper7.p.rapidapi.com/user/info?unique_id=tiktok',
         {
           headers: {
-            'X-RapidAPI-Key': apiKey,
+            'X-RapidAPI-Key': resolvedKey,
             'X-RapidAPI-Host': 'tiktok-scraper7.p.rapidapi.com',
           },
         }
@@ -157,6 +161,35 @@ export function registerSocialIpc(deps: IPCDependencies): void {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error('[SocialIPC] validateRapidAPIKey error:', err);
+      return { valid: false, error: message };
+    }
+  });
+
+  // ============ Kie.ai Validation ============
+
+  ipcMain.handle('social:validateKieKey', async (_, apiKey: string) => {
+    try {
+      const trimmed = (apiKey || '').trim() || SettingsManager.get('kie.apiKey') || '';
+      if (!trimmed) return { valid: false, error: 'API key is empty' };
+      // Use the recordInfo endpoint with a dummy taskId — a valid key returns a
+      // structured JSON response (code !== 200 but well-formed), whereas an
+      // invalid key returns 401/403.
+      const response = await fetch(
+        `https://api.kie.ai/api/v1/jobs/recordInfo?taskId=validation-check`,
+        {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${trimmed}` },
+        }
+      );
+      console.log(`[SocialIPC] Kie validation response: ${response.status}`);
+      // 401/403 means invalid key; anything else (200, 400, etc.) means the key is accepted
+      if (response.status === 401 || response.status === 403) {
+        return { valid: false, error: 'Invalid API key' };
+      }
+      return { valid: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[SocialIPC] validateKieKey error:', err);
       return { valid: false, error: message };
     }
   });
@@ -343,4 +376,87 @@ export function registerSocialIpc(deps: IPCDependencies): void {
       }
     }
   );
+
+  // ============ Image Generation (Kie.ai) ============
+
+  ipcMain.handle(
+    'social:generateImage',
+    async (
+      _,
+      input: {
+        prompt: string;
+        model?: ImageModelId;
+        aspectRatio?: string;
+        quality?: string;
+        referenceImages?: string[];
+        outputFormat?: string;
+      }
+    ) => {
+      try {
+        const memory = getMemory();
+        const apiKey = SettingsManager.get('kie.apiKey');
+        if (!apiKey) return { success: false, error: 'Kie.ai API key not configured' };
+
+        const client = new KieClient(apiKey);
+        const model: ImageModelId = input.model ?? 'nano-banana-2';
+        const { predictionId } = await client.generate({
+          prompt: input.prompt,
+          model,
+          aspectRatio: input.aspectRatio ?? '1:1',
+          quality: input.quality ?? '1K',
+          referenceImages: input.referenceImages,
+          outputFormat: input.outputFormat,
+        });
+
+        // Poll until complete (max ~60s)
+        const maxAttempts = 30;
+        const pollInterval = 2000;
+        let result = await client.getStatus(predictionId);
+
+        for (let i = 0; i < maxAttempts && result.status === 'processing'; i++) {
+          await new Promise((resolve) => setTimeout(resolve, pollInterval));
+          result = await client.getStatus(predictionId);
+        }
+
+        if (result.status === 'completed' && result.imageUrl) {
+          // Save to generated_content table if memory is available
+          if (memory) {
+            memory.generatedContent.create({
+              content_type: 'image',
+              platform: null,
+              prompt_used: input.prompt,
+              output: result.imageUrl,
+            });
+          }
+          return { success: true, imageUrl: result.imageUrl, predictionId };
+        }
+
+        if (result.status === 'failed') {
+          return { success: false, error: result.error ?? 'Image generation failed' };
+        }
+
+        // Still processing after timeout — return prediction ID for manual polling
+        return { success: false, error: 'Image generation timed out', predictionId };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[SocialIPC] generateImage error:', err);
+        return { success: false, error: message };
+      }
+    }
+  );
+
+  ipcMain.handle('social:getImageStatus', async (_, predictionId: string) => {
+    try {
+      const apiKey = SettingsManager.get('kie.apiKey');
+      if (!apiKey) return { success: false, error: 'Kie.ai API key not configured' };
+
+      const client = new KieClient(apiKey);
+      const result = await client.getStatus(predictionId);
+      return { success: true, ...result };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[SocialIPC] getImageStatus error:', err);
+      return { success: false, error: message };
+    }
+  });
 }

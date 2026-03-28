@@ -95,6 +95,8 @@ const SOCIAL_TOOLS = [
   'mcp__neon-post__save_content',
   'mcp__neon-post__reply_to_comment',
   'mcp__neon-post__flag_comment',
+  'mcp__neon-post__generate_image',
+  'mcp__neon-post__upload_reference_image',
 ];
 
 // ── System prompts ──
@@ -233,7 +235,7 @@ export const AGENT_MODES: Record<AgentModeId, AgentMode> = {
     id: 'creator',
     name: 'Creator',
     icon: '🎬',
-    engine: 'chat',
+    engine: 'sdk',
     systemPrompt: contentCreatorSystemPrompt(),
     allowedTools: [
       ...SDK_CORE_TOOLS,

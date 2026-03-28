@@ -100,6 +100,15 @@ export const SETTINGS_SCHEMA: SettingDefinition[] = [
     description: 'Your Z.AI API key for GLM models',
     type: 'password',
   },
+  {
+    key: 'kie.apiKey',
+    defaultValue: '',
+    encrypted: true,
+    category: 'api_keys',
+    label: 'Kie.ai API Key',
+    description: 'Your Kie.ai API key',
+    type: 'password',
+  },
 
   // Scraping API keys
   {

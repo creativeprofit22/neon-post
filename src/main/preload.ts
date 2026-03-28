@@ -269,6 +269,11 @@ contextBridge.exposeInMainWorld('pocketAgent', {
       ipcRenderer.invoke('social:generateContent', data),
     validateApifyKey: (key: string) => ipcRenderer.invoke('social:validateApifyKey', key),
     validateRapidAPIKey: (key: string) => ipcRenderer.invoke('social:validateRapidAPIKey', key),
+    validateKieKey: (key: string) => ipcRenderer.invoke('social:validateKieKey', key),
+    generateImage: (data: Record<string, unknown>) =>
+      ipcRenderer.invoke('social:generateImage', data),
+    getImageStatus: (predictionId: string) =>
+      ipcRenderer.invoke('social:getImageStatus', predictionId),
   },
 
   // ─── External Events ────────────────────────────────────────────────
@@ -759,6 +764,20 @@ declare global {
         }>;
         validateApifyKey: (key: string) => Promise<{ valid: boolean; error?: string }>;
         validateRapidAPIKey: (key: string) => Promise<{ valid: boolean; error?: string }>;
+        validateKieKey: (key: string) => Promise<{ valid: boolean; error?: string }>;
+        generateImage: (data: Record<string, unknown>) => Promise<{
+          success: boolean;
+          imageUrl?: string;
+          predictionId?: string;
+          error?: string;
+        }>;
+        getImageStatus: (predictionId: string) => Promise<{
+          success: boolean;
+          predictionId?: string;
+          status?: string;
+          imageUrl?: string;
+          error?: string;
+        }>;
       };
     };
   }

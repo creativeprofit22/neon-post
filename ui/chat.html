@@ -505,6 +505,7 @@
           <option value="researcher">Researcher</option>
           <option value="writer">Writer</option>
           <option value="therapist">Therapist</option>
+          <option value="creator">Creator</option>
         </select>
         <select id="model-badge" class="model-badge"></select>
       </div>
@@ -1090,12 +1091,49 @@
 
         <!-- Image Panel -->
         <div class="soc-create-panel" id="soc-panel-image">
+          <div class="soc-form-row">
+            <div class="soc-form-group">
+              <label>Model</label>
+              <select id="soc-image-model">
+                <option value="nano-banana-2" selected>Nano Banana 2</option>
+                <option value="flux-pro">Flux Pro</option>
+                <option value="flux-1.1-pro">Flux 1.1 Pro</option>
+                <option value="flux-pro-ultra">Flux Pro Ultra</option>
+                <option value="flux-kontext-pro">Flux Kontext Pro</option>
+                <option value="flux-kontext-max">Flux Kontext Max</option>
+                <option value="ideogram-v3">Ideogram V3</option>
+                <option value="recraft-v3">Recraft V3</option>
+              </select>
+            </div>
+            <div class="soc-form-group">
+              <label>Aspect Ratio</label>
+              <select id="soc-image-aspect">
+                <option value="1:1" selected>1:1 (Square)</option>
+                <option value="16:9">16:9 (Landscape)</option>
+                <option value="9:16">9:16 (Portrait)</option>
+                <option value="4:3">4:3</option>
+                <option value="3:4">3:4</option>
+                <option value="3:2">3:2</option>
+                <option value="2:3">2:3</option>
+              </select>
+            </div>
+            <div class="soc-form-group">
+              <label>Quality</label>
+              <select id="soc-image-quality">
+                <option value="1K" selected>1K</option>
+                <option value="2K">2K</option>
+                <option value="4K">4K</option>
+              </select>
+            </div>
+          </div>
           <div class="soc-form-group">
             <label>Image Prompt</label>
             <textarea id="soc-image-prompt" rows="3" placeholder="Describe the image you want to generate..."></textarea>
           </div>
-          <button class="soc-btn soc-btn-primary" id="soc-image-gen-btn">Generate Image</button>
-          <div class="soc-generated-output" id="soc-image-output">Generated image will appear here</div>
+          <button class="soc-btn soc-btn-primary" id="soc-image-gen-btn">🎨 Generate Image</button>
+          <div class="soc-generated-output soc-image-output-area" id="soc-image-output">
+            <div class="soc-image-placeholder">Generated image will appear here</div>
+          </div>
         </div>
       </div>
     </div>
@@ -1237,6 +1275,15 @@
               <button class="soc-btn soc-btn-sm" id="soc-rapidapi-test-btn">Test</button>
               <button class="soc-btn soc-btn-sm soc-btn-primary" id="soc-rapidapi-save-btn">Save</button>
               <span id="soc-rapidapi-status" class="soc-key-status"></span>
+            </div>
+          </div>
+          <div class="soc-key-row">
+            <div class="soc-key-info"><span class="soc-key-name">Kie.ai</span><span class="soc-key-desc">AI image generation</span></div>
+            <div class="soc-key-input">
+              <input type="password" id="soc-kie-key" placeholder="Your Kie.ai API key..." autocomplete="off">
+              <button class="soc-btn soc-btn-sm" id="soc-kie-test-btn">Test</button>
+              <button class="soc-btn soc-btn-sm soc-btn-primary" id="soc-kie-save-btn">Save</button>
+              <span id="soc-kie-status" class="soc-key-status"></span>
             </div>
           </div>
         </div>

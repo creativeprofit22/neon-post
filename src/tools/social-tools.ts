@@ -1,7 +1,7 @@
 /**
  * Social tools for the agent
  *
- * 14 tools for social media operations:
+ * 16 tools for social media operations:
  * - search_content: Search content across platforms
  * - scrape_profile: Scrape a user's profile posts
  * - get_trending: Get trending content
@@ -16,6 +16,8 @@
  * - save_content: Save discovered or generated content to the database
  * - reply_to_comment: Reply to a comment on social media
  * - flag_comment: Flag a comment for review
+ * - generate_image: Generate images via Kie.ai (text-to-image / image-to-image)
+ * - upload_reference_image: Upload a local image for use as reference in image generation
  */
 
 import { MemoryManager } from '../memory';
@@ -35,6 +37,9 @@ import type {
   ThreadPromptContext,
   ScriptPromptContext,
 } from '../social/content/prompts';
+import { KieClient } from '../image';
+import type { ImageModelId } from '../image';
+import { SettingsManager } from '../settings';
 
 let memoryManager: MemoryManager | null = null;
 
@@ -1094,6 +1099,214 @@ async function handleFlagComment(input: unknown): Promise<string> {
   }
 }
 
+// ── Image generation tools ──
+
+function getGenerateImageDefinition() {
+  return {
+    name: 'generate_image',
+    description:
+      'Generate an image using Kie.ai. Supports text-to-image and image-to-image (with reference images). Saves the result to the generated_content database table. Returns the prediction ID for polling and the image URL when complete.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        prompt: {
+          type: 'string',
+          description: 'Text prompt describing the image to generate',
+        },
+        model: {
+          type: 'string',
+          description:
+            'Model to use: "nano-banana-2" (fast, general), "seedream/5-lite-text-to-image" (high quality text-to-image), or "seedream/5-lite-image-to-image" (image-to-image with references). Default: nano-banana-2',
+        },
+        aspect_ratio: {
+          type: 'string',
+          description: 'Aspect ratio: "1:1", "16:9", "9:16", "4:3", "3:4", "auto". Default: "1:1"',
+        },
+        quality: {
+          type: 'string',
+          description:
+            'Quality level: "1K", "2K", "4K" for nano-banana-2; "basic", "high" for seedream models. Default: "1K" / "basic"',
+        },
+        reference_images: {
+          type: 'string',
+          description:
+            'Comma-separated URLs of reference images (for image-to-image generation). Use upload_reference_image first to get URLs for local files.',
+        },
+        output_format: {
+          type: 'string',
+          description: 'Output format: "png" or "jpg" (nano-banana-2 only). Default: "jpg"',
+        },
+        platform: {
+          type: 'string',
+          description:
+            'Target platform for saving to generated_content (e.g. "instagram", "tiktok")',
+        },
+        poll: {
+          type: 'string',
+          description:
+            'If "true", poll until the image is ready (up to 120s). If "false", return immediately with prediction ID. Default: "true"',
+        },
+      },
+      required: ['prompt'],
+    },
+  };
+}
+
+async function handleGenerateImage(input: unknown): Promise<string> {
+  const { prompt, model, aspect_ratio, quality, reference_images, output_format, platform, poll } =
+    input as {
+      prompt: string;
+      model?: string;
+      aspect_ratio?: string;
+      quality?: string;
+      reference_images?: string;
+      output_format?: string;
+      platform?: string;
+      poll?: string;
+    };
+
+  if (!prompt) {
+    return JSON.stringify({ error: 'Missing required field: prompt' });
+  }
+
+  const apiKey = SettingsManager.get('kie.apiKey');
+  if (!apiKey) {
+    return JSON.stringify({
+      error: 'Kie.ai API key not configured. Set it in Settings → API Keys.',
+    });
+  }
+
+  const client = new KieClient(apiKey);
+  const modelId = (model || 'nano-banana-2') as ImageModelId;
+  const refImages = reference_images ? reference_images.split(',').map((u) => u.trim()) : undefined;
+
+  try {
+    const { predictionId } = await client.generate({
+      prompt,
+      model: modelId,
+      aspectRatio: aspect_ratio || '1:1',
+      quality: quality || (modelId === 'nano-banana-2' ? '1K' : 'basic'),
+      referenceImages: refImages,
+      outputFormat: output_format,
+    });
+
+    console.log(`[GenerateImage] Task created: ${predictionId} (model=${modelId})`);
+
+    const shouldPoll = poll !== 'false';
+    if (!shouldPoll) {
+      return JSON.stringify({
+        success: true,
+        prediction_id: predictionId,
+        status: 'pending',
+        message: 'Image generation started. Poll with generate_image using the prediction_id.',
+      });
+    }
+
+    // Poll until complete or timeout (120s)
+    const maxWait = 120_000;
+    const interval = 3_000;
+    const start = Date.now();
+    let result = await client.getStatus(predictionId);
+
+    while (result.status === 'processing' || result.status === 'pending') {
+      if (Date.now() - start > maxWait) {
+        return JSON.stringify({
+          success: false,
+          prediction_id: predictionId,
+          status: 'timeout',
+          message: 'Image generation timed out after 120s. It may still complete — check later.',
+        });
+      }
+      await new Promise((resolve) => setTimeout(resolve, interval));
+      result = await client.getStatus(predictionId);
+    }
+
+    if (result.status === 'failed') {
+      return JSON.stringify({
+        success: false,
+        prediction_id: predictionId,
+        status: 'failed',
+        error: result.error || 'Image generation failed',
+      });
+    }
+
+    // Save to generated_content DB
+    let savedId: string | null = null;
+    if (memoryManager && result.imageUrl) {
+      const saved = memoryManager.generatedContent.create({
+        content_type: 'image',
+        platform: platform ?? null,
+        prompt_used: prompt,
+        output: prompt,
+        media_url: result.imageUrl,
+        metadata: JSON.stringify({
+          model: modelId,
+          aspect_ratio: aspect_ratio || '1:1',
+          quality: quality || (modelId === 'nano-banana-2' ? '1K' : 'basic'),
+          prediction_id: predictionId,
+        }),
+      });
+      savedId = saved.id;
+      console.log(`[GenerateImage] Saved to generated_content: ${savedId}`);
+    }
+
+    return JSON.stringify({
+      success: true,
+      prediction_id: predictionId,
+      status: 'completed',
+      image_url: result.imageUrl,
+      saved_content_id: savedId,
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return JSON.stringify({ error: msg });
+  }
+}
+
+function getUploadReferenceImageDefinition() {
+  return {
+    name: 'upload_reference_image',
+    description:
+      "Upload a local image file to Kie.ai's CDN so it can be used as a reference image for image-to-image generation. Returns a hosted URL that can be passed to generate_image's reference_images parameter.",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        file_path: {
+          type: 'string',
+          description: 'Absolute path to the local image file to upload',
+        },
+      },
+      required: ['file_path'],
+    },
+  };
+}
+
+async function handleUploadReferenceImage(input: unknown): Promise<string> {
+  const { file_path } = input as { file_path: string };
+
+  if (!file_path) {
+    return JSON.stringify({ error: 'Missing required field: file_path' });
+  }
+
+  const apiKey = SettingsManager.get('kie.apiKey');
+  if (!apiKey) {
+    return JSON.stringify({
+      error: 'Kie.ai API key not configured. Set it in Settings → API Keys.',
+    });
+  }
+
+  const client = new KieClient(apiKey);
+
+  try {
+    const url = await client.uploadImage(file_path);
+    console.log(`[UploadReferenceImage] Uploaded: ${file_path} → ${url}`);
+    return JSON.stringify({ success: true, url, file_path });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return JSON.stringify({ error: msg });
+  }
+}
+
 // ── Export all tools ──
 
 /**
@@ -1156,6 +1369,14 @@ export function getSocialTools() {
     {
       ...getFlagCommentDefinition(),
       handler: handleFlagComment,
+    },
+    {
+      ...getGenerateImageDefinition(),
+      handler: handleGenerateImage,
+    },
+    {
+      ...getUploadReferenceImageDefinition(),
+      handler: handleUploadReferenceImage,
     },
   ];
 }

@@ -496,6 +496,12 @@ export class MemoryManager {
       console.log('[Memory] Migrated cron_jobs table: added session_id column');
     }
 
+    // Add job_type column to cron_jobs (routine vs reminder)
+    if (!hasColumn('cron_jobs', 'job_type')) {
+      this.db.exec(`ALTER TABLE cron_jobs ADD COLUMN job_type TEXT DEFAULT 'routine'`);
+      console.log('[Memory] Migrated cron_jobs table: added job_type column');
+    }
+
     // Create indexes for session filtering
     try {
       this.db.exec(

@@ -99,6 +99,13 @@ function _socTimeAgo(dateStr) {
   return new Date(dateStr).toLocaleDateString();
 }
 
+function _socIsImageItem(item) {
+  if (!item) return false;
+  // content_type 'image' with a URL-like output
+  if (item.content_type === 'image' && item.output && /^https?:\/\//.test(item.output)) return true;
+  return false;
+}
+
 function _socPlatformClass(platform) {
   if (!platform) return '';
   return platform.toLowerCase().replace(/\s+/g, '');
@@ -269,39 +276,59 @@ function _socInit() {
     });
   }
 
-  // ── Image generate ──
+  // ── Image generate (Kie.ai) ──
   const imageGenBtn = root.querySelector('#soc-image-gen-btn');
   if (imageGenBtn) {
     imageGenBtn.addEventListener('click', () => {
       const social   = _socAPI();
       if (!social) return;
-      const promptEl = root.querySelector('#soc-image-prompt');
-      const outputEl = root.querySelector('#soc-image-output');
-      if (!promptEl || !promptEl.value.trim()) { _socShowToast('Describe the image you want', 'error'); return; }
+      const promptEl  = root.querySelector('#soc-image-prompt');
+      const outputEl  = root.querySelector('#soc-image-output');
+      const modelEl   = root.querySelector('#soc-image-model');
+      const aspectEl  = root.querySelector('#soc-image-aspect');
+      const qualityEl = root.querySelector('#soc-image-quality');
 
-      if (outputEl) outputEl.textContent = 'Generating image…';
+      const prompt = promptEl ? promptEl.value.trim() : '';
+      if (!prompt) { _socShowToast('Describe the image you want', 'error'); return; }
+
+      const model       = modelEl   ? modelEl.value   : 'nano-banana-2';
+      const aspectRatio = aspectEl  ? aspectEl.value  : '1:1';
+      const quality     = qualityEl ? qualityEl.value : '1K';
+
+      // Show spinner
+      if (outputEl) {
+        outputEl.innerHTML =
+          '<div class="soc-image-spinner">' +
+            '<div class="soc-spinner"></div>' +
+            '<div class="soc-spinner-text">Generating image…</div>' +
+            '<div class="soc-spinner-hint">This may take up to 60 seconds</div>' +
+          '</div>';
+      }
       imageGenBtn.disabled = true;
 
-      social.generateContent({ content_type: 'image', prompt_used: promptEl.value.trim() })
+      social.generateImage({ prompt, model, aspectRatio, quality })
         .then(result => {
-          if (result.success && result.data) {
-            const gen = result.data;
+          if (result.success && result.imageUrl) {
             if (outputEl) {
-              if (gen.media_url) {
-                outputEl.innerHTML = '<img src="' + _socEscapeHtml(gen.media_url) + '" style="max-width:100%;border-radius:8px;" />';
-              } else {
-                outputEl.textContent = gen.output || 'Image generated (no preview available)';
-              }
+              outputEl.innerHTML =
+                '<img class="soc-generated-image" src="' + _socEscapeHtml(result.imageUrl) + '" />' +
+                '<div class="soc-image-actions">' +
+                  '<span class="soc-image-model-tag">' + _socEscapeHtml(model) + ' · ' + _socEscapeHtml(aspectRatio) + '</span>' +
+                '</div>';
             }
             _socShowToast('Image generated!', 'success');
           } else {
-            if (outputEl) outputEl.textContent = result.error || 'Generation failed';
-            _socShowToast('Image generation failed', 'error');
+            if (outputEl) {
+              outputEl.innerHTML = '<div class="soc-image-placeholder">' + _socEscapeHtml(result.error || 'Generation failed') + '</div>';
+            }
+            _socShowToast(result.error || 'Image generation failed', 'error');
           }
         })
         .catch(err => {
           console.error('[Social] Image gen failed:', err);
-          if (outputEl) outputEl.textContent = 'Error generating image';
+          if (outputEl) {
+            outputEl.innerHTML = '<div class="soc-image-placeholder">Error generating image</div>';
+          }
           _socShowToast('Image error', 'error');
         })
         .finally(() => { imageGenBtn.disabled = false; });
@@ -485,6 +512,10 @@ function _socInit() {
       const el = root.querySelector('#soc-rapidapi-key');
       if (el && val) el.placeholder = '••••••••';
     }).catch(() => {});
+    settings.get('kie.apiKey').then(val => {
+      const el = root.querySelector('#soc-kie-key');
+      if (el && val) el.placeholder = '••••••••';
+    }).catch(() => {});
   }
 
   // Apify test
@@ -493,7 +524,6 @@ function _socInit() {
     apifyTestBtn.addEventListener('click', () => {
       const key = (root.querySelector('#soc-apify-key') || {}).value || '';
       const statusEl = root.querySelector('#soc-apify-status');
-      if (!key) { _socShowToast('Enter an Apify key first', 'error'); return; }
       apifyTestBtn.disabled = true;
       if (statusEl) statusEl.textContent = 'Testing…';
       const social = _socAPI();
@@ -503,7 +533,19 @@ function _socInit() {
       testFn
         .then(result => {
           if (statusEl) { statusEl.textContent = result.valid ? '✓ Valid' : '✗ Invalid'; statusEl.className = 'soc-key-status ' + (result.valid ? 'valid' : 'invalid'); }
-          _socShowToast(result.valid ? 'Apify key valid!' : 'Apify key invalid', result.valid ? 'success' : 'error');
+          if (result.valid) {
+            if (key && settings) {
+              settings.set('apify.apiKey', key).then(() => {
+                _socShowToast('Apify key valid & saved!', 'success');
+                const el = root.querySelector('#soc-apify-key');
+                if (el) { el.value = ''; el.placeholder = '••••••••'; }
+              }).catch(() => _socShowToast('Key valid but failed to save', 'error'));
+            } else {
+              _socShowToast('Apify key is valid!', 'success');
+            }
+          } else {
+            _socShowToast('Apify key invalid', 'error');
+          }
         })
         .catch(() => {
           if (statusEl) { statusEl.textContent = '✗ Error'; statusEl.className = 'soc-key-status invalid'; }
@@ -538,7 +580,6 @@ function _socInit() {
     rapidTestBtn.addEventListener('click', () => {
       const key = (root.querySelector('#soc-rapidapi-key') || {}).value || '';
       const statusEl = root.querySelector('#soc-rapidapi-status');
-      if (!key) { _socShowToast('Enter a RapidAPI key first', 'error'); return; }
       rapidTestBtn.disabled = true;
       if (statusEl) statusEl.textContent = 'Testing…';
       const social = _socAPI();
@@ -548,7 +589,19 @@ function _socInit() {
       testFn
         .then(result => {
           if (statusEl) { statusEl.textContent = result.valid ? '✓ Valid' : '✗ Invalid'; statusEl.className = 'soc-key-status ' + (result.valid ? 'valid' : 'invalid'); }
-          _socShowToast(result.valid ? 'RapidAPI key valid!' : 'RapidAPI key invalid', result.valid ? 'success' : 'error');
+          if (result.valid) {
+            if (key && settings) {
+              settings.set('rapidapi.apiKey', key).then(() => {
+                _socShowToast('RapidAPI key valid & saved!', 'success');
+                const el = root.querySelector('#soc-rapidapi-key');
+                if (el) { el.value = ''; el.placeholder = '••••••••'; }
+              }).catch(() => _socShowToast('Key valid but failed to save', 'error'));
+            } else {
+              _socShowToast('RapidAPI key is valid!', 'success');
+            }
+          } else {
+            _socShowToast('RapidAPI key invalid', 'error');
+          }
         })
         .catch(() => {
           if (statusEl) { statusEl.textContent = '✗ Error'; statusEl.className = 'soc-key-status invalid'; }
@@ -574,6 +627,62 @@ function _socInit() {
         })
         .catch(() => _socShowToast('Failed to save key', 'error'))
         .finally(() => { rapidSaveBtn.disabled = false; });
+    });
+  }
+
+  // Kie.ai test
+  const kieTestBtn = root.querySelector('#soc-kie-test-btn');
+  if (kieTestBtn) {
+    kieTestBtn.addEventListener('click', () => {
+      const key = (root.querySelector('#soc-kie-key') || {}).value || '';
+      const statusEl = root.querySelector('#soc-kie-status');
+      kieTestBtn.disabled = true;
+      if (statusEl) statusEl.textContent = 'Testing…';
+      const social = _socAPI();
+      const testFn = social && social.validateKieKey
+        ? social.validateKieKey(key)
+        : Promise.reject(new Error('validateKieKey not available'));
+      testFn
+        .then(result => {
+          if (statusEl) { statusEl.textContent = result.valid ? '✓ Valid' : '✗ Invalid'; statusEl.className = 'soc-key-status ' + (result.valid ? 'valid' : 'invalid'); }
+          if (result.valid) {
+            if (key && settings) {
+              settings.set('kie.apiKey', key).then(() => {
+                _socShowToast('Kie.ai key valid & saved!', 'success');
+                const el = root.querySelector('#soc-kie-key');
+                if (el) { el.value = ''; el.placeholder = '••••••••'; }
+              }).catch(() => _socShowToast('Key valid but failed to save', 'error'));
+            } else {
+              _socShowToast('Kie.ai key is valid!', 'success');
+            }
+          } else {
+            _socShowToast('Kie.ai key invalid', 'error');
+          }
+        })
+        .catch(() => {
+          if (statusEl) { statusEl.textContent = '✗ Error'; statusEl.className = 'soc-key-status invalid'; }
+          _socShowToast('Test failed', 'error');
+        })
+        .finally(() => { kieTestBtn.disabled = false; });
+    });
+  }
+
+  // Kie.ai save
+  const kieSaveBtn = root.querySelector('#soc-kie-save-btn');
+  if (kieSaveBtn) {
+    kieSaveBtn.addEventListener('click', () => {
+      const key = (root.querySelector('#soc-kie-key') || {}).value || '';
+      if (!key) { _socShowToast('Enter a key to save', 'error'); return; }
+      if (!settings) { _socShowToast('Settings unavailable', 'error'); return; }
+      kieSaveBtn.disabled = true;
+      settings.set('kie.apiKey', key)
+        .then(() => {
+          _socShowToast('Kie.ai key saved!', 'success');
+          const el = root.querySelector('#soc-kie-key');
+          if (el) { el.value = ''; el.placeholder = '••••••••'; }
+        })
+        .catch(() => _socShowToast('Failed to save key', 'error'))
+        .finally(() => { kieSaveBtn.disabled = false; });
     });
   }
 
@@ -797,10 +906,13 @@ function _socLoadGallery() {
       grid.className = 'soc-gallery-grid';
       grid.innerHTML = items.map(item => {
         const isFav = item.rating && item.rating > 0;
+        // Determine if this is an image: has media_url, or content_type is 'image' with a URL-like output
+        const imageUrl = item.media_url || (_socIsImageItem(item) ? item.output : null);
+        const isImage = !!imageUrl;
         return (
-          '<div class="soc-gallery-item" data-id="' + item.id + '">' +
-            (item.media_url
-              ? '<img class="soc-gallery-item-media" src="' + _socEscapeHtml(item.media_url) + '" />'
+          '<div class="soc-gallery-item' + (isImage ? ' soc-gallery-image-item' : '') + '" data-id="' + item.id + '">' +
+            (isImage
+              ? '<img class="soc-gallery-item-media" src="' + _socEscapeHtml(imageUrl) + '" onclick="socPanelActions.openLightbox(\'' + item.id + '\')" />'
               : '<div class="soc-gallery-item-content" onclick="socPanelActions.openLightbox(\'' + item.id + '\')">' + _socEscapeHtml(item.output) + '</div>') +
             '<div class="soc-gallery-item-footer">' +
               '<span>' + _socMakePlatformBadge(item.platform || item.content_type) + ' · ' + _socTimeAgo(item.created_at) + '</span>' +
@@ -1013,10 +1125,18 @@ window.socPanelActions = {
       .then(items => {
         const item = items.find(i => i.id === id);
         if (!item) return;
-        if (lbBody) lbBody.textContent = item.output || '';
+
+        const imageUrl = item.media_url || (_socIsImageItem(item) ? item.output : null);
+        if (imageUrl) {
+          if (lbBody) lbBody.innerHTML = '<img src="' + _socEscapeHtml(imageUrl) + '" style="max-width:100%;border-radius:8px;" />';
+        } else {
+          if (lbBody) lbBody.textContent = item.output || '';
+        }
+
         if (lbMeta) {
           lbMeta.innerHTML =
             '<span>' + _socMakePlatformBadge(item.platform || item.content_type) + '</span>' +
+            (item.prompt_used ? '<span style="opacity:0.7;font-style:italic">' + _socEscapeHtml(item.prompt_used) + '</span>' : '') +
             '<span>' + _socTimeAgo(item.created_at) + '</span>';
         }
         lightbox.classList.add('active');

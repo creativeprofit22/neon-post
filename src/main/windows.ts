@@ -138,14 +138,26 @@ export function createWindow(options: CreateWindowOptions): BrowserWindow {
 
   // 3. Create the window
   const win = new BrowserWindow(windowOptions);
+  console.log(`[Windows] Created window: ${id} (${htmlFile})`);
 
   // 4. Load HTML file
   const loadOptions: Electron.LoadFileOptions = {};
   if (hash) loadOptions.hash = hash;
-  win.loadFile(path.join(__dirname, '../../ui', htmlFile), loadOptions);
+  const filePath = path.join(__dirname, '../../ui', htmlFile);
+  console.log(`[Windows] Loading file: ${filePath}`);
+  win.loadFile(filePath, loadOptions);
+
+  // Log renderer errors
+  win.webContents.on('did-fail-load', (_e, code, desc) => {
+    console.error(`[Windows] ${id} did-fail-load: ${code} ${desc}`);
+  });
+  win.webContents.on('render-process-gone', (_e, details) => {
+    console.error(`[Windows] ${id} render-process-gone:`, details);
+  });
 
   // 5. Show when ready
   win.once('ready-to-show', () => {
+    console.log(`[Windows] ${id} ready-to-show, calling show()`);
     win.show();
   });
 

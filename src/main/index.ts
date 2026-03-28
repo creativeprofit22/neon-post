@@ -418,8 +418,9 @@ function showSplashScreen(): void {
   // Safety timeout - force close splash after 5 seconds if IPC fails
   setTimeout(() => {
     if (splashWindow && !splashWindow.isDestroyed()) {
-      console.log('[Main] Safety timeout: force-closing splash screen');
+      console.log('[Main] Safety timeout: force-closing splash screen and opening chat');
       closeSplashScreen();
+      openChatWindow();
     }
   }, 5000);
 }
