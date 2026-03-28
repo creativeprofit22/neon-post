@@ -26,6 +26,7 @@ import {
   registerCronIPC,
   registerIosIPC,
   registerMiscIPC,
+  registerSocialIpc,
   wireIosChannelHandlers,
 } from './ipc';
 import type { IPCDependencies } from './ipc';
@@ -574,6 +575,7 @@ function setupIPC(): void {
   registerCronIPC(deps);
   registerIosIPC(deps);
   registerMiscIPC(deps);
+  registerSocialIpc(deps);
 }
 
 // ============ Agent Lifecycle ============

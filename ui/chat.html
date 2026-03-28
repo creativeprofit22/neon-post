@@ -29,6 +29,7 @@
   <link rel="stylesheet" href="chat/brain-panel.css">
   <link rel="stylesheet" href="chat/routines-panel.css">
   <link rel="stylesheet" href="chat/personalize-panel.css">
+  <link rel="stylesheet" href="chat/social-panel.css">
   <link rel="stylesheet" href="chat/onboarding.css">
   <script src="shared/theme-loader.js"></script>
   <script type="module">
@@ -70,6 +71,10 @@
       <button class="sidebar-btn" id="sidebar-brain-btn" title="The Brain">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5"><path stroke-linejoin="round" d="M16.998 7.127Q17.48 7 18 7a4 4 0 1 1-1.027 7.867m.025-7.74L17 7a4 4 0 0 0-7.91-.85m7.908.977A4 4 0 0 1 16.465 9m.508 5.867q.027-.18.027-.367a2.5 2.5 0 0 0-2-2.45m1.973 2.817A2.5 2.5 0 0 1 14.5 17H14a4 4 0 0 0-4 4M9.09 6.15a4 4 0 0 0-4.932 4.97M9.09 6.15A4 4 0 0 1 11.465 8m-7.306 3.12A3.001 3.001 0 0 0 5 17a3 3 0 0 0 2.83-2m-3.671-3.88q.136.467.376.88"/><path d="M11.836 11.744c-.51.491-1.383.576-2.129.157c-.746-.42-1.127-1.21-.972-1.901"/></g></svg>
         <span class="sidebar-btn-label">The Brain</span>
+      </button>
+      <button class="sidebar-btn" id="sidebar-social-btn" title="Social">
+        <span style="font-size: 16px; line-height: 1;">🎬</span>
+        <span class="sidebar-btn-label">Social</span>
       </button>
       <button class="sidebar-btn" id="sidebar-docs-btn" title="Docs">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7h8m-8 4h4m1 10.5V21c0-2.828 0-4.243.879-5.121C14.757 15 16.172 15 19 15h.5m.5-1.657V10c0-3.771 0-5.657-1.172-6.828S15.771 2 12 2S6.343 2 5.172 3.172S4 6.229 4 10v4.544c0 3.245 0 4.868.886 5.967a4 4 0 0 0 .603.603C6.59 22 8.211 22 11.456 22c.705 0 1.058 0 1.381-.114q.1-.036.197-.082c.31-.148.559-.397 1.058-.896l4.736-4.736c.579-.578.867-.867 1.02-1.235c.152-.368.152-.776.152-1.594"/></svg>
@@ -983,6 +988,295 @@
     </div>
   </div><!-- #personalize-view -->
 
+  <!-- Social View (inline, replaces chat when active) -->
+  <div id="social-view">
+    <div class="soc-header">
+      <h1>Social</h1>
+      <div class="soc-header-actions">
+        <button onclick="playNormalClick(); hideSocialPanel()">Back</button>
+      </div>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="soc-tab-bar">
+      <button class="soc-tab-btn active" data-tab="discover">🔍 Discover</button>
+      <button class="soc-tab-btn" data-tab="create">✨ Create</button>
+      <button class="soc-tab-btn" data-tab="posts">📝 Posts</button>
+      <button class="soc-tab-btn" data-tab="gallery">🖼 Gallery</button>
+      <button class="soc-tab-btn" data-tab="accounts">⚙ Accounts</button>
+    </div>
+
+    <!-- Discover Tab -->
+    <div class="soc-tab-content active" id="soc-tab-discover">
+      <div class="soc-tab-body">
+        <div class="soc-search-row">
+          <input type="text" id="soc-discover-search" placeholder="Search trending content...">
+          <select id="soc-discover-platform">
+            <option value="">All Platforms</option>
+            <option value="tiktok">TikTok</option>
+            <option value="youtube">YouTube</option>
+            <option value="instagram">Instagram</option>
+            <option value="twitter">Twitter / X</option>
+            <option value="linkedin">LinkedIn</option>
+          </select>
+          <button class="soc-btn soc-btn-primary" id="soc-discover-search-btn">Search</button>
+        </div>
+        <div id="soc-discover-results"></div>
+      </div>
+    </div>
+
+    <!-- Create Tab -->
+    <div class="soc-tab-content" id="soc-tab-create">
+      <div class="soc-tab-body">
+        <div class="soc-sub-tabs">
+          <button class="soc-sub-tab active" data-panel="generate">Generate</button>
+          <button class="soc-sub-tab" data-panel="repurpose">Repurpose</button>
+          <button class="soc-sub-tab" data-panel="image">Image</button>
+        </div>
+
+        <!-- Generate Panel -->
+        <div class="soc-create-panel active" id="soc-panel-generate">
+          <div class="soc-form-row">
+            <div class="soc-form-group">
+              <label>Content Type</label>
+              <select id="soc-create-content-type">
+                <option value="caption">Caption</option>
+                <option value="script">Script</option>
+                <option value="thread">Thread</option>
+                <option value="hook">Hook</option>
+                <option value="hashtags">Hashtags</option>
+              </select>
+            </div>
+            <div class="soc-form-group">
+              <label>Platform</label>
+              <select id="soc-create-platform">
+                <option value="">Any</option>
+                <option value="tiktok">TikTok</option>
+                <option value="youtube">YouTube</option>
+                <option value="instagram">Instagram</option>
+                <option value="twitter">Twitter / X</option>
+                <option value="linkedin">LinkedIn</option>
+              </select>
+            </div>
+          </div>
+          <div class="soc-form-group">
+            <label>Prompt</label>
+            <textarea id="soc-create-prompt" rows="3" placeholder="Describe what you want to create..."></textarea>
+          </div>
+          <button class="soc-btn soc-btn-primary" id="soc-create-generate-btn">Generate</button>
+          <div class="soc-generated-output" id="soc-create-output">Generated content will appear here</div>
+        </div>
+
+        <!-- Repurpose Panel -->
+        <div class="soc-create-panel" id="soc-panel-repurpose">
+          <div class="soc-form-group">
+            <label>Source URL</label>
+            <input type="text" id="soc-repurpose-url" placeholder="Paste a URL to repurpose...">
+          </div>
+          <div class="soc-form-group">
+            <label>Target Platform</label>
+            <select id="soc-repurpose-platform">
+              <option value="">Any</option>
+              <option value="tiktok">TikTok</option>
+              <option value="youtube">YouTube</option>
+              <option value="instagram">Instagram</option>
+              <option value="twitter">Twitter / X</option>
+              <option value="linkedin">LinkedIn</option>
+            </select>
+          </div>
+          <button class="soc-btn soc-btn-primary" id="soc-repurpose-btn">Repurpose</button>
+          <div class="soc-generated-output" id="soc-repurpose-output">Repurposed content will appear here</div>
+        </div>
+
+        <!-- Image Panel -->
+        <div class="soc-create-panel" id="soc-panel-image">
+          <div class="soc-form-group">
+            <label>Image Prompt</label>
+            <textarea id="soc-image-prompt" rows="3" placeholder="Describe the image you want to generate..."></textarea>
+          </div>
+          <button class="soc-btn soc-btn-primary" id="soc-image-gen-btn">Generate Image</button>
+          <div class="soc-generated-output" id="soc-image-output">Generated image will appear here</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Posts Tab -->
+    <div class="soc-tab-content" id="soc-tab-posts">
+      <div class="soc-tab-body">
+        <div class="soc-composer">
+          <textarea id="soc-post-content" placeholder="Write your post content..."></textarea>
+          <div class="soc-composer-controls">
+            <select id="soc-post-platform">
+              <option value="tiktok">TikTok</option>
+              <option value="youtube">YouTube</option>
+              <option value="instagram">Instagram</option>
+              <option value="twitter">Twitter / X</option>
+              <option value="linkedin">LinkedIn</option>
+            </select>
+            <select id="soc-post-status">
+              <option value="draft">Draft</option>
+              <option value="scheduled">Scheduled</option>
+            </select>
+            <input type="datetime-local" id="soc-post-schedule">
+            <button class="soc-btn soc-btn-primary" id="soc-post-create-btn">Create Post</button>
+          </div>
+        </div>
+        <div class="soc-flex-between soc-mb-12">
+          <span class="soc-section-title">Posts</span>
+          <select id="soc-posts-filter">
+            <option value="all">All</option>
+            <option value="draft">Drafts</option>
+            <option value="scheduled">Scheduled</option>
+            <option value="posted">Posted</option>
+          </select>
+        </div>
+        <table class="soc-posts-table">
+          <thead><tr><th>Platform</th><th>Content</th><th>Status</th><th>Scheduled</th><th>Created</th><th></th></tr></thead>
+          <tbody id="soc-posts-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Gallery Tab -->
+    <div class="soc-tab-content" id="soc-tab-gallery">
+      <div class="soc-tab-body">
+        <div id="soc-gallery-grid"></div>
+      </div>
+    </div>
+
+    <!-- Accounts Tab -->
+    <div class="soc-tab-content" id="soc-tab-accounts">
+      <div class="soc-tab-body">
+        <!-- Connected Accounts -->
+        <span class="soc-section-title">Connected Accounts</span>
+        <div id="soc-accounts-list" class="soc-accounts-list"></div>
+
+        <!-- Add / Edit Account -->
+        <span class="soc-section-title soc-mt-12" id="soc-account-form-title">Add Account</span>
+        <div class="soc-add-account-form" id="soc-account-form">
+          <!-- Common fields -->
+          <div class="soc-form-row">
+            <div class="soc-form-group">
+              <label>Platform</label>
+              <select id="soc-account-platform">
+                <option value="tiktok">TikTok</option>
+                <option value="youtube">YouTube</option>
+                <option value="instagram">Instagram</option>
+                <option value="twitter">X / Twitter</option>
+                <option value="linkedin">LinkedIn</option>
+              </select>
+            </div>
+            <div class="soc-form-group">
+              <label>Username</label>
+              <input type="text" id="soc-account-username" placeholder="@username">
+            </div>
+            <div class="soc-form-group">
+              <label>Display Name</label>
+              <input type="text" id="soc-account-display" placeholder="Optional">
+            </div>
+          </div>
+
+          <!-- Platform credential fields (all hidden by default, shown by JS) -->
+          <!-- All platforms: Access Token -->
+          <div class="soc-cred-group" id="soc-cred-access-token">
+            <div class="soc-form-group">
+              <label>Access Token</label>
+              <input type="password" id="soc-account-access-token" placeholder="Access Token" autocomplete="off">
+            </div>
+          </div>
+
+          <!-- X/Twitter specific -->
+          <div class="soc-cred-group soc-cred-twitter" style="display:none">
+            <div class="soc-form-row">
+              <div class="soc-form-group"><label>Consumer Key</label><input type="password" id="soc-account-consumer-key" placeholder="API Key" autocomplete="off"></div>
+              <div class="soc-form-group"><label>Consumer Secret</label><input type="password" id="soc-account-consumer-secret" placeholder="API Secret" autocomplete="off"></div>
+            </div>
+            <div class="soc-form-group"><label>Access Token Secret</label><input type="password" id="soc-account-access-token-secret" placeholder="OAuth 1.0a Token Secret" autocomplete="off"></div>
+          </div>
+
+          <!-- Instagram specific -->
+          <div class="soc-cred-group soc-cred-instagram" style="display:none">
+            <div class="soc-form-row">
+              <div class="soc-form-group"><label>Page ID</label><input type="text" id="soc-account-page-id" placeholder="Facebook Page ID"></div>
+              <div class="soc-form-group"><label>Instagram Account ID</label><input type="text" id="soc-account-ig-id" placeholder="Business Account ID"></div>
+            </div>
+          </div>
+
+          <!-- TikTok / YouTube specific -->
+          <div class="soc-cred-group soc-cred-client" style="display:none">
+            <div class="soc-form-row">
+              <div class="soc-form-group"><label>Client ID</label><input type="password" id="soc-account-client-id" placeholder="Client ID" autocomplete="off"></div>
+              <div class="soc-form-group"><label>Client Secret</label><input type="password" id="soc-account-client-secret" placeholder="Client Secret" autocomplete="off"></div>
+            </div>
+          </div>
+
+          <!-- Buttons -->
+          <div class="soc-form-row soc-mt-12">
+            <button class="soc-btn soc-btn-primary" id="soc-account-save-btn">Add Account</button>
+            <button class="soc-btn soc-btn-secondary" id="soc-account-cancel-btn" style="display:none">Cancel</button>
+          </div>
+        </div>
+
+        <!-- Scraping API Keys -->
+        <span class="soc-section-title soc-mt-12">Scraping API Keys</span>
+        <p class="soc-hint">Required for TikTok &amp; Instagram content discovery in the Discover tab.</p>
+        <div class="soc-scraping-keys">
+          <div class="soc-key-row">
+            <div class="soc-key-info"><span class="soc-key-name">Apify</span><span class="soc-key-desc">TikTok, Instagram &amp; YouTube scraping</span></div>
+            <div class="soc-key-input">
+              <input type="password" id="soc-apify-key" placeholder="apify_api_..." autocomplete="off">
+              <button class="soc-btn soc-btn-sm" id="soc-apify-test-btn">Test</button>
+              <button class="soc-btn soc-btn-sm soc-btn-primary" id="soc-apify-save-btn">Save</button>
+              <span id="soc-apify-status" class="soc-key-status"></span>
+            </div>
+          </div>
+          <div class="soc-key-row">
+            <div class="soc-key-info"><span class="soc-key-name">RapidAPI</span><span class="soc-key-desc">Alternative TikTok scraping (TikTok Scraper 7)</span></div>
+            <div class="soc-key-input">
+              <input type="password" id="soc-rapidapi-key" placeholder="Your RapidAPI key..." autocomplete="off">
+              <button class="soc-btn soc-btn-sm" id="soc-rapidapi-test-btn">Test</button>
+              <button class="soc-btn soc-btn-sm soc-btn-primary" id="soc-rapidapi-save-btn">Save</button>
+              <span id="soc-rapidapi-status" class="soc-key-status"></span>
+            </div>
+          </div>
+        </div>
+
+        <span class="soc-section-title soc-mt-12">Brand Voice</span>
+        <div class="soc-brand-form">
+          <div class="soc-form-row">
+            <div class="soc-form-group"><label>Brand Name</label><input type="text" id="soc-brand-name" placeholder="Your brand name"></div>
+            <div class="soc-form-group"><label>Voice</label><input type="text" id="soc-brand-voice" placeholder="e.g. friendly, professional"></div>
+          </div>
+          <div class="soc-form-row">
+            <div class="soc-form-group"><label>Tone</label><input type="text" id="soc-brand-tone" placeholder="e.g. casual, authoritative"></div>
+            <div class="soc-form-group"><label>Target Audience</label><input type="text" id="soc-brand-target-audience" placeholder="e.g. gen-z creators"></div>
+          </div>
+          <div class="soc-form-group"><label>Themes</label><textarea id="soc-brand-themes" rows="2" placeholder="Content themes and topics..."></textarea></div>
+          <div class="soc-form-group"><label>Hashtags</label><input type="text" id="soc-brand-hashtags" placeholder="#brand #content"></div>
+          <div class="soc-form-group"><label>Posting Guidelines</label><textarea id="soc-brand-posting-guidelines" rows="2" placeholder="Posting rules and preferences..."></textarea></div>
+          <div class="soc-form-group"><label>Visual Style</label><input type="text" id="soc-brand-visual-style" placeholder="e.g. minimalist, colorful"></div>
+          <div class="soc-form-row">
+            <div class="soc-form-group"><label>Do's</label><textarea id="soc-brand-dos" rows="2" placeholder="Things to always do..."></textarea></div>
+            <div class="soc-form-group"><label>Don'ts</label><textarea id="soc-brand-donts" rows="2" placeholder="Things to avoid..."></textarea></div>
+          </div>
+          <div class="soc-form-group"><label>Example Posts</label><textarea id="soc-brand-example-posts" rows="3" placeholder="Paste example posts for tone reference..."></textarea></div>
+          <button class="soc-btn soc-btn-primary soc-mt-12" id="soc-save-brand-btn">Save Brand</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lightbox -->
+    <div class="soc-lightbox" id="soc-lightbox">
+      <div class="soc-lightbox-content">
+        <button class="soc-lightbox-close" id="soc-lightbox-close">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18 6L6 18m12 0L6 6"/></svg>
+        </button>
+        <div class="soc-lightbox-body" id="soc-lightbox-body"></div>
+        <div class="soc-lightbox-meta" id="soc-lightbox-meta"></div>
+      </div>
+    </div>
+  </div><!-- #social-view -->
+
   </div><!-- .main-content -->
 
   <!-- About Modal (outside main-content so it overlays all views) -->
@@ -1048,6 +1342,7 @@
   <script src="chat/brain-panel.js"></script>
   <script src="chat/routines-panel.js"></script>
   <script src="chat/personalize-panel.js"></script>
+  <script src="chat/social-panel.js"></script>
   <script src="chat/event-bindings.js"></script>
   <script src="chat/init.js"></script>
 

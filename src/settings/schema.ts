@@ -101,6 +101,26 @@ export const SETTINGS_SCHEMA: SettingDefinition[] = [
     type: 'password',
   },
 
+  // Scraping API keys
+  {
+    key: 'apify.apiKey',
+    defaultValue: '',
+    encrypted: true,
+    category: 'api_keys',
+    label: 'Apify API Key',
+    description: 'Your Apify API key for TikTok/Instagram/YouTube scraping',
+    type: 'password',
+  },
+  {
+    key: 'rapidapi.apiKey',
+    defaultValue: '',
+    encrypted: true,
+    category: 'api_keys',
+    label: 'RapidAPI Key',
+    description: 'Your RapidAPI key for TikTok scraping (TikTok Scraper 7)',
+    type: 'password',
+  },
+
   // Agent settings
   {
     key: 'agent.model',

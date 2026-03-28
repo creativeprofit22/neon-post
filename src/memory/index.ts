@@ -78,6 +78,12 @@ import {
   setSdkSessionId as _setSdkSessionId,
   clearSdkSessionId as _clearSdkSessionId,
 } from './sessions';
+import { SocialAccountsStore, SOCIAL_ACCOUNTS_SCHEMA } from './social-accounts';
+import { DiscoveredContentStore, DISCOVERED_CONTENT_SCHEMA } from './discovered-content';
+import { SocialPostsStore, SOCIAL_POSTS_SCHEMA } from './social-posts';
+import { EngagementLogStore, ENGAGEMENT_LOG_SCHEMA } from './engagement';
+import { BrandConfigStore, BRAND_CONFIG_SCHEMA } from './brand-config';
+import { GeneratedContentStore, GENERATED_CONTENT_SCHEMA } from './generated-content';
 
 // Types
 export type { Session } from './sessions';
@@ -87,6 +93,35 @@ export type { CronJob } from './cron-jobs';
 export type { DailyLog } from './daily-logs';
 export type { TelegramChatSession } from './telegram-sessions';
 export type { SoulAspect } from './soul';
+export type {
+  SocialAccount,
+  CreateSocialAccountInput,
+  UpdateSocialAccountInput,
+} from './social-accounts';
+export type {
+  DiscoveredContent,
+  CreateDiscoveredContentInput,
+  UpdateDiscoveredContentInput,
+} from './discovered-content';
+export type {
+  SocialPost,
+  SocialPostStatus,
+  CreateSocialPostInput,
+  UpdateSocialPostInput,
+} from './social-posts';
+export type {
+  EngagementLog,
+  EngagementAction,
+  CreateEngagementLogInput,
+  UpdateEngagementLogInput,
+} from './engagement';
+export type { BrandConfig, CreateBrandConfigInput, UpdateBrandConfigInput } from './brand-config';
+export type {
+  GeneratedContent,
+  GeneratedContentType,
+  CreateGeneratedContentInput,
+  UpdateGeneratedContentInput,
+} from './generated-content';
 
 export class MemoryManager {
   private db: Database.Database;
@@ -98,10 +133,26 @@ export class MemoryManager {
   // Cache for soul context (invalidated on soul changes) — owned by SoulRepository
   private soulCache: SoulCache = createSoulCache();
 
+  // Social / content stores
+  readonly socialAccounts: SocialAccountsStore;
+  readonly discoveredContent: DiscoveredContentStore;
+  readonly socialPosts: SocialPostsStore;
+  readonly engagementLog: EngagementLogStore;
+  readonly brandConfig: BrandConfigStore;
+  readonly generatedContent: GeneratedContentStore;
+
   constructor(dbPath: string) {
     this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
     this.initialize();
+
+    // Instantiate social/content stores (tables already created in initialize())
+    this.socialAccounts = new SocialAccountsStore(this.db);
+    this.discoveredContent = new DiscoveredContentStore(this.db);
+    this.socialPosts = new SocialPostsStore(this.db);
+    this.engagementLog = new EngagementLogStore(this.db);
+    this.brandConfig = new BrandConfigStore(this.db);
+    this.generatedContent = new GeneratedContentStore(this.db);
   }
 
   private initialize(): void {
@@ -272,6 +323,14 @@ export class MemoryManager {
       -- Unique constraint on session names (for Telegram group linking)
       CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_name_unique ON sessions(name);
     `);
+
+    // Social / content tables
+    this.db.exec(SOCIAL_ACCOUNTS_SCHEMA);
+    this.db.exec(DISCOVERED_CONTENT_SCHEMA);
+    this.db.exec(SOCIAL_POSTS_SCHEMA);
+    this.db.exec(ENGAGEMENT_LOG_SCHEMA);
+    this.db.exec(BRAND_CONFIG_SCHEMA);
+    this.db.exec(GENERATED_CONTENT_SCHEMA);
 
     // Create FTS5 virtual table for keyword search
     try {

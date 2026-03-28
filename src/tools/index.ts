@@ -17,6 +17,7 @@ import { getSchedulerTools } from './scheduler-tools';
 import { getNotifyToolDefinition, handleNotifyTool } from './macos';
 import { getProjectTools } from './project-tools';
 import { getSwitchAgentTool } from './agent-mode-tools';
+import { getSocialTools } from './social-tools';
 import { wrapToolHandler, getToolTimeout, logActiveToolsStatus } from './diagnostics';
 import { getModeConfig } from '../agent/agent-modes';
 import type { AgentModeId } from '../agent/agent-modes';
@@ -30,7 +31,9 @@ setInterval(() => {
 
 export { setMemoryManager } from './memory-tools';
 export { setSoulMemoryManager } from './soul-tools';
+export { setSocialMemoryManager } from './social-tools';
 export { getSchedulerTools } from './scheduler-tools';
+export { getSocialTools } from './social-tools';
 export { showNotification } from './macos';
 export { setCurrentSessionId, getCurrentSessionId, runWithSessionId } from './session-context';
 
@@ -308,6 +311,36 @@ export async function buildSdkMcpServers(
       }
     }
 
+    // Social tools (always registered - API availability checked at runtime)
+    const socialToolDefs = getSocialTools();
+    for (const socialTool of socialToolDefs) {
+      const wrappedHandler = wrapToolHandler(
+        socialTool.name,
+        socialTool.handler,
+        getToolTimeout(socialTool.name)
+      );
+      const sdkTool = tool(
+        socialTool.name,
+        socialTool.description,
+        Object.fromEntries(
+          Object.entries(socialTool.input_schema.properties || {}).map(
+            ([key, value]: [string, unknown]) => {
+              const prop = value as { type?: string };
+              if (prop.type === 'string') return [key, z.string().optional()];
+              if (prop.type === 'number') return [key, z.number().optional()];
+              if (prop.type === 'boolean') return [key, z.boolean().optional()];
+              return [key, z.any().optional()];
+            }
+          )
+        ),
+        async (args) => {
+          const result = await wrappedHandler(args);
+          return { content: [{ type: 'text', text: result }] };
+        }
+      );
+      tools.push(sdkTool);
+    }
+
     // Project tools (with diagnostics wrapper)
     const projectTools = getProjectTools();
     for (const projTool of projectTools) {
@@ -424,6 +457,17 @@ export function getCustomTools(config: ToolsConfig): Array<{
   // Scheduler tools (always enabled - scheduler availability checked at runtime)
   const schedulerTools = getSchedulerTools();
   for (const tool of schedulerTools) {
+    tools.push({
+      name: tool.name,
+      description: tool.description,
+      input_schema: tool.input_schema as Record<string, unknown>,
+      handler: tool.handler,
+    });
+  }
+
+  // Social tools (always enabled - API availability checked at runtime)
+  const socialTools = getSocialTools();
+  for (const tool of socialTools) {
     tools.push({
       name: tool.name,
       description: tool.description,

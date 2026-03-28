@@ -246,6 +246,31 @@ contextBridge.exposeInMainWorld('pocketAgent', {
     openSettings: (type: string) => ipcRenderer.invoke('permissions:openSettings', type),
   },
 
+  // ─── Social Media ───────────────────────────────────────────────────
+  social: {
+    listAccounts: () => ipcRenderer.invoke('social:listAccounts'),
+    getAccount: (id: string) => ipcRenderer.invoke('social:getAccount', id),
+    addAccount: (data: Record<string, unknown>) => ipcRenderer.invoke('social:addAccount', data),
+    updateAccount: (id: string, data: Record<string, unknown>) =>
+      ipcRenderer.invoke('social:updateAccount', id, data),
+    removeAccount: (id: string) => ipcRenderer.invoke('social:removeAccount', id),
+    searchContent: (query: string, platform?: string) =>
+      ipcRenderer.invoke('social:searchContent', query, platform),
+    getDiscovered: (limit?: number) => ipcRenderer.invoke('social:getDiscovered', limit),
+    listPosts: (status?: string) => ipcRenderer.invoke('social:listPosts', status),
+    createPost: (data: Record<string, unknown>) => ipcRenderer.invoke('social:createPost', data),
+    getGenerated: (limit?: number) => ipcRenderer.invoke('social:getGenerated', limit),
+    deleteGenerated: (id: string) => ipcRenderer.invoke('social:deleteGenerated', id),
+    favoriteGenerated: (id: string, rating: number) =>
+      ipcRenderer.invoke('social:favoriteGenerated', id, rating),
+    saveBrand: (data: Record<string, unknown>) => ipcRenderer.invoke('social:saveBrand', data),
+    getBrand: () => ipcRenderer.invoke('social:getBrand'),
+    generateContent: (data: Record<string, unknown>) =>
+      ipcRenderer.invoke('social:generateContent', data),
+    validateApifyKey: (key: string) => ipcRenderer.invoke('social:validateApifyKey', key),
+    validateRapidAPIKey: (key: string) => ipcRenderer.invoke('social:validateRapidAPIKey', key),
+  },
+
   // ─── External Events ────────────────────────────────────────────────
   events: {
     onSchedulerMessage: (
@@ -686,6 +711,54 @@ declare global {
           }) => void
         ) => () => void;
         onModelChanged: (callback: (model: string) => void) => () => void;
+      };
+
+      social: {
+        listAccounts: () => Promise<
+          Array<{
+            id: string;
+            platform: string;
+            account_name: string;
+            display_name: string | null;
+            active: boolean;
+            hasCredentials: boolean;
+            created_at: string;
+            updated_at: string;
+          }>
+        >;
+        getAccount: (id: string) => Promise<Record<string, unknown> | null>;
+        addAccount: (
+          data: Record<string, unknown>
+        ) => Promise<{ success: boolean; id?: string; error?: string }>;
+        updateAccount: (
+          id: string,
+          data: Record<string, unknown>
+        ) => Promise<{ success: boolean; error?: string }>;
+        removeAccount: (id: string) => Promise<{ success: boolean; error?: string }>;
+        searchContent: (
+          query: string,
+          platform?: string
+        ) => Promise<Array<Record<string, unknown>> | { error: string }>;
+        getDiscovered: (limit?: number) => Promise<Array<Record<string, unknown>>>;
+        listPosts: (status?: string) => Promise<Array<Record<string, unknown>>>;
+        createPost: (
+          data: Record<string, unknown>
+        ) => Promise<{ success: boolean; id?: string; error?: string }>;
+        getGenerated: (limit?: number) => Promise<Array<Record<string, unknown>>>;
+        deleteGenerated: (id: string) => Promise<{ success: boolean; error?: string }>;
+        favoriteGenerated: (
+          id: string,
+          rating: number
+        ) => Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }>;
+        saveBrand: (data: Record<string, unknown>) => Promise<{ success: boolean; error?: string }>;
+        getBrand: () => Promise<Record<string, unknown> | null>;
+        generateContent: (data: Record<string, unknown>) => Promise<{
+          success: boolean;
+          data?: Record<string, unknown>;
+          error?: string;
+        }>;
+        validateApifyKey: (key: string) => Promise<{ valid: boolean; error?: string }>;
+        validateRapidAPIKey: (key: string) => Promise<{ valid: boolean; error?: string }>;
       };
     };
   }

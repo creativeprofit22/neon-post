@@ -5,9 +5,11 @@
  * The `switch_agent` tool and options builder both reference this registry.
  */
 
+import { contentCreatorSystemPrompt } from '../social/content/system-prompts';
+
 // ── Types ──
 
-export type AgentModeId = 'general' | 'coder' | 'researcher' | 'writer' | 'therapist';
+export type AgentModeId = 'general' | 'coder' | 'researcher' | 'writer' | 'therapist' | 'creator';
 
 export interface AgentMode {
   id: AgentModeId;
@@ -78,6 +80,22 @@ const SCHEDULER_TOOLS = [
 ];
 const GREP_TOOLS = ['mcp__grep__searchGitHub'];
 const SWITCH_TOOL = ['mcp__neon-post__switch_agent'];
+const SOCIAL_TOOLS = [
+  'mcp__neon-post__search_content',
+  'mcp__neon-post__scrape_profile',
+  'mcp__neon-post__get_trending',
+  'mcp__neon-post__download_video',
+  'mcp__neon-post__post_content',
+  'mcp__neon-post__schedule_post',
+  'mcp__neon-post__list_social_accounts',
+  'mcp__neon-post__list_social_posts',
+  'mcp__neon-post__process_video',
+  'mcp__neon-post__transcribe_video',
+  'mcp__neon-post__generate_content',
+  'mcp__neon-post__save_content',
+  'mcp__neon-post__reply_to_comment',
+  'mcp__neon-post__flag_comment',
+];
 
 // ── System prompts ──
 
@@ -210,6 +228,23 @@ export const AGENT_MODES: Record<AgentModeId, AgentMode> = {
     allowedTools: [...MEMORY_TOOLS, ...SOUL_TOOLS, ...NOTIFY_TOOLS, ...SWITCH_TOOL],
     mcpServers: ['neon-post'],
     description: 'Supportive listening — talk through stress, decisions, feelings',
+  },
+  creator: {
+    id: 'creator',
+    name: 'Creator',
+    icon: '🎬',
+    engine: 'chat',
+    systemPrompt: contentCreatorSystemPrompt(),
+    allowedTools: [
+      ...SDK_CORE_TOOLS,
+      ...BROWSER_TOOLS,
+      ...NOTIFY_TOOLS,
+      ...MEMORY_TOOLS,
+      ...SOCIAL_TOOLS,
+      ...SWITCH_TOOL,
+    ],
+    mcpServers: ['neon-post'],
+    description: 'Content creator — discover, create, repurpose, publish, engage',
   },
 };
 

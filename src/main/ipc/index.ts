@@ -6,3 +6,4 @@ export { registerFactsIPC } from './facts-ipc';
 export { registerCronIPC } from './cron-ipc';
 export { registerIosIPC, wireIosChannelHandlers } from './ios-ipc';
 export { registerMiscIPC } from './misc-ipc';
+export { registerSocialIpc } from './social-ipc';
