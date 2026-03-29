@@ -1,42 +1,49 @@
 # Neon Post
 
-A persistent desktop AI assistant powered by Claude Agent SDK that runs 24/7 as a system tray application with continuous memory, Telegram integration, browser automation, and scheduled task management.
+A persistent desktop AI assistant (Electron + Claude Agent SDK) that runs 24/7 as a system tray app with continuous memory, Telegram integration, browser automation, social media management, and scheduled tasks.
 
 ## Project Structure
 
 ```
 src/
 ├── main/           # Electron main process (app lifecycle, tray, windows)
+│   └── ipc/        # IPC channel definitions
 ├── agent/          # Claude Agent SDK wrapper and orchestration
-├── memory/         # SQLite persistence (messages, facts, embeddings)
-├── channels/       # Communication channels (Telegram, desktop)
-├── scheduler/      # Cron job management
+├── memory/         # SQLite persistence (messages, facts, embeddings, social)
+├── channels/       # Communication channels (Telegram, iOS relay)
+├── scheduler/      # Cron jobs, social scheduling, notifications
 ├── browser/        # 2-tier browser automation (Electron + CDP)
 ├── tools/          # Agent tool implementations
-├── config/         # Configuration and identity loading
-├── settings/       # User preferences management
-├── auth/           # OAuth flows for integrations
-├── permissions/    # System permissions handling (macOS)
-├── cli/            # Command-line interfaces
+├── config/         # Configuration and system prompts
+├── settings/       # User preferences and schema
+├── auth/           # OAuth flows
+├── image/          # Image generation (Kie.ai) with job tracking
+├── social/         # Content, posting (6 platforms), scraping, engagement, video
 ├── mcp/            # Model Context Protocol servers
-└── skills/         # Skill system for extensibility
+└── utils/          # General helpers
 
-ui/                 # HTML interfaces (chat, settings, cron, facts)
-tests/unit/         # Vitest unit tests
+ui/
+├── chat/           # Main chat interface (JS modules, CSS, panels)
+├── shared/         # Theme loader, base styles, CSS variables
+└── *.html          # Feature pages (settings, setup, cron, facts, soul, etc.)
+
+tests/              # Vitest unit tests
 assets/             # Tray icons and static assets
-.claude/            # Claude Code commands and skills
+scripts/            # Build and utility scripts
 ```
 
 ## Organization Rules
 
 **Keep code organized by responsibility:**
-- Electron main process → `src/main/`
-- Agent logic → `src/agent/`
-- Persistence → `src/memory/`
-- External channels → `src/channels/`
-- Tool implementations → `src/tools/`
-- Configuration → `src/config/` and `src/settings/`
-- Browser automation → `src/browser/`
+- Electron main process -> `src/main/`
+- Agent logic -> `src/agent/`
+- Persistence -> `src/memory/`
+- External channels -> `src/channels/`
+- Tool implementations -> `src/tools/`
+- Configuration -> `src/config/` and `src/settings/`
+- Browser automation -> `src/browser/`
+- Image generation -> `src/image/`
+- Social media -> `src/social/`
 
 **Modularity principles:**
 - Single responsibility per file
@@ -60,15 +67,3 @@ Fix ALL errors/warnings before continuing.
 - `npm run typecheck` - TypeScript type checking
 - `npm run format` - Prettier auto-format
 - `npm run test` - Run all tests
-
-## Key Architecture
-
-**Memory Layer:** SQLite with messages, facts, and embeddings for persistent conversation
-
-**Browser Automation:** Dual-tier system
-- Electron tier: Hidden window for JS rendering
-- CDP tier: Chrome DevTools Protocol for authenticated sessions
-
-**Channel System:** Abstracts Telegram and desktop UI communication
-
-**Scheduler:** Cron-based task automation with SQLite persistence

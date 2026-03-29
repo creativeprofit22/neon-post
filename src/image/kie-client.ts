@@ -7,8 +7,70 @@ const FILE_UPLOAD_BASE = 'https://kieai.redpandaai.co';
 
 export type ImageModelId =
   | 'nano-banana-2'
+  | 'google/nano-banana-edit'
   | 'seedream/5-lite-text-to-image'
   | 'seedream/5-lite-image-to-image';
+
+/**
+ * Map of common shorthand aliases to their canonical Kie.ai model IDs.
+ * The agent may pass abbreviated names — we resolve them here so the API
+ * always receives a valid model identifier.
+ */
+const MODEL_ALIASES: Record<string, ImageModelId> = {
+  // Nano Banana
+  'nano-banana-2': 'nano-banana-2',
+  'nano-banana': 'nano-banana-2',
+  nanobanana: 'nano-banana-2',
+  'nanobanana-2': 'nano-banana-2',
+  nanobanana2: 'nano-banana-2',
+  banana: 'nano-banana-2',
+  // Nano Banana Edit (image-to-image)
+  'nano-banana-edit': 'google/nano-banana-edit',
+  'google/nano-banana-edit': 'google/nano-banana-edit',
+  'nanobanana-edit': 'google/nano-banana-edit',
+  'banana-edit': 'google/nano-banana-edit',
+  // Seedream text-to-image
+  'seedream/5-lite-text-to-image': 'seedream/5-lite-text-to-image',
+  seedream: 'seedream/5-lite-text-to-image',
+  'seedream-3': 'seedream/5-lite-text-to-image',
+  'seedream-5': 'seedream/5-lite-text-to-image',
+  'seedream-5-lite': 'seedream/5-lite-text-to-image',
+  'seedream-text': 'seedream/5-lite-text-to-image',
+  'seedream-text-to-image': 'seedream/5-lite-text-to-image',
+  'seedream-t2i': 'seedream/5-lite-text-to-image',
+  // Seedream image-to-image
+  'seedream/5-lite-image-to-image': 'seedream/5-lite-image-to-image',
+  'seedream-image-to-image': 'seedream/5-lite-image-to-image',
+  'seedream-i2i': 'seedream/5-lite-image-to-image',
+  'seedream-edit': 'seedream/5-lite-image-to-image',
+  'seedream-image': 'seedream/5-lite-image-to-image',
+};
+
+/**
+ * Resolve a possibly-abbreviated model name to a canonical Kie.ai model ID.
+ * Throws if the name cannot be resolved.
+ */
+export function resolveModelId(raw: string): ImageModelId {
+  const key = raw.trim().toLowerCase();
+  const resolved = MODEL_ALIASES[key];
+  if (resolved) return resolved;
+
+  // Also try the raw value as-is (case-sensitive) in case it's already canonical
+  if (Object.values(MODEL_ALIASES).includes(raw as ImageModelId)) {
+    return raw as ImageModelId;
+  }
+
+  const available = [
+    'nano-banana-2',
+    'google/nano-banana-edit',
+    'seedream/5-lite-text-to-image',
+    'seedream/5-lite-image-to-image',
+  ];
+  throw new Error(
+    `Unknown image model: "${raw}". Available models: ${available.join(', ')}. ` +
+      `Common aliases: seedream, banana, seedream-edit, nano-banana-edit`
+  );
+}
 
 export interface ImageGenerationRequest {
   prompt: string;
@@ -16,7 +78,8 @@ export interface ImageGenerationRequest {
   aspectRatio: string;
   quality: string; // '1K'|'2K'|'4K' for nano, 'basic'|'high' for seedream
   referenceImages?: string[]; // URLs for image-to-image
-  outputFormat?: string; // 'png'|'jpg' for nano
+  outputFormat?: string; // 'png'|'jpg'|'jpeg' for nano
+  imageSize?: string; // e.g. '1024x1024' for nano-banana-edit
 }
 
 export interface ImageGenerationResult {
@@ -41,9 +104,9 @@ interface RecordInfoResponse {
   msg: string;
   data: {
     taskId: string;
-    status: 'waiting' | 'queuing' | 'generating' | 'success' | 'fail';
+    state: 'waiting' | 'queuing' | 'generating' | 'success' | 'fail';
     resultJson?: string;
-    failReason?: string;
+    failMsg?: string;
   };
 }
 
@@ -58,7 +121,7 @@ interface FileUploadResponse {
 // ---------------------------------------------------------------------------
 
 function buildTaskInput(request: ImageGenerationRequest): Record<string, unknown> {
-  const { model, prompt, aspectRatio, quality, referenceImages, outputFormat } = request;
+  const { model, prompt, aspectRatio, quality, referenceImages, outputFormat, imageSize } = request;
 
   if (model === 'nano-banana-2') {
     return {
@@ -70,12 +133,21 @@ function buildTaskInput(request: ImageGenerationRequest): Record<string, unknown
     };
   }
 
+  if (model === 'google/nano-banana-edit') {
+    return {
+      prompt,
+      image_urls: referenceImages ?? [],
+      output_format: outputFormat || 'png',
+      ...(imageSize ? { image_size: imageSize } : {}),
+    };
+  }
+
   if (model === 'seedream/5-lite-text-to-image') {
     return {
       prompt,
       aspect_ratio: aspectRatio || '1:1',
       quality: quality || 'basic',
-      nsfw_checker: true,
+      nsfw_checker: false,
     };
   }
 
@@ -85,7 +157,7 @@ function buildTaskInput(request: ImageGenerationRequest): Record<string, unknown
       image_urls: referenceImages ?? [],
       aspect_ratio: aspectRatio || '1:1',
       quality: quality || 'basic',
-      nsfw_checker: true,
+      nsfw_checker: false,
     };
   }
 
@@ -145,7 +217,16 @@ export class KieClient {
       throw new Error(`Kie.ai recordInfo error: HTTP ${response.status} — ${text.slice(0, 200)}`);
     }
 
-    const data = (await response.json()) as RecordInfoResponse;
+    const raw = await response.json();
+    console.log(`[KieClient] getStatus(${predictionId}) raw response:`, JSON.stringify(raw).slice(0, 500));
+    // Write raw response to file for debugging (WSL can't capture Windows stdout)
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+      const logDir = path.join(process.env.APPDATA || '', 'neon-post');
+      fs.appendFileSync(path.join(logDir, 'kie-debug.log'), `${new Date().toISOString()} getStatus(${predictionId}): ${JSON.stringify(raw)}\n`);
+    } catch { /* non-critical */ }
+    const data = raw as RecordInfoResponse;
 
     if (data.code !== 200) {
       return {
@@ -155,17 +236,21 @@ export class KieClient {
       };
     }
 
-    const taskStatus = data.data.status;
+    const taskStatus = data.data?.state;
+    console.log(`[KieClient] getStatus(${predictionId}): apiState=${taskStatus}`);
 
     if (taskStatus === 'success') {
       let imageUrl: string | undefined;
-      if (data.data.resultJson) {
+      if (data.data.resultJson && data.data.resultJson.length > 2) {
         try {
           const resultData = JSON.parse(data.data.resultJson) as { resultUrls?: string[] };
           imageUrl = resultData.resultUrls?.[0];
-        } catch {
-          // resultJson was not valid JSON — ignore
+          console.log(`[KieClient] Job ${predictionId} success, imageUrl=${imageUrl?.slice(0, 80)}`);
+        } catch (e) {
+          console.error(`[KieClient] Failed to parse resultJson for ${predictionId}:`, data.data.resultJson, e);
         }
+      } else {
+        console.warn(`[KieClient] Job ${predictionId} succeeded but no resultJson!`);
       }
       return { predictionId, status: 'completed', imageUrl };
     }
@@ -174,7 +259,7 @@ export class KieClient {
       return {
         predictionId,
         status: 'failed',
-        error: data.data.failReason || 'Image generation failed',
+        error: data.data.failMsg || 'Image generation failed',
       };
     }
 

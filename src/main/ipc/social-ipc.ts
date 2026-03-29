@@ -1,15 +1,19 @@
-import { ipcMain } from 'electron';
+import { ipcMain, dialog, app } from 'electron';
+import path from 'path';
+import fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
 import { SettingsManager } from '../../settings';
 import { searchContent } from '../../social/scraping/index';
 import { KieClient } from '../../image';
 import type { ImageModelId } from '../../image';
+import type { ImageJobTracker } from '../../image';
 import type { ScrapingPlatform } from '../../social/scraping/index';
 import type { GeneratedContentType } from '../../memory/generated-content';
 import type { SocialPostStatus } from '../../memory/social-posts';
 import type { IPCDependencies } from './types';
+import { getCurrentSessionId } from '../../tools/session-context';
 
-export function registerSocialIpc(deps: IPCDependencies): void {
+export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTracker): void {
   const { getMemory } = deps;
 
   // ============ Account CRUD ============
@@ -242,6 +246,54 @@ export function registerSocialIpc(deps: IPCDependencies): void {
     }
   });
 
+  ipcMain.handle(
+    'social:saveDiscovered',
+    async (
+      _,
+      input: {
+        platform: string;
+        content_type: string;
+        social_account_id?: string | null;
+        source_url?: string | null;
+        source_author?: string | null;
+        title?: string | null;
+        body?: string | null;
+        media_urls?: string | null;
+        likes?: number;
+        comments?: number;
+        shares?: number;
+        views?: number;
+        tags?: string | null;
+        metadata?: string | null;
+      }
+    ) => {
+      try {
+        const memory = getMemory();
+        if (!memory) return { success: false, error: 'Memory not initialized' };
+        const record = memory.discoveredContent.create(input);
+        return { success: true, id: record.id, data: record };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[SocialIPC] saveDiscovered error:', err);
+        return { success: false, error: message };
+      }
+    }
+  );
+
+  ipcMain.handle('social:deleteDiscovered', async (_, id: string) => {
+    try {
+      const memory = getMemory();
+      if (!memory) return { success: false, error: 'Memory not initialized' };
+      const deleted = memory.discoveredContent.delete(id);
+      if (!deleted) return { success: false, error: 'Record not found' };
+      return { success: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[SocialIPC] deleteDiscovered error:', err);
+      return { success: false, error: message };
+    }
+  });
+
   // ============ Social Posts ============
 
   ipcMain.handle('social:listPosts', async (_, status?: string) => {
@@ -309,6 +361,24 @@ export function registerSocialIpc(deps: IPCDependencies): void {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error('[SocialIPC] deleteGenerated error:', err);
+      return { success: false, error: message };
+    }
+  });
+
+  ipcMain.handle('social:bulkDeleteGenerated', async (_, ids: string[]) => {
+    try {
+      const memory = getMemory();
+      if (!memory) return { success: false, error: 'Memory not initialized' };
+      if (!Array.isArray(ids) || ids.length === 0)
+        return { success: false, error: 'No IDs provided' };
+      let deleted = 0;
+      for (const id of ids) {
+        if (memory.generatedContent.delete(id)) deleted++;
+      }
+      return { success: true, deleted };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[SocialIPC] bulkDeleteGenerated error:', err);
       return { success: false, error: message };
     }
   });
@@ -393,7 +463,6 @@ export function registerSocialIpc(deps: IPCDependencies): void {
       }
     ) => {
       try {
-        const memory = getMemory();
         const apiKey = SettingsManager.get('kie.apiKey');
         if (!apiKey) return { success: false, error: 'Kie.ai API key not configured' };
 
@@ -408,35 +477,17 @@ export function registerSocialIpc(deps: IPCDependencies): void {
           outputFormat: input.outputFormat,
         });
 
-        // Poll until complete (max ~60s)
-        const maxAttempts = 30;
-        const pollInterval = 2000;
-        let result = await client.getStatus(predictionId);
-
-        for (let i = 0; i < maxAttempts && result.status === 'processing'; i++) {
-          await new Promise((resolve) => setTimeout(resolve, pollInterval));
-          result = await client.getStatus(predictionId);
+        // Hand off to centralised tracker for background polling + gallery save
+        if (tracker) {
+          tracker.track({
+            predictionId,
+            prompt: input.prompt,
+            model,
+            sessionId: getCurrentSessionId(),
+          });
         }
 
-        if (result.status === 'completed' && result.imageUrl) {
-          // Save to generated_content table if memory is available
-          if (memory) {
-            memory.generatedContent.create({
-              content_type: 'image',
-              platform: null,
-              prompt_used: input.prompt,
-              output: result.imageUrl,
-            });
-          }
-          return { success: true, imageUrl: result.imageUrl, predictionId };
-        }
-
-        if (result.status === 'failed') {
-          return { success: false, error: result.error ?? 'Image generation failed' };
-        }
-
-        // Still processing after timeout — return prediction ID for manual polling
-        return { success: false, error: 'Image generation timed out', predictionId };
+        return { success: true, predictionId, status: 'generating' };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('[SocialIPC] generateImage error:', err);
@@ -444,6 +495,52 @@ export function registerSocialIpc(deps: IPCDependencies): void {
       }
     }
   );
+
+  ipcMain.handle('social:downloadImage', async (_, id: string) => {
+    try {
+      const memory = getMemory();
+      if (!memory) return { success: false, error: 'Memory not initialized' };
+
+      const item = memory.generatedContent.getById(id);
+      if (!item) return { success: false, error: 'Record not found' };
+
+      const mediaUrl = item.media_url || (item.content_type === 'image' ? item.output : null);
+      if (!mediaUrl) return { success: false, error: 'No media URL found' };
+
+      // Build a default filename from the prompt
+      const promptSlug = (item.prompt_used || 'image')
+        .slice(0, 60)
+        .replace(/[^a-zA-Z0-9 _-]/g, '')
+        .trim()
+        .replace(/\s+/g, '-');
+      const ext = path.extname(mediaUrl).split('?')[0] || '.png';
+      const defaultName = `${promptSlug}${ext}`;
+
+      const { canceled, filePath } = await dialog.showSaveDialog({
+        title: 'Save Image',
+        defaultPath: path.join(app.getPath('downloads'), defaultName),
+        filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }],
+      });
+
+      if (canceled || !filePath) return { success: false, error: 'Cancelled' };
+
+      if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) {
+        const res = await fetch(mediaUrl);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const buf = Buffer.from(await res.arrayBuffer());
+        fs.writeFileSync(filePath, buf);
+      } else {
+        // Local file — copy it
+        fs.copyFileSync(mediaUrl, filePath);
+      }
+
+      return { success: true, filePath };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[SocialIPC] downloadImage error:', err);
+      return { success: false, error: message };
+    }
+  });
 
   ipcMain.handle('social:getImageStatus', async (_, predictionId: string) => {
     try {

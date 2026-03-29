@@ -10,9 +10,12 @@ async function initializeChat() {
   window.addEventListener('focus', updateModelBadge);
 
   // Reload history when window regains visibility (e.g. after sleep/wake)
+  // Throttle to avoid nuking image placeholders on quick tab switches
+  let lastHistoryLoad = Date.now();
   document.addEventListener('visibilitychange', () => {
     document.body.classList.toggle('animations-paused', document.hidden);
-    if (!document.hidden) {
+    if (!document.hidden && Date.now() - lastHistoryLoad > 30_000) {
+      lastHistoryLoad = Date.now();
       loadHistory();
     }
   });
@@ -95,6 +98,35 @@ async function initializeChat() {
     console.log('[Chat] Model changed to:', model);
     updateModelBadge();
   });
+
+  // Listen for image generation started (show placeholder)
+  if (window.pocketAgent.social?.onImageGenerating) {
+    console.log('[Chat] Registering onImageGenerating listener');
+    window.pocketAgent.social.onImageGenerating((data) => {
+      console.log('[Chat] onImageGenerating fired:', data.predictionId, data.prompt?.slice(0, 60));
+      addImagePlaceholder(data.predictionId, data.prompt, data.model);
+    });
+  }
+
+  // Listen for generated image results
+  if (window.pocketAgent.social?.onImageReady) {
+    console.log('[Chat] Registering onImageReady listener');
+    window.pocketAgent.social.onImageReady((data) => {
+      console.log('[Chat] onImageReady fired:', data.predictionId, data.imageUrl?.slice(0, 80));
+      replaceImagePlaceholder(data.predictionId, data);
+    });
+  } else {
+    console.warn('[Chat] onImageReady not available on social API');
+  }
+  if (window.pocketAgent.social?.onImageFailed) {
+    console.log('[Chat] Registering onImageFailed listener');
+    window.pocketAgent.social.onImageFailed((data) => {
+      console.log('[Chat] onImageFailed fired:', data.predictionId, data.error);
+      replaceImagePlaceholderWithError(data.predictionId, data);
+    });
+  } else {
+    console.warn('[Chat] onImageFailed not available on social API');
+  }
 }
 
 /**

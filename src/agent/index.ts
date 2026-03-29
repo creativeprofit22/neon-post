@@ -2,6 +2,7 @@ import { MemoryManager, Message, DailyLog } from '../memory';
 import {
   setMemoryManager,
   setSoulMemoryManager,
+  setSocialMemoryManager,
   ToolsConfig,
   validateToolsConfig,
   getCurrentSessionId,
@@ -510,6 +511,7 @@ class AgentManagerClass extends EventEmitter {
 
     setMemoryManager(this.memory);
     setSoulMemoryManager(this.memory);
+    setSocialMemoryManager(this.memory);
 
     // Set up safety status emitter for UI feedback on blocked tools
     setStatusEmitter((status) => {

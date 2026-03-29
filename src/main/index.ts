@@ -7,6 +7,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import { AgentManager } from '../agent';
 import { MemoryManager } from '../memory';
+import { ImageJobTracker } from '../image';
+import { setImageJobTracker } from '../tools';
 import { createScheduler, CronScheduler } from '../scheduler';
 import { createTelegramBot, TelegramBot } from '../channels/telegram';
 import { createiOSChannel, iOSChannel } from '../channels/ios';
@@ -50,6 +52,7 @@ process.on('uncaughtException', (err) => {
 fixPathForPackagedApp();
 
 let memory: MemoryManager | null = null;
+const imageTracker = new ImageJobTracker();
 let scheduler: CronScheduler | null = null;
 let telegramBot: TelegramBot | null = null;
 let iosChannel: iOSChannel | null = null;
@@ -576,7 +579,7 @@ function setupIPC(): void {
   registerCronIPC(deps);
   registerIosIPC(deps);
   registerMiscIPC(deps);
-  registerSocialIpc(deps);
+  registerSocialIpc(deps, imageTracker);
 }
 
 // ============ Agent Lifecycle ============
@@ -612,6 +615,48 @@ async function initializeAgent(): Promise<void> {
   } else {
     console.log('[Main] Embeddings disabled (no OpenAI API key)');
   }
+
+  // Initialize image job tracker (Kie.ai background polling)
+  const kieKey = SettingsManager.get('kie.apiKey');
+  if (kieKey && memory) {
+    imageTracker.init(kieKey, memory);
+    console.log('[Main] Image job tracker initialized with API key');
+  } else {
+    console.warn('[Main] Image job tracker NOT initialized —', !kieKey ? 'no kie.apiKey' : 'no memory');
+  }
+
+  // Inject tracker into agent tools so generate_image can call tracker.track()
+  setImageJobTracker(imageTracker);
+  console.log('[Main] Image job tracker injected into social-tools');
+
+  // Forward image tracker events to the chat renderer
+  imageTracker.on('image:generating', (data) => {
+    console.log('[Main] image:generating event received, forwarding to chat window', data.predictionId);
+    const win = getWindow(WIN.CHAT);
+    if (win) {
+      win.webContents.send('image:generating', data);
+    } else {
+      console.warn('[Main] image:generating — chat window not available, event dropped!');
+    }
+  });
+  imageTracker.on('image:ready', (data) => {
+    console.log('[Main] image:ready event received, forwarding to chat window', data.predictionId);
+    const win = getWindow(WIN.CHAT);
+    if (win) {
+      win.webContents.send('image:ready', data);
+    } else {
+      console.warn('[Main] image:ready — chat window not available, event dropped!');
+    }
+  });
+  imageTracker.on('image:failed', (data) => {
+    console.log('[Main] image:failed event received, forwarding to chat window', data.predictionId);
+    const win = getWindow(WIN.CHAT);
+    if (win) {
+      win.webContents.send('image:failed', data);
+    } else {
+      console.warn('[Main] image:failed — chat window not available, event dropped!');
+    }
+  });
 
   // Build tools config from settings
   const toolsConfig = {
@@ -831,6 +876,7 @@ async function initializeAgent(): Promise<void> {
 }
 
 async function stopAgent(): Promise<void> {
+  imageTracker.destroy();
   if (iosChannel) {
     await iosChannel.stop();
     iosChannel = null;
@@ -1011,6 +1057,9 @@ app.on('before-quit', async () => {
   }
   SettingsManager.close();
 });
+
+// Export image tracker for tool modules
+export { imageTracker };
 
 // Prevent multiple instances
 const gotLock = app.requestSingleInstanceLock();

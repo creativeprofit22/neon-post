@@ -158,6 +158,10 @@ export const TOOL_TIMEOUTS = {
 
   // Slow tools - browser operations
   browser: 45000, // Browser can be slow
+
+  // Image generation - submits task and returns immediately (polling is background)
+  generate_image: 30000,
+  upload_reference_image: 30000,
 } as const;
 
 /**

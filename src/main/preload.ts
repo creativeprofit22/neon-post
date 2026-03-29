@@ -257,10 +257,14 @@ contextBridge.exposeInMainWorld('pocketAgent', {
     searchContent: (query: string, platform?: string) =>
       ipcRenderer.invoke('social:searchContent', query, platform),
     getDiscovered: (limit?: number) => ipcRenderer.invoke('social:getDiscovered', limit),
+    saveDiscovered: (data: Record<string, unknown>) =>
+      ipcRenderer.invoke('social:saveDiscovered', data),
+    deleteDiscovered: (id: string) => ipcRenderer.invoke('social:deleteDiscovered', id),
     listPosts: (status?: string) => ipcRenderer.invoke('social:listPosts', status),
     createPost: (data: Record<string, unknown>) => ipcRenderer.invoke('social:createPost', data),
     getGenerated: (limit?: number) => ipcRenderer.invoke('social:getGenerated', limit),
     deleteGenerated: (id: string) => ipcRenderer.invoke('social:deleteGenerated', id),
+    bulkDeleteGenerated: (ids: string[]) => ipcRenderer.invoke('social:bulkDeleteGenerated', ids),
     favoriteGenerated: (id: string, rating: number) =>
       ipcRenderer.invoke('social:favoriteGenerated', id, rating),
     saveBrand: (data: Record<string, unknown>) => ipcRenderer.invoke('social:saveBrand', data),
@@ -270,10 +274,40 @@ contextBridge.exposeInMainWorld('pocketAgent', {
     validateApifyKey: (key: string) => ipcRenderer.invoke('social:validateApifyKey', key),
     validateRapidAPIKey: (key: string) => ipcRenderer.invoke('social:validateRapidAPIKey', key),
     validateKieKey: (key: string) => ipcRenderer.invoke('social:validateKieKey', key),
+    downloadImage: (id: string) => ipcRenderer.invoke('social:downloadImage', id),
     generateImage: (data: Record<string, unknown>) =>
       ipcRenderer.invoke('social:generateImage', data),
     getImageStatus: (predictionId: string) =>
       ipcRenderer.invoke('social:getImageStatus', predictionId),
+    onImageGenerating: (
+      callback: (data: { predictionId: string; prompt: string; model: string }) => void
+    ) => {
+      ipcRenderer.on('image:generating', (_, data) => {
+        console.log('[Preload] image:generating received', data.predictionId);
+        callback(data);
+      });
+    },
+    onImageReady: (
+      callback: (data: {
+        predictionId: string;
+        imageUrl: string;
+        savedId: string | null;
+        prompt: string;
+      }) => void
+    ) => {
+      ipcRenderer.on('image:ready', (_, data) => {
+        console.log('[Preload] image:ready received', data.predictionId);
+        callback(data);
+      });
+    },
+    onImageFailed: (
+      callback: (data: { predictionId: string; error: string; prompt: string }) => void
+    ) => {
+      ipcRenderer.on('image:failed', (_, data) => {
+        console.log('[Preload] image:failed received', data.predictionId);
+        callback(data);
+      });
+    },
   },
 
   // ─── External Events ────────────────────────────────────────────────
@@ -745,12 +779,17 @@ declare global {
           platform?: string
         ) => Promise<Array<Record<string, unknown>> | { error: string }>;
         getDiscovered: (limit?: number) => Promise<Array<Record<string, unknown>>>;
+        saveDiscovered: (
+          data: Record<string, unknown>
+        ) => Promise<{ success: boolean; id?: string; data?: Record<string, unknown>; error?: string }>;
+        deleteDiscovered: (id: string) => Promise<{ success: boolean; error?: string }>;
         listPosts: (status?: string) => Promise<Array<Record<string, unknown>>>;
         createPost: (
           data: Record<string, unknown>
         ) => Promise<{ success: boolean; id?: string; error?: string }>;
         getGenerated: (limit?: number) => Promise<Array<Record<string, unknown>>>;
         deleteGenerated: (id: string) => Promise<{ success: boolean; error?: string }>;
+        bulkDeleteGenerated: (ids: string[]) => Promise<{ success: boolean; deleted?: number; error?: string }>;
         favoriteGenerated: (
           id: string,
           rating: number
@@ -765,6 +804,7 @@ declare global {
         validateApifyKey: (key: string) => Promise<{ valid: boolean; error?: string }>;
         validateRapidAPIKey: (key: string) => Promise<{ valid: boolean; error?: string }>;
         validateKieKey: (key: string) => Promise<{ valid: boolean; error?: string }>;
+        downloadImage: (id: string) => Promise<{ success: boolean; filePath?: string; error?: string }>;
         generateImage: (data: Record<string, unknown>) => Promise<{
           success: boolean;
           imageUrl?: string;
@@ -778,6 +818,20 @@ declare global {
           imageUrl?: string;
           error?: string;
         }>;
+        onImageGenerating: (
+          callback: (data: { predictionId: string; prompt: string; model: string }) => void
+        ) => void;
+        onImageReady: (
+          callback: (data: {
+            predictionId: string;
+            imageUrl: string;
+            savedId: string | null;
+            prompt: string;
+          }) => void
+        ) => void;
+        onImageFailed: (
+          callback: (data: { predictionId: string; error: string; prompt: string }) => void
+        ) => void;
       };
     };
   }

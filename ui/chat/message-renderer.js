@@ -621,6 +621,238 @@ function copyMessageText(messageEl, copyBtn) {
   });
 }
 
+// eslint-disable-next-line no-unused-vars
+function renderGeneratedImage({ imageUrl, prompt, savedId }) {
+  console.log('[MessageRenderer] renderGeneratedImage called:', { imageUrl: imageUrl?.slice(0, 80), prompt: prompt?.slice(0, 60), savedId });
+  const div = document.createElement('div');
+  div.className = 'message assistant generated-image-bubble';
+
+  const imgWrap = document.createElement('div');
+  imgWrap.className = 'image-bubble-wrap';
+
+  const img = document.createElement('img');
+  img.src = imageUrl;
+  img.alt = prompt || 'Generated image';
+  imgWrap.appendChild(img);
+
+  imgWrap.appendChild(buildImageActionBar(imageUrl));
+  div.appendChild(imgWrap);
+
+  const caption = document.createElement('div');
+  caption.className = 'caption';
+  const truncated = prompt && prompt.length > 120 ? prompt.slice(0, 120) + '…' : (prompt || '');
+  caption.textContent = truncated;
+  div.appendChild(caption);
+
+  if (savedId) {
+    const badge = document.createElement('div');
+    badge.className = 'badge';
+    badge.textContent = '✓ Saved to gallery';
+    div.appendChild(badge);
+  }
+
+  const statusIndicator = messagesDiv.querySelector('.status-indicator');
+  if (statusIndicator) {
+    messagesDiv.insertBefore(div, statusIndicator);
+  } else {
+    messagesDiv.appendChild(div);
+  }
+  scrollToBottom();
+}
+
+// eslint-disable-next-line no-unused-vars
+function renderImageError({ error, prompt }) {
+  const div = document.createElement('div');
+  div.className = 'message assistant';
+
+  const text = document.createElement('span');
+  const promptInfo = prompt ? ` for "${prompt.length > 80 ? prompt.slice(0, 80) + '…' : prompt}"` : '';
+  text.textContent = `❌ Image generation failed${promptInfo}: ${error}`;
+  div.appendChild(text);
+
+  if (prompt) {
+    const retryBtn = document.createElement('button');
+    retryBtn.className = 'image-retry-btn';
+    retryBtn.textContent = 'Retry';
+    retryBtn.addEventListener('click', () => {
+      retryBtn.disabled = true;
+      retryBtn.textContent = 'Retrying…';
+      window.pocketAgent.social.generateImage({ prompt }).catch(() => {
+        retryBtn.disabled = false;
+        retryBtn.textContent = 'Retry';
+      });
+    });
+    div.appendChild(retryBtn);
+  }
+
+  const statusIndicator = messagesDiv.querySelector('.status-indicator');
+  if (statusIndicator) {
+    messagesDiv.insertBefore(div, statusIndicator);
+  } else {
+    messagesDiv.appendChild(div);
+  }
+  scrollToBottom();
+}
+
+// Image generation placeholder tracking
+// eslint-disable-next-line no-unused-vars
+const imagePlaceholders = new Map();
+
+// eslint-disable-next-line no-unused-vars
+function addImagePlaceholder(predictionId, prompt) {
+  const div = document.createElement('div');
+  div.className = 'message assistant generated-image-bubble image-generating';
+  div.dataset.sessionId = currentSessionId;
+
+  const shimmer = document.createElement('div');
+  shimmer.className = 'image-generating-shimmer';
+  div.appendChild(shimmer);
+
+  const label = document.createElement('div');
+  label.className = 'image-generating-label';
+  label.textContent = 'Generating...';
+  div.appendChild(label);
+
+  if (prompt) {
+    const caption = document.createElement('div');
+    caption.className = 'caption';
+    const truncated = prompt.length > 120 ? prompt.slice(0, 120) + '…' : prompt;
+    caption.textContent = truncated;
+    div.appendChild(caption);
+  }
+
+  const statusIndicator = messagesDiv.querySelector('.status-indicator');
+  if (statusIndicator) {
+    messagesDiv.insertBefore(div, statusIndicator);
+  } else {
+    messagesDiv.appendChild(div);
+  }
+  imagePlaceholders.set(predictionId, div);
+  scrollToBottom();
+}
+
+// eslint-disable-next-line no-unused-vars
+function replaceImagePlaceholder(predictionId, data) {
+  const placeholder = imagePlaceholders.get(predictionId);
+  if (!placeholder) {
+    // No placeholder (e.g. app restarted) — fall back to appending
+    renderGeneratedImage(data);
+    return;
+  }
+  imagePlaceholders.delete(predictionId);
+
+  // Build the real image bubble in-place
+  placeholder.className = 'message assistant generated-image-bubble';
+  placeholder.innerHTML = '';
+
+  const imgWrap = document.createElement('div');
+  imgWrap.className = 'image-bubble-wrap';
+
+  const img = document.createElement('img');
+  img.src = data.imageUrl;
+  img.alt = data.prompt || 'Generated image';
+  imgWrap.appendChild(img);
+
+  imgWrap.appendChild(buildImageActionBar(data.imageUrl));
+  placeholder.appendChild(imgWrap);
+
+  const caption = document.createElement('div');
+  caption.className = 'caption';
+  const truncated = data.prompt && data.prompt.length > 120 ? data.prompt.slice(0, 120) + '…' : (data.prompt || '');
+  caption.textContent = truncated;
+  placeholder.appendChild(caption);
+
+  if (data.savedId) {
+    const badge = document.createElement('div');
+    badge.className = 'badge';
+    badge.textContent = '✓ Saved to gallery';
+    placeholder.appendChild(badge);
+  }
+
+  scrollToBottom();
+}
+
+// eslint-disable-next-line no-unused-vars
+function replaceImagePlaceholderWithError(predictionId, data) {
+  const placeholder = imagePlaceholders.get(predictionId);
+  if (!placeholder) {
+    renderImageError(data);
+    return;
+  }
+  imagePlaceholders.delete(predictionId);
+  placeholder.className = 'message assistant';
+  placeholder.innerHTML = '';
+
+  const text = document.createElement('span');
+  const promptInfo = data.prompt ? ` for "${data.prompt.length > 80 ? data.prompt.slice(0, 80) + '…' : data.prompt}"` : '';
+  text.textContent = `❌ Image generation failed${promptInfo}: ${data.error}`;
+  placeholder.appendChild(text);
+
+  if (data.prompt) {
+    const retryBtn = document.createElement('button');
+    retryBtn.className = 'image-retry-btn';
+    retryBtn.textContent = 'Retry';
+    retryBtn.addEventListener('click', () => {
+      retryBtn.disabled = true;
+      retryBtn.textContent = 'Retrying…';
+      window.pocketAgent.social.generateImage({ prompt: data.prompt }).catch(() => {
+        retryBtn.disabled = false;
+        retryBtn.textContent = 'Retry';
+      });
+    });
+    placeholder.appendChild(retryBtn);
+  }
+
+  scrollToBottom();
+}
+
+// Build hover action bar for generated image bubbles
+function buildImageActionBar(imageUrl) {
+  const bar = document.createElement('div');
+  bar.className = 'image-action-bar';
+
+  // Download
+  const dlBtn = document.createElement('button');
+  dlBtn.title = 'Download';
+  dlBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13m0 0l-4-4m4 4l4-4M4 19h16"/></svg>';
+  dlBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const a = document.createElement('a');
+    a.href = imageUrl;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  });
+  bar.appendChild(dlBtn);
+
+  // Copy URL
+  const copyBtn = document.createElement('button');
+  copyBtn.title = 'Copy URL';
+  copyBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>';
+  copyBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(imageUrl).then(() => {
+      copyBtn.title = 'Copied!';
+      copyBtn.classList.add('copied');
+      setTimeout(() => { copyBtn.title = 'Copy URL'; copyBtn.classList.remove('copied'); }, 1500);
+    });
+  });
+  bar.appendChild(copyBtn);
+
+  // Open external
+  const openBtn = document.createElement('button');
+  openBtn.title = 'Open in browser';
+  openBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+  openBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    window.pocketAgent.app.openExternal(imageUrl);
+  });
+  bar.appendChild(openBtn);
+
+  return bar;
+}
+
 // Search functionality
 let searchMatches = [];
 let currentSearchIndex = -1;

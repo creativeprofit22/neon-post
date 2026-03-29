@@ -5,6 +5,15 @@
 let _socInitialized = false;
 let _socNotyf = null;
 let _socEditingAccountId = null;  // null = adding, string = editing
+let _socDiscoverCache = null;     // cached discover/search results for tab persistence
+let _socDiscoverSearchCache = null; // cached raw search results (ContentResult[]) keyed by index
+let _socSavedCache = null;          // cached saved/bookmarked content from DB
+let _socGalleryCache = null;        // cached gallery items for client-side filtering
+let _socGalleryFavOnly = false;     // favorites-only toggle state
+let _socLightboxItems = [];         // current lightbox items array
+let _socLightboxIndex = -1;         // current lightbox item index
+let _socSelectMode = false;         // gallery multi-select mode
+const _socSelectedIds = new Set();  // currently selected gallery item IDs
 
 // ─── Show / Hide / Toggle ──────────────────────────────────────────────────
 
@@ -135,8 +144,84 @@ function _socMakePlatformBadge(platform) {
   );
 }
 
+function _socEngagementTier(item) {
+  const total = (item.likes || 0) + (item.comments || 0) + (item.shares || 0) + (item.views || 0);
+  if (total >= 50000) return { label: '🔥 Viral',    cls: 'tier-viral',   total: total };
+  if (total >= 10000) return { label: '🚀 Hot',      cls: 'tier-hot',     total: total };
+  if (total >= 1000)  return { label: '⚡ Trending',  cls: 'tier-trend',   total: total };
+  if (total >= 100)   return { label: '📈 Decent',    cls: 'tier-decent',  total: total };
+  return                     { label: '🌱 Fresh',     cls: 'tier-fresh',   total: total };
+}
+
 function _socMakeStatusBadge(status) {
   return '<span class="status-badge ' + (status || 'draft') + '">' + _socEscapeHtml(status || 'draft') + '</span>';
+}
+
+/**
+ * Render a rich content card used by both Discover (search) and Saved views.
+ * @param {object} item        - Content item (DB row or search result)
+ * @param {object} opts
+ * @param {boolean} opts.showSave   - Show a Save button (search results)
+ * @param {boolean} opts.showDelete - Show a Delete button (saved items)
+ */
+function _socRenderContentCard(item, opts) {
+  opts = opts || {};
+  var tier      = _socEngagementTier(item);
+  var sourceUrl = item.source_url || item.url || '';
+  var hasLink   = !!sourceUrl;
+  var safeUrl   = _socEscapeHtml(sourceUrl).replace(/'/g, "\\'");
+  var clickOpen = hasLink
+    ? ' onclick="socPanelActions.openSavedUrl(\'' + safeUrl + '\')"'
+    : '';
+  var cardCls   = 'soc-content-card' + (hasLink ? ' soc-content-card--clickable' : '');
+
+  var actionsHtml = '';
+  if (opts.showSave) {
+    actionsHtml =
+      '<button class="soc-btn soc-btn-sm soc-btn-secondary" onclick="event.stopPropagation(); socPanelActions.saveDiscovered(\'' + (item.id || '') + '\')">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 7.8C5 6.12 6.34 4.8 8.02 4.8h7.96C17.66 4.8 19 6.12 19 7.8V18c0 .97-1.11 1.53-1.88.95L12 15l-5.12 3.95C6.11 19.53 5 18.97 5 18z"/></svg>' +
+        ' Save' +
+      '</button>';
+  }
+  if (opts.showDelete) {
+    actionsHtml =
+      '<button class="soc-icon-btn danger" onclick="event.stopPropagation(); socPanelActions.deleteSaved(\'' + item.id + '\')" title="Remove">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" d="m19.5 5.5l-.62 10.025c-.158 2.561-.237 3.842-.88 4.763a4 4 0 0 1-1.2 1.128c-.957.584-2.24.584-4.806.584c-2.57 0-3.855 0-4.814-.585a4 4 0 0 1-1.2-1.13c-.642-.922-.72-2.205-.874-4.77L4.5 5.5M3 5.5h18m-4.944 0l-.683-1.408c-.453-.936-.68-1.403-1.071-1.695a2 2 0 0 0-.275-.172C13.594 2 13.074 2 12.035 2c-1.066 0-1.599 0-2.04.234a2 2 0 0 0-.278.18c-.395.303-.616.788-1.058 1.757L8.053 5.5"/></svg>' +
+      '</button>';
+  }
+
+  return (
+    '<div class="' + cardCls + '" data-id="' + (item.id || '') + '"' + clickOpen + '>' +
+      '<div class="soc-content-card__header">' +
+        '<span class="soc-engagement-tier ' + tier.cls + '">' + tier.label + '</span>' +
+        '<span class="soc-engagement-total">' + _socFormatNumber(tier.total) + ' engagement</span>' +
+      '</div>' +
+      '<div class="soc-content-card__body">' +
+        '<div class="soc-content-card__title">' + _socEscapeHtml(item.title || item.body || 'Untitled') + '</div>' +
+        '<div class="soc-content-card__meta">' +
+          _socMakePlatformBadge(item.platform) +
+          (item.source_author || item.creatorUsername
+            ? ' <span class="soc-content-card__author">by ' + _socEscapeHtml(item.source_author || item.creatorUsername || '') + '</span>'
+            : '') +
+        '</div>' +
+        '<div class="soc-content-card__stats">' +
+          '<div class="soc-stat-cell"><span class="soc-stat-value">' + _socFormatNumber(item.views)    + '</span><span class="soc-stat-label">Views</span></div>' +
+          '<div class="soc-stat-cell"><span class="soc-stat-value">' + _socFormatNumber(item.likes)    + '</span><span class="soc-stat-label">Likes</span></div>' +
+          '<div class="soc-stat-cell"><span class="soc-stat-value">' + _socFormatNumber(item.comments) + '</span><span class="soc-stat-label">Comments</span></div>' +
+          '<div class="soc-stat-cell"><span class="soc-stat-value">' + _socFormatNumber(item.shares)   + '</span><span class="soc-stat-label">Shares</span></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="soc-content-card__footer">' +
+        '<span class="soc-content-card__time">' + _socTimeAgo(item.discovered_at || item.created_at) + '</span>' +
+        (hasLink
+          ? '<a class="soc-content-card__link" href="#" onclick="event.preventDefault(); event.stopPropagation(); socPanelActions.openSavedUrl(\'' + safeUrl + '\')" title="Open source">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6m4-3h6v6m-11 5L21 3"/></svg>' +
+            '</a>'
+          : '') +
+        actionsHtml +
+      '</div>' +
+    '</div>'
+  );
 }
 
 function _socSkeletonCards(count) {
@@ -190,6 +275,50 @@ function _socInit() {
     });
   });
 
+  // ── Gallery filter bar ──
+  const galSearch    = root.querySelector('#soc-gallery-search');
+  const galTypeFilter = root.querySelector('#soc-gallery-type-filter');
+  const galFavToggle = root.querySelector('#soc-gallery-fav-toggle');
+  const galSort      = root.querySelector('#soc-gallery-sort');
+  if (galSearch)     galSearch.addEventListener('input', _socApplyGalleryFilters);
+  if (galTypeFilter) galTypeFilter.addEventListener('change', _socApplyGalleryFilters);
+  if (galSort)       galSort.addEventListener('change', _socApplyGalleryFilters);
+  if (galFavToggle)  galFavToggle.addEventListener('click', () => {
+    _socGalleryFavOnly = !_socGalleryFavOnly;
+    galFavToggle.classList.toggle('active', _socGalleryFavOnly);
+    _socApplyGalleryFilters();
+  });
+
+  // ── Gallery select mode ──
+  const galSelectToggle = root.querySelector('#soc-gallery-select-toggle');
+  if (galSelectToggle) galSelectToggle.addEventListener('click', _socToggleSelectMode);
+  const galSelectAll = root.querySelector('#soc-gallery-select-all');
+  if (galSelectAll) galSelectAll.addEventListener('click', _socSelectAll);
+  const galDeselectAll = root.querySelector('#soc-gallery-deselect-all');
+  if (galDeselectAll) galDeselectAll.addEventListener('click', _socDeselectAll);
+  const galDeleteSelected = root.querySelector('#soc-gallery-delete-selected');
+  if (galDeleteSelected) galDeleteSelected.addEventListener('click', _socDeleteSelected);
+
+  // ── Discover sub-tab switching (Search / Saved) ──
+  root.querySelectorAll('.soc-discover-sub-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.discoverView;
+      root.querySelectorAll('.soc-discover-sub-tab').forEach(b => b.classList.remove('active'));
+      root.querySelectorAll('.soc-discover-view').forEach(v => v.classList.remove('active'));
+      btn.classList.add('active');
+      const el = root.querySelector('#soc-discover-view-' + target);
+      if (el) el.classList.add('active');
+
+      if (target === 'saved') _socLoadSavedContent();
+    });
+  });
+
+  // ── Saved content controls ──
+  const savedPlatformFilter = root.querySelector('#soc-saved-platform-filter');
+  const savedSort           = root.querySelector('#soc-saved-sort');
+  if (savedPlatformFilter) savedPlatformFilter.addEventListener('change', () => { _socSavedCache = null; _socLoadSavedContent(); });
+  if (savedSort)           savedSort.addEventListener('change',           () => _socRenderSavedResults());
+
   // ── Discover search ──
   const discoverSearch    = root.querySelector('#soc-discover-search');
   const discoverPlatform  = root.querySelector('#soc-discover-platform');
@@ -197,8 +326,14 @@ function _socInit() {
 
   function _runSearch() {
     const query = discoverSearch ? discoverSearch.value.trim() : '';
-    if (!query) { _socLoadDiscovered(); return; }
+    if (!query) {
+      _socDiscoverCache = null; // clear cache to reload from DB
+      _socDiscoverSearchCache = null;
+      _socLoadDiscovered();
+      return;
+    }
     const platform = discoverPlatform ? (discoverPlatform.value || undefined) : undefined;
+    _socDiscoverCache = null; // clear cache before new search
     _socDiscoverSearch(query, platform);
   }
 
@@ -374,8 +509,18 @@ function _socInit() {
   // ── Lightbox ──
   const lightbox      = root.querySelector('#soc-lightbox');
   const lightboxClose = root.querySelector('#soc-lightbox-close');
-  if (lightboxClose) lightboxClose.addEventListener('click', () => lightbox.classList.remove('active'));
-  if (lightbox) lightbox.addEventListener('click', e => { if (e.target === lightbox) lightbox.classList.remove('active'); });
+  const lightboxPrev  = root.querySelector('#soc-lightbox-prev');
+  const lightboxNext  = root.querySelector('#soc-lightbox-next');
+  if (lightboxClose) lightboxClose.addEventListener('click', () => { lightbox.classList.remove('active'); _socLightboxItems = []; _socLightboxIndex = -1; });
+  if (lightbox) lightbox.addEventListener('click', e => { if (e.target === lightbox) { lightbox.classList.remove('active'); _socLightboxItems = []; _socLightboxIndex = -1; } });
+  if (lightboxPrev) lightboxPrev.addEventListener('click', () => _socLightboxNavigate(-1));
+  if (lightboxNext) lightboxNext.addEventListener('click', () => _socLightboxNavigate(1));
+  document.addEventListener('keydown', e => {
+    if (!lightbox || !lightbox.classList.contains('active')) return;
+    if (e.key === 'Escape') { lightbox.classList.remove('active'); _socLightboxItems = []; _socLightboxIndex = -1; }
+    else if (e.key === 'ArrowLeft') _socLightboxNavigate(-1);
+    else if (e.key === 'ArrowRight') _socLightboxNavigate(1);
+  });
 
   // ── Save brand ──
   const saveBrandBtn = root.querySelector('#soc-save-brand-btn');
@@ -762,17 +907,27 @@ function _socRefreshActiveTab() {
 // ─── Discover Tab ──────────────────────────────────────────────────────────
 
 function _socLoadDiscovered() {
-  const social  = _socAPI();
   const root    = document.getElementById('social-view');
   const results = root && root.querySelector('#soc-discover-results');
   if (!results) return;
 
+  // If we have cached results, re-render from cache without hitting API
+  if (_socDiscoverCache) {
+    _socRenderDiscoverResults(_socDiscoverCache);
+    return;
+  }
+
+  const social = _socAPI();
   results.innerHTML = '<div class="soc-card-grid">' + _socSkeletonCards(6) + '</div>';
 
   if (!social) { results.innerHTML = '<div class="soc-empty"><p>Social API unavailable</p></div>'; return; }
 
   social.getDiscovered(50)
-    .then(_socRenderDiscoverResults)
+    .then(items => {
+      _socDiscoverCache = items;
+      _socDiscoverSearchCache = null; // DB items, no raw search data
+      _socRenderDiscoverResults(items);
+    })
     .catch(err => {
       console.error('[Social] Failed to load discovered:', err);
       results.innerHTML = '<div class="soc-empty"><p>Failed to load content</p></div>';
@@ -788,7 +943,20 @@ function _socDiscoverSearch(query, platform) {
   results.innerHTML = '<div class="soc-card-grid">' + _socSkeletonCards(6) + '</div>';
 
   social.searchContent(query, platform)
-    .then(_socRenderDiscoverResults)
+    .then(items => {
+      // Cache search results so they persist across tab switches
+      _socDiscoverCache = items;
+      // Store raw search items for the Save button mapping
+      _socDiscoverSearchCache = {};
+      if (items && items.length) {
+        items.forEach((item, idx) => {
+          // Use the item's id (or index) as key for later lookup
+          const key = item.id || ('search-' + idx);
+          _socDiscoverSearchCache[key] = item;
+        });
+      }
+      _socRenderDiscoverResults(items);
+    })
     .catch(err => {
       console.error('[Social] Search failed:', err);
       _socShowToast('Search failed', 'error');
@@ -810,29 +978,91 @@ function _socRenderDiscoverResults(items) {
     return;
   }
 
+  // Determine if these are search results (have save button) or DB items
+  const isSearch = !!_socDiscoverSearchCache;
+
   let html = '<div class="soc-card-grid">';
-  items.forEach(item => {
-    html +=
-      '<div class="soc-card" data-id="' + item.id + '">' +
-        '<div class="soc-card-thumb">' + _socPlatformIcon(item.platform) + '</div>' +
-        '<div class="soc-card-body">' +
-          '<div class="soc-card-title">' + _socEscapeHtml(item.title || item.body || 'Untitled') + '</div>' +
-          '<div class="soc-card-meta">' +
-            _socMakePlatformBadge(item.platform) +
-            (item.source_author ? ' <span>by ' + _socEscapeHtml(item.source_author) + '</span>' : '') +
-          '</div>' +
-          '<div class="soc-card-stats">' +
-            '<span>❤ ' + _socFormatNumber(item.likes)    + '</span>' +
-            '<span>💬 ' + _socFormatNumber(item.comments) + '</span>' +
-            '<span>🔄 ' + _socFormatNumber(item.shares)   + '</span>' +
-            '<span>👁 ' + _socFormatNumber(item.views)    + '</span>' +
-          '</div>' +
-        '</div>' +
-        '<div class="soc-card-actions">' +
-          '<span style="font-size:11px;color:var(--text-muted)">' + _socTimeAgo(item.discovered_at) + '</span>' +
-          '<button class="soc-btn soc-btn-sm soc-btn-secondary" onclick="socPanelActions.saveDiscovered(\'' + item.id + '\')">Save</button>' +
-        '</div>' +
+  items.forEach(function (item) {
+    html += _socRenderContentCard(item, { showSave: isSearch });
+  });
+  html += '</div>';
+  results.innerHTML = html;
+}
+
+// ─── Saved Content (Discover → Saved sub-tab) ─────────────────────────────
+
+function _socLoadSavedContent() {
+  const root    = document.getElementById('social-view');
+  const results = root && root.querySelector('#soc-saved-results');
+  if (!results) return;
+
+  // Re-render from cache if available
+  if (_socSavedCache) {
+    _socRenderSavedResults();
+    return;
+  }
+
+  const social = _socAPI();
+  results.innerHTML = '<div class="soc-card-grid">' + _socSkeletonCards(6) + '</div>';
+
+  if (!social) { results.innerHTML = '<div class="soc-empty"><p>Social API unavailable</p></div>'; return; }
+
+  social.getDiscovered(200)
+    .then(items => {
+      // Apply platform filter
+      const root2      = document.getElementById('social-view');
+      const filterEl   = root2 && root2.querySelector('#soc-saved-platform-filter');
+      const filterPlat = filterEl ? filterEl.value : '';
+      if (filterPlat) {
+        _socSavedCache = (items || []).filter(i => (i.platform || '').toLowerCase() === filterPlat);
+      } else {
+        _socSavedCache = items || [];
+      }
+      _socRenderSavedResults();
+    })
+    .catch(err => {
+      console.error('[Social] Failed to load saved content:', err);
+      results.innerHTML = '<div class="soc-empty"><p>Failed to load saved content</p></div>';
+    });
+}
+
+function _socRenderSavedResults() {
+  const root    = document.getElementById('social-view');
+  const results = root && root.querySelector('#soc-saved-results');
+  if (!results || !_socSavedCache) return;
+
+  // Sort
+  const sortEl   = root.querySelector('#soc-saved-sort');
+  const sortMode = sortEl ? sortEl.value : 'recency';
+
+  const sorted = [..._socSavedCache];
+  if (sortMode === 'engagement') {
+    sorted.sort((a, b) => {
+      const engA = (a.likes || 0) + (a.comments || 0) + (a.shares || 0) + (a.views || 0);
+      const engB = (b.likes || 0) + (b.comments || 0) + (b.shares || 0) + (b.views || 0);
+      return engB - engA;
+    });
+  } else {
+    sorted.sort((a, b) => {
+      const da = new Date(a.discovered_at || a.created_at || 0).getTime();
+      const db = new Date(b.discovered_at || b.created_at || 0).getTime();
+      return db - da;
+    });
+  }
+
+  if (sorted.length === 0) {
+    results.innerHTML =
+      '<div class="soc-empty">' +
+      '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 7.8C5 6.12 6.34 4.8 8.02 4.8h7.96C17.66 4.8 19 6.12 19 7.8V18c0 .97-1.11 1.53-1.88.95L12 15l-5.12 3.95C6.11 19.53 5 18.97 5 18z"/></svg>' +
+      '<p>No saved content yet</p>' +
+      '<p class="hint">Save content from the Search tab to build your library</p>' +
       '</div>';
+    return;
+  }
+
+  let html = '<div class="soc-card-grid">';
+  sorted.forEach(function (item) {
+    html += _socRenderContentCard(item, { showDelete: true });
   });
   html += '</div>';
   results.innerHTML = html;
@@ -894,45 +1124,181 @@ function _socLoadGallery() {
 
   social.getGenerated(100)
     .then(items => {
-      if (!items || items.length === 0) {
-        grid.innerHTML =
-          '<div class="soc-empty" style="grid-column:1/-1">' +
-          '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2s10 4.477 10 10"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m14.5 9.5l-5 5m0-5l5 5"/></svg>' +
-          '<p>No generated content yet</p>' +
-          '<p class="hint">Use the Create tab to generate copy, images, and more</p>' +
-          '</div>';
-        return;
-      }
-      grid.className = 'soc-gallery-grid';
-      grid.innerHTML = items.map(item => {
-        const isFav = item.rating && item.rating > 0;
-        // Determine if this is an image: has media_url, or content_type is 'image' with a URL-like output
-        const imageUrl = item.media_url || (_socIsImageItem(item) ? item.output : null);
-        const isImage = !!imageUrl;
-        return (
-          '<div class="soc-gallery-item' + (isImage ? ' soc-gallery-image-item' : '') + '" data-id="' + item.id + '">' +
-            (isImage
-              ? '<img class="soc-gallery-item-media" src="' + _socEscapeHtml(imageUrl) + '" onclick="socPanelActions.openLightbox(\'' + item.id + '\')" />'
-              : '<div class="soc-gallery-item-content" onclick="socPanelActions.openLightbox(\'' + item.id + '\')">' + _socEscapeHtml(item.output) + '</div>') +
-            '<div class="soc-gallery-item-footer">' +
-              '<span>' + _socMakePlatformBadge(item.platform || item.content_type) + ' · ' + _socTimeAgo(item.created_at) + '</span>' +
-              '<div class="soc-gallery-item-actions">' +
-                '<button class="soc-icon-btn soc-favorite-btn' + (isFav ? ' active' : '') + '" onclick="socPanelActions.toggleFavorite(\'' + item.id + '\',' + (isFav ? '0' : '5') + ')" title="Favorite">' +
-                  '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"><path fill="' + (isFav ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.5" d="m12 3.5l2.713 5.497L20.7 9.91l-3.85 3.75l.909 5.298L12 16.183l-5.758 2.776l.909-5.298L3.3 9.91l5.987-.914z"/></svg>' +
-                '</button>' +
-                '<button class="soc-icon-btn danger" onclick="socPanelActions.deleteGenerated(\'' + item.id + '\')" title="Delete">' +
-                  '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" d="m19.5 5.5l-.62 10.025c-.158 2.561-.237 3.842-.88 4.763a4 4 0 0 1-1.2 1.128c-.957.584-2.24.584-4.806.584c-2.57 0-3.855 0-4.814-.585a4 4 0 0 1-1.2-1.13c-.642-.922-.72-2.205-.874-4.77L4.5 5.5M3 5.5h18m-4.944 0l-.683-1.408c-.453-.936-.68-1.403-1.071-1.695a2 2 0 0 0-.275-.172C13.594 2 13.074 2 12.035 2c-1.066 0-1.599 0-2.04.234a2 2 0 0 0-.278.18c-.395.303-.616.788-1.058 1.757L8.053 5.5"/></svg>' +
-                '</button>' +
-              '</div>' +
-            '</div>' +
-          '</div>'
-        );
-      }).join('');
+      _socGalleryCache = items || [];
+      _socApplyGalleryFilters();
     })
     .catch(err => {
       console.error('[Social] Failed to load gallery:', err);
       grid.innerHTML = '<div class="soc-empty" style="grid-column:1/-1"><p>Failed to load gallery</p></div>';
     });
+}
+
+function _socUpdateGalleryStats(root) {
+  const statsEl = root && root.querySelector('#soc-gallery-stats');
+  if (!statsEl || !_socGalleryCache) return;
+
+  const total  = _socGalleryCache.length;
+  const images = _socGalleryCache.filter(i => i.content_type === 'image' || i.media_url || _socIsImageItem(i)).length;
+  const favs   = _socGalleryCache.filter(i => i.rating && i.rating > 0).length;
+
+  statsEl.innerHTML =
+    '<span class="soc-gallery-stat-pill">' +
+      '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"/></svg>' +
+      total + ' Total</span>' +
+    '<span class="soc-gallery-stat-pill">' +
+      '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2 6h4m0 0v12m0-12l4 12m4-12h4m0 0v12m0-12l4 12"/></svg>' +
+      images + ' Images</span>' +
+    '<span class="soc-gallery-stat-pill">' +
+      '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="' + (favs > 0 ? 'var(--warning)' : 'none') + '" stroke="currentColor" stroke-width="1.5" d="m12 3.5l2.713 5.497L20.7 9.91l-3.85 3.75l.909 5.298L12 16.183l-5.758 2.776l.909-5.298L3.3 9.91l5.987-.914z"/></svg>' +
+      favs + ' Favorites</span>';
+}
+
+function _socApplyGalleryFilters() {
+  const root = document.getElementById('social-view');
+  const grid = root && root.querySelector('#soc-gallery-grid');
+  if (!grid || !_socGalleryCache) return;
+
+  _socUpdateGalleryStats(root);
+
+  const searchVal  = (root.querySelector('#soc-gallery-search') || {}).value || '';
+  const typeVal    = (root.querySelector('#soc-gallery-type-filter') || {}).value || '';
+  const sortVal    = (root.querySelector('#soc-gallery-sort') || {}).value || 'newest';
+  const searchLow  = searchVal.toLowerCase();
+
+  let filtered = _socGalleryCache.filter(item => {
+    if (searchLow && !(item.prompt_used || '').toLowerCase().includes(searchLow) &&
+        !(item.output || '').toLowerCase().includes(searchLow)) return false;
+    if (typeVal && item.content_type !== typeVal) return false;
+    if (_socGalleryFavOnly && !(item.rating && item.rating > 0)) return false;
+    return true;
+  });
+
+  if (sortVal === 'oldest') {
+    filtered.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+  } else if (sortVal === 'top_rated') {
+    filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+  } else {
+    filtered.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  }
+
+  if (filtered.length === 0) {
+    grid.className = '';
+    grid.innerHTML =
+      '<div class="soc-empty" style="grid-column:1/-1">' +
+      '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2s10 4.477 10 10"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m14.5 9.5l-5 5m0-5l5 5"/></svg>' +
+      '<p>' + (_socGalleryCache.length === 0 ? 'No generated content yet' : 'No items match filters') + '</p>' +
+      (_socGalleryCache.length === 0 ? '<p class="hint">Use the Create tab to generate copy, images, and more</p>' : '') +
+      '</div>';
+    return;
+  }
+
+  grid.className = 'soc-gallery-grid';
+  grid.innerHTML = filtered.map(item => {
+    const isFav = item.rating && item.rating > 0;
+    const imageUrl = item.media_url || (_socIsImageItem(item) ? item.output : null);
+    const isImage = !!imageUrl;
+    const isSelected = _socSelectedIds.has(item.id);
+    const clickAction = _socSelectMode
+      ? 'socPanelActions.toggleSelectItem(\'' + item.id + '\')'
+      : 'socPanelActions.openLightbox(\'' + item.id + '\')';
+    return (
+      '<div class="soc-gallery-item' + (isImage ? ' soc-gallery-image-item' : '') + (isSelected ? ' selected' : '') + '" data-id="' + item.id + '">' +
+        (_socSelectMode ? '<div class="soc-gallery-checkbox' + (isSelected ? ' checked' : '') + '" onclick="socPanelActions.toggleSelectItem(\'' + item.id + '\')">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path fill="' + (isSelected ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="2" d="M4 3h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/>' +
+          (isSelected ? '<path fill="none" stroke="var(--bg-primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M7 13l3 3l7-7"/>' : '') +
+          '</svg></div>' : '') +
+        (isImage
+          ? '<img class="soc-gallery-item-media" src="' + _socEscapeHtml(imageUrl) + '" onclick="' + clickAction + '" />'
+          : '<div class="soc-gallery-item-content" onclick="' + clickAction + '">' + _socEscapeHtml(item.output) + '</div>') +
+        '<div class="soc-gallery-item-footer">' +
+          '<span>' + _socMakePlatformBadge(item.platform || item.content_type) + ' · ' + _socTimeAgo(item.created_at) + '</span>' +
+          '<div class="soc-gallery-item-actions">' +
+            (isImage ? '<button class="soc-icon-btn" onclick="socPanelActions.downloadImage(\'' + item.id + '\')" title="Download">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 3v13m0 0l-4-4m4 4l4-4M4 21h16"/></svg>' +
+            '</button>' : '') +
+            '<button class="soc-icon-btn soc-favorite-btn' + (isFav ? ' active' : '') + '" data-id="' + item.id + '" onclick="socPanelActions.toggleFavorite(\'' + item.id + '\',' + (isFav ? '0' : '5') + ')" title="Favorite">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"><path fill="' + (isFav ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.5" d="m12 3.5l2.713 5.497L20.7 9.91l-3.85 3.75l.909 5.298L12 16.183l-5.758 2.776l.909-5.298L3.3 9.91l5.987-.914z"/></svg>' +
+            '</button>' +
+            '<button class="soc-icon-btn danger" onclick="socPanelActions.deleteGenerated(\'' + item.id + '\')" title="Delete">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" d="m19.5 5.5l-.62 10.025c-.158 2.561-.237 3.842-.88 4.763a4 4 0 0 1-1.2 1.128c-.957.584-2.24.584-4.806.584c-2.57 0-3.855 0-4.814-.585a4 4 0 0 1-1.2-1.13c-.642-.922-.72-2.205-.874-4.77L4.5 5.5M3 5.5h18m-4.944 0l-.683-1.408c-.453-.936-.68-1.403-1.071-1.695a2 2 0 0 0-.275-.172C13.594 2 13.074 2 12.035 2c-1.066 0-1.599 0-2.04.234a2 2 0 0 0-.278.18c-.395.303-.616.788-1.058 1.757L8.053 5.5"/></svg>' +
+            '</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join('');
+  if (_socSelectMode) _socUpdateSelectCount();
+}
+
+// ─── Gallery Select Mode ──────────────────────────────────────────────────
+
+function _socToggleSelectMode() {
+  _socSelectMode = !_socSelectMode;
+  _socSelectedIds.clear();
+  const root = document.getElementById('social-view');
+  if (!root) return;
+  const toggle = root.querySelector('#soc-gallery-select-toggle');
+  if (toggle) toggle.classList.toggle('active', _socSelectMode);
+  const toolbar = root.querySelector('#soc-gallery-select-toolbar');
+  if (toolbar) toolbar.classList.toggle('active', _socSelectMode);
+  _socApplyGalleryFilters();
+}
+
+function _socSelectAll() {
+  const root = document.getElementById('social-view');
+  if (!root) return;
+  root.querySelectorAll('.soc-gallery-item[data-id]').forEach(el => {
+    const id = el.dataset.id;
+    if (id) { _socSelectedIds.add(id); el.classList.add('selected'); }
+  });
+  _socUpdateSelectCount();
+}
+
+function _socDeselectAll() {
+  _socSelectedIds.clear();
+  const root = document.getElementById('social-view');
+  if (!root) return;
+  root.querySelectorAll('.soc-gallery-item.selected').forEach(el => el.classList.remove('selected'));
+  _socUpdateSelectCount();
+}
+
+function _socToggleSelectItem(id) {
+  const root = document.getElementById('social-view');
+  const el = root && root.querySelector('.soc-gallery-item[data-id="' + id + '"]');
+  if (_socSelectedIds.has(id)) {
+    _socSelectedIds.delete(id);
+    if (el) el.classList.remove('selected');
+  } else {
+    _socSelectedIds.add(id);
+    if (el) el.classList.add('selected');
+  }
+  _socUpdateSelectCount();
+}
+
+function _socUpdateSelectCount() {
+  const root = document.getElementById('social-view');
+  const countEl = root && root.querySelector('#soc-gallery-select-count');
+  if (countEl) countEl.textContent = _socSelectedIds.size + ' selected';
+  const deleteBtn = root && root.querySelector('#soc-gallery-delete-selected');
+  if (deleteBtn) deleteBtn.disabled = _socSelectedIds.size === 0;
+}
+
+function _socDeleteSelected() {
+  const social = _socAPI();
+  if (!social || _socSelectedIds.size === 0) return;
+  if (!confirm('Delete ' + _socSelectedIds.size + ' selected items?')) return;
+  const ids = Array.from(_socSelectedIds);
+  social.bulkDeleteGenerated(ids)
+    .then(result => {
+      if (result.success) {
+        _socShowToast('Deleted ' + (result.deleted || ids.length) + ' items', 'success');
+        _socSelectedIds.clear();
+        _socLoadGallery();
+      } else {
+        _socShowToast('Failed to delete: ' + (result.error || 'Unknown error'), 'error');
+      }
+    })
+    .catch(() => _socShowToast('Failed to delete selected items', 'error'));
 }
 
 // ─── Accounts & Brand ──────────────────────────────────────────────────────
@@ -999,11 +1365,107 @@ function _socLoadBrand() {
     .catch(err => console.error('[Social] Failed to load brand:', err));
 }
 
+// ─── Lightbox Navigation Helper ─────────────────────────────────────────────
+
+function _socLightboxShowItem(item) {
+  const root    = document.getElementById('social-view');
+  const lbBody  = root && root.querySelector('#soc-lightbox-body');
+  const lbMeta  = root && root.querySelector('#soc-lightbox-meta');
+  if (!lbBody) return;
+
+  const imageUrl = item.media_url || (_socIsImageItem(item) ? item.output : null);
+  if (imageUrl) {
+    lbBody.innerHTML = '<img src="' + _socEscapeHtml(imageUrl) + '" style="max-width:100%;border-radius:8px;" />';
+  } else {
+    lbBody.textContent = item.output || '';
+  }
+
+  if (lbMeta) {
+    const downloadBtn = imageUrl
+      ? '<button class="soc-icon-btn" onclick="socPanelActions.downloadImage(\'' + item.id + '\')" title="Download" style="margin-left:auto">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 3v13m0 0l-4-4m4 4l4-4M4 21h16"/></svg>' +
+        '</button>'
+      : '';
+    lbMeta.innerHTML =
+      '<span>' + _socMakePlatformBadge(item.platform || item.content_type) + '</span>' +
+      (item.prompt_used ? '<span style="opacity:0.7;font-style:italic">' + _socEscapeHtml(item.prompt_used) + '</span>' : '') +
+      '<span>' + _socTimeAgo(item.created_at) + '</span>' +
+      downloadBtn;
+  }
+}
+
+function _socLightboxNavigate(dir) {
+  if (_socLightboxItems.length === 0) return;
+  _socLightboxIndex = (_socLightboxIndex + dir + _socLightboxItems.length) % _socLightboxItems.length;
+  _socLightboxShowItem(_socLightboxItems[_socLightboxIndex]);
+}
+
 // ─── Global Actions (callable from inline onclick) ─────────────────────────
 
 window.socPanelActions = {
   saveDiscovered(id) {
-    _socShowToast('Content saved to library', 'success');
+    const social = _socAPI();
+    if (!social) { _socShowToast('Social API unavailable', 'error'); return; }
+
+    // Look up the raw search result from cache
+    const item = _socDiscoverSearchCache && _socDiscoverSearchCache[id];
+    if (!item) {
+      // Already a DB item (from getDiscovered), nothing to save
+      _socShowToast('Content already saved', 'success');
+      return;
+    }
+
+    // Map ContentResult → CreateDiscoveredContentInput
+    const payload = {
+      platform:     item.platform || 'unknown',
+      content_type: 'post',
+      source_url:   item.url || null,
+      source_author: item.creatorUsername || null,
+      title:        item.title || null,
+      body:         item.caption || null,
+      likes:        item.likes || 0,
+      comments:     item.comments || 0,
+      shares:       item.shares || 0,
+      views:        item.views || 0,
+    };
+
+    social.saveDiscovered(payload)
+      .then(result => {
+        if (result.success) {
+          _socShowToast('Content saved to library', 'success');
+        } else {
+          _socShowToast(result.error || 'Failed to save content', 'error');
+        }
+      })
+      .catch(err => {
+        console.error('[Social] Save discovered failed:', err);
+        _socShowToast('Failed to save content', 'error');
+      });
+  },
+
+  deleteSaved(id) {
+    const social = _socAPI();
+    if (!social || !confirm('Remove this saved content?')) return;
+    social.deleteDiscovered(id)
+      .then(result => {
+        if (result.success) {
+          // Remove from cache & re-render
+          if (_socSavedCache) {
+            _socSavedCache = _socSavedCache.filter(i => i.id !== id);
+          }
+          _socRenderSavedResults();
+          _socShowToast('Content removed', 'success');
+        } else {
+          _socShowToast(result.error || 'Failed to remove', 'error');
+        }
+      })
+      .catch(() => _socShowToast('Failed to remove', 'error'));
+  },
+
+  openSavedUrl(url) {
+    if (url && window.pocketAgent && window.pocketAgent.app) {
+      window.pocketAgent.app.openExternal(url);
+    }
   },
 
   deletePost(id) {
@@ -1029,17 +1491,42 @@ window.socPanelActions = {
       .catch(() => _socShowToast('Failed to delete', 'error'));
   },
 
+  toggleSelectItem(id) {
+    _socToggleSelectItem(id);
+  },
+
   toggleFavorite(id, rating) {
     const social = _socAPI();
     if (!social) return;
+    const btn = document.querySelector('.soc-favorite-btn[data-id="' + id + '"]');
+    if (btn) {
+      const willBeActive = rating > 0;
+      btn.classList.toggle('active', willBeActive);
+      const path = btn.querySelector('path');
+      if (path) path.setAttribute('fill', willBeActive ? 'currentColor' : 'none');
+      btn.classList.remove('soc-fav-pop');
+      void btn.offsetWidth;
+      btn.classList.add('soc-fav-pop');
+    }
     social.favoriteGenerated(id, rating)
       .then(result => {
         if (result.success) {
-          _socLoadGallery();
           _socShowToast(rating > 0 ? 'Favorited ⭐' : 'Unfavorited', 'success');
+          _socLoadGallery();
+        } else if (btn) {
+          btn.classList.toggle('active', !rating);
+          const path = btn.querySelector('path');
+          if (path) path.setAttribute('fill', rating ? 'none' : 'currentColor');
         }
       })
-      .catch(() => _socShowToast('Failed to update', 'error'));
+      .catch(() => {
+        if (btn) {
+          btn.classList.toggle('active', !rating);
+          const path = btn.querySelector('path');
+          if (path) path.setAttribute('fill', rating ? 'none' : 'currentColor');
+        }
+        _socShowToast('Failed to update', 'error');
+      });
   },
 
   editAccount(id) {
@@ -1113,32 +1600,34 @@ window.socPanelActions = {
       .catch(() => _socShowToast('Failed to remove', 'error'));
   },
 
+  downloadImage(id) {
+    const social = _socAPI();
+    if (!social) return;
+    social.downloadImage(id)
+      .then(result => {
+        if (result.success) {
+          _socShowToast('Image saved', 'success');
+        } else if (result.error !== 'Cancelled') {
+          _socShowToast(result.error || 'Download failed', 'error');
+        }
+      })
+      .catch(() => _socShowToast('Download failed', 'error'));
+  },
+
   openLightbox(id) {
     const social    = _socAPI();
     const root      = document.getElementById('social-view');
     const lightbox  = root && root.querySelector('#soc-lightbox');
-    const lbBody    = root && root.querySelector('#soc-lightbox-body');
-    const lbMeta    = root && root.querySelector('#soc-lightbox-meta');
     if (!social || !lightbox) return;
 
     social.getGenerated(100)
       .then(items => {
-        const item = items.find(i => i.id === id);
-        if (!item) return;
+        const idx = items.findIndex(i => i.id === id);
+        if (idx === -1) return;
 
-        const imageUrl = item.media_url || (_socIsImageItem(item) ? item.output : null);
-        if (imageUrl) {
-          if (lbBody) lbBody.innerHTML = '<img src="' + _socEscapeHtml(imageUrl) + '" style="max-width:100%;border-radius:8px;" />';
-        } else {
-          if (lbBody) lbBody.textContent = item.output || '';
-        }
-
-        if (lbMeta) {
-          lbMeta.innerHTML =
-            '<span>' + _socMakePlatformBadge(item.platform || item.content_type) + '</span>' +
-            (item.prompt_used ? '<span style="opacity:0.7;font-style:italic">' + _socEscapeHtml(item.prompt_used) + '</span>' : '') +
-            '<span>' + _socTimeAgo(item.created_at) + '</span>';
-        }
+        _socLightboxItems = items;
+        _socLightboxIndex = idx;
+        _socLightboxShowItem(items[idx]);
         lightbox.classList.add('active');
       })
       .catch(() => {});

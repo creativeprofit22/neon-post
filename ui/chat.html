@@ -1010,19 +1010,47 @@
     <!-- Discover Tab -->
     <div class="soc-tab-content active" id="soc-tab-discover">
       <div class="soc-tab-body">
-        <div class="soc-search-row">
-          <input type="text" id="soc-discover-search" placeholder="Search trending content...">
-          <select id="soc-discover-platform">
-            <option value="">All Platforms</option>
-            <option value="tiktok">TikTok</option>
-            <option value="youtube">YouTube</option>
-            <option value="instagram">Instagram</option>
-            <option value="twitter">Twitter / X</option>
-            <option value="linkedin">LinkedIn</option>
-          </select>
-          <button class="soc-btn soc-btn-primary" id="soc-discover-search-btn">Search</button>
+        <!-- Discover Sub-Tabs: Search / Saved -->
+        <div class="soc-discover-sub-tabs">
+          <button class="soc-discover-sub-tab active" data-discover-view="search">🔍 Search</button>
+          <button class="soc-discover-sub-tab" data-discover-view="saved">💾 Saved</button>
         </div>
-        <div id="soc-discover-results"></div>
+
+        <!-- Search View (existing) -->
+        <div class="soc-discover-view active" id="soc-discover-view-search">
+          <div class="soc-search-row">
+            <input type="text" id="soc-discover-search" placeholder="Search trending content...">
+            <select id="soc-discover-platform">
+              <option value="">All Platforms</option>
+              <option value="tiktok">TikTok</option>
+              <option value="youtube">YouTube</option>
+              <option value="instagram">Instagram</option>
+              <option value="twitter">Twitter / X</option>
+              <option value="linkedin">LinkedIn</option>
+            </select>
+            <button class="soc-btn soc-btn-primary" id="soc-discover-search-btn">Search</button>
+          </div>
+          <div id="soc-discover-results"></div>
+        </div>
+
+        <!-- Saved View (new) -->
+        <div class="soc-discover-view" id="soc-discover-view-saved">
+          <div class="soc-saved-controls">
+            <select id="soc-saved-platform-filter">
+              <option value="">All Platforms</option>
+              <option value="tiktok">TikTok</option>
+              <option value="youtube">YouTube</option>
+              <option value="instagram">Instagram</option>
+              <option value="twitter">Twitter / X</option>
+              <option value="linkedin">LinkedIn</option>
+            </select>
+            <select id="soc-saved-sort">
+              <option value="recency">Newest First</option>
+              <option value="engagement">Top Engagement</option>
+            </select>
+          </div>
+          <div id="soc-saved-results"></div>
+        </div>
       </div>
     </div>
 
@@ -1178,6 +1206,34 @@
     <!-- Gallery Tab -->
     <div class="soc-tab-content" id="soc-tab-gallery">
       <div class="soc-tab-body">
+        <div class="soc-gallery-stats-row" id="soc-gallery-stats"></div>
+        <div class="soc-gallery-filter-bar">
+          <input type="text" id="soc-gallery-search" placeholder="Search prompts..." />
+          <select id="soc-gallery-type-filter">
+            <option value="">All types</option>
+            <option value="image">Image</option>
+            <option value="caption">Caption</option>
+            <option value="hook">Hook</option>
+            <option value="thread">Thread</option>
+            <option value="script">Script</option>
+            <option value="image_prompt">Image Prompt</option>
+            <option value="carousel">Carousel</option>
+            <option value="story">Story</option>
+          </select>
+          <button id="soc-gallery-fav-toggle" class="soc-btn soc-btn-sm soc-gallery-fav-btn" title="Favorites only">&#9733;</button>
+          <select id="soc-gallery-sort">
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+            <option value="top_rated">Top Rated</option>
+          </select>
+          <button id="soc-gallery-select-toggle" class="soc-btn soc-btn-sm soc-gallery-select-btn" title="Select mode">Select</button>
+        </div>
+        <div id="soc-gallery-select-toolbar" class="soc-gallery-select-toolbar">
+          <span id="soc-gallery-select-count">0 selected</span>
+          <button id="soc-gallery-select-all" class="soc-btn soc-btn-sm">Select All</button>
+          <button id="soc-gallery-deselect-all" class="soc-btn soc-btn-sm">Deselect All</button>
+          <button id="soc-gallery-delete-selected" class="soc-btn soc-btn-sm soc-btn-danger" disabled>Delete Selected</button>
+        </div>
         <div id="soc-gallery-grid"></div>
       </div>
     </div>
@@ -1314,6 +1370,9 @@
 
     <!-- Lightbox -->
     <div class="soc-lightbox" id="soc-lightbox">
+      <button class="soc-lightbox-nav soc-lightbox-prev" id="soc-lightbox-prev" title="Previous">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 18l-6-6 6-6"/></svg>
+      </button>
       <div class="soc-lightbox-content">
         <button class="soc-lightbox-close" id="soc-lightbox-close">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18 6L6 18m12 0L6 6"/></svg>
@@ -1321,6 +1380,9 @@
         <div class="soc-lightbox-body" id="soc-lightbox-body"></div>
         <div class="soc-lightbox-meta" id="soc-lightbox-meta"></div>
       </div>
+      <button class="soc-lightbox-nav soc-lightbox-next" id="soc-lightbox-next" title="Next">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 18l6-6-6-6"/></svg>
+      </button>
     </div>
   </div><!-- #social-view -->
 

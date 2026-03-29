@@ -534,6 +534,84 @@
   gap: 4px;
 }
 
+/* ─── Gallery Stats Row ─────────────────────────────────────────── */
+#social-view .soc-gallery-stats-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+#social-view .soc-gallery-stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+/* ─── Gallery Filter Bar ──────────────────────────────────────────── */
+#social-view .soc-gallery-filter-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  align-items: center;
+}
+
+#social-view .soc-gallery-filter-bar input {
+  flex: 1;
+  padding: 7px 11px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+#social-view .soc-gallery-filter-bar input:focus {
+  border-color: var(--accent);
+}
+
+#social-view .soc-gallery-filter-bar input::placeholder {
+  color: var(--text-muted);
+}
+
+#social-view .soc-gallery-filter-bar select {
+  padding: 7px 11px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+}
+
+#social-view .soc-gallery-fav-btn {
+  font-size: 16px;
+  line-height: 1;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 9px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+#social-view .soc-gallery-fav-btn:hover,
+#social-view .soc-gallery-fav-btn.active {
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
 /* ─── Gallery Grid ─────────────────────────────────────────────────── */
 #social-view .soc-gallery-grid {
   display: grid;
@@ -582,9 +660,77 @@
 
 #social-view .soc-gallery-item-actions { display: flex; gap: 3px; }
 
-#social-view .soc-favorite-btn { color: var(--text-muted); transition: color 0.15s; }
-#social-view .soc-favorite-btn.active,
-#social-view .soc-favorite-btn:hover  { color: var(--warning); }
+#social-view .soc-favorite-btn { color: var(--text-muted); transition: color 0.2s ease, transform 0.2s ease; }
+#social-view .soc-favorite-btn.active { color: var(--warning); }
+#social-view .soc-favorite-btn:hover  { color: var(--warning); transform: scale(1.2); }
+#social-view .soc-favorite-btn.soc-fav-pop { animation: soc-fav-pop 0.3s ease; }
+@keyframes soc-fav-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.4); }
+  100% { transform: scale(1); }
+}
+
+/* ─── Gallery Select Mode ─────────────────────────────────────────── */
+#social-view .soc-gallery-select-btn {
+  font-size: 12px;
+  padding: 5px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+#social-view .soc-gallery-select-btn:hover { border-color: var(--accent); color: var(--accent); }
+#social-view .soc-gallery-select-btn.active { background: var(--accent); color: var(--bg-primary); border-color: var(--accent); }
+
+#social-view .soc-gallery-select-toolbar {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+#social-view .soc-gallery-select-toolbar.active { display: flex; }
+#social-view .soc-gallery-select-toolbar .soc-btn-danger {
+  background: var(--error);
+  color: #fff;
+  border-color: var(--error);
+}
+#social-view .soc-gallery-select-toolbar .soc-btn-danger:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+#social-view .soc-gallery-item.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent), 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+#social-view .soc-gallery-checkbox {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+#social-view .soc-gallery-checkbox:hover { border-color: var(--accent); color: var(--accent); }
+#social-view .soc-gallery-checkbox.checked { background: var(--accent); border-color: var(--accent); color: var(--accent); }
 
 /* ─── Lightbox ─────────────────────────────────────────────────────── */
 #social-view .soc-lightbox {
@@ -645,6 +791,30 @@
   display: flex;
   justify-content: space-between;
 }
+
+#social-view .soc-lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  padding: 12px 8px;
+  border-radius: 8px;
+  transition: background 0.15s, color 0.15s;
+  z-index: 201;
+}
+
+#social-view .soc-lightbox-nav:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+#social-view .soc-lightbox-prev { left: 12px; }
+#social-view .soc-lightbox-next { right: 12px; }
+
+#social-view .soc-lightbox-nav svg { width: 24px; height: 24px; }
 
 /* ─── Accounts & Brand ─────────────────────────────────────────────── */
 #social-view .soc-section-title {
@@ -896,6 +1066,193 @@
 
 #social-view .soc-gallery-image-item .soc-gallery-item-media:hover {
   opacity: 0.85;
+}
+
+/* ─── Discover Sub-Tabs ───────────────────────────────────────────── */
+#social-view .soc-discover-sub-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+#social-view .soc-discover-sub-tab {
+  padding: 7px 14px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+#social-view .soc-discover-sub-tab:hover { color: var(--text-secondary); }
+#social-view .soc-discover-sub-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+#social-view .soc-discover-view { display: none; }
+#social-view .soc-discover-view.active { display: block; }
+
+/* ─── Saved Controls ──────────────────────────────────────────────── */
+#social-view .soc-saved-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+#social-view .soc-saved-controls select {
+  padding: 7px 11px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+}
+
+/* ─── Rich Content Cards (Discover + Saved) ──────────────────────── */
+#social-view .soc-content-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+#social-view .soc-content-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+#social-view .soc-content-card--clickable {
+  cursor: pointer;
+}
+
+#social-view .soc-content-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+}
+
+#social-view .soc-engagement-tier {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+#social-view .soc-engagement-tier.tier-viral  { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+#social-view .soc-engagement-tier.tier-hot    { background: rgba(249, 115, 22, 0.15); color: #f97316; }
+#social-view .soc-engagement-tier.tier-trend  { background: rgba(234, 179, 8, 0.15);  color: #eab308; }
+#social-view .soc-engagement-tier.tier-decent { background: rgba(34, 197, 94, 0.15);  color: #22c55e; }
+#social-view .soc-engagement-tier.tier-fresh  { background: rgba(96, 165, 250, 0.15); color: #60a5fa; }
+
+#social-view .soc-engagement-total {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+#social-view .soc-content-card__body {
+  padding: 10px;
+}
+
+#social-view .soc-content-card__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+#social-view .soc-content-card__meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+#social-view .soc-content-card__author {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* ─── 4-Column Stats Grid ────────────────────────────────────────── */
+#social-view .soc-content-card__stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 6px 0 2px;
+  border-top: 1px solid var(--border);
+}
+
+#social-view .soc-stat-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+#social-view .soc-stat-value {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+#social-view .soc-stat-label {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ─── Content Card Footer ────────────────────────────────────────── */
+#social-view .soc-content-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-top: 1px solid var(--border);
+  gap: 6px;
+}
+
+#social-view .soc-content-card__time {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+#social-view .soc-content-card__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  color: var(--text-muted);
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+#social-view .soc-content-card__link:hover {
+  color: var(--accent);
+  background: rgba(var(--accent-rgb, 99, 102, 241), 0.1);
 }
 
 /* ─── Utility ──────────────────────────────────────────────────────── */

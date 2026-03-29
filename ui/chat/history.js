@@ -1,6 +1,12 @@
 async function loadHistory() {
   try {
     const history = await window.pocketAgent.agent.getHistory(100, currentSessionId);
+    // Detach in-flight image placeholders before clearing DOM
+    const savedPlaceholders = [];
+    for (const [pid, el] of imagePlaceholders) {
+      if (el.parentNode) el.parentNode.removeChild(el);
+      savedPlaceholders.push([pid, el]);
+    }
     disableAutoAnimate(); messagesDiv.innerHTML = '';
 
     if (history.length === 0) {
@@ -35,6 +41,23 @@ async function loadHistory() {
           }
         }
 
+        // Render generated images as image bubbles instead of text
+        if (msg.metadata?.type === 'generated-image') {
+          renderGeneratedImage({
+            imageUrl: msg.metadata.imageUrl,
+            prompt: msg.metadata.prompt,
+            savedId: msg.metadata.savedId,
+          });
+          continue;
+        }
+        if (msg.metadata?.type === 'generated-image-error') {
+          renderImageError({
+            error: msg.metadata.error,
+            prompt: msg.metadata.prompt,
+          });
+          continue;
+        }
+
         // Render error messages with error style instead of assistant style
         const renderRole = (msg.role === 'assistant' && msg.metadata?.isError) ? 'error' : msg.role;
         const msgEl = addMessage(renderRole, displayContent, false, [], msg.timestamp);
@@ -64,6 +87,13 @@ async function loadHistory() {
           badge.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path stroke-width="2" d="M12 19h.01"/><path stroke-width="1.5" d="M13.5 2h-3c-2.357 0-3.536 0-4.268.732S5.5 4.643 5.5 7v10c0 2.357 0 3.535.732 4.268S8.143 22 10.5 22h3c2.357 0 3.535 0 4.268-.732c.732-.733.732-1.911.732-4.268V7c0-2.357 0-3.536-.732-4.268C17.035 2 15.857 2 13.5 2"/></g></svg> Mobile`;
           msgEl.insertBefore(badge, msgEl.firstChild);
         }
+      }
+    }
+
+    // Re-attach in-flight image placeholders for the current session only
+    for (const [, el] of savedPlaceholders) {
+      if (el.dataset.sessionId === currentSessionId) {
+        messagesDiv.appendChild(el);
       }
     }
 

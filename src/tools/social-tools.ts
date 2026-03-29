@@ -37,14 +37,20 @@ import type {
   ThreadPromptContext,
   ScriptPromptContext,
 } from '../social/content/prompts';
-import { KieClient } from '../image';
-import type { ImageModelId } from '../image';
+import { KieClient, resolveModelId } from '../image';
+import type { ImageJobTracker } from '../image';
 import { SettingsManager } from '../settings';
+import { getCurrentSessionId } from './session-context';
 
 let memoryManager: MemoryManager | null = null;
+let imageTracker: ImageJobTracker | null = null;
 
 export function setSocialMemoryManager(memory: MemoryManager): void {
   memoryManager = memory;
+}
+
+export function setImageJobTracker(tracker: ImageJobTracker): void {
+  imageTracker = tracker;
 }
 
 // ── Tool Definitions ──
@@ -1105,7 +1111,10 @@ function getGenerateImageDefinition() {
   return {
     name: 'generate_image',
     description:
-      'Generate an image using Kie.ai. Supports text-to-image and image-to-image (with reference images). Saves the result to the generated_content database table. Returns the prediction ID for polling and the image URL when complete.',
+      'Generate an image using Kie.ai. Supports text-to-image and image-to-image (with reference images). ' +
+      'Submits the job and immediately returns a prediction ID. The image is polled in the background — ' +
+      'when it completes, it is automatically saved to the gallery and a desktop notification is shown. ' +
+      'There is no need to poll or wait.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -1116,7 +1125,7 @@ function getGenerateImageDefinition() {
         model: {
           type: 'string',
           description:
-            'Model to use: "nano-banana-2" (fast, general), "seedream/5-lite-text-to-image" (high quality text-to-image), or "seedream/5-lite-image-to-image" (image-to-image with references). Default: nano-banana-2',
+            'Model to use. MUST be one of these exact IDs: "nano-banana-2" (fast text-to-image, accepts reference images via image_input), "google/nano-banana-edit" (image editing/image-to-image with nano banana), "seedream/5-lite-text-to-image" (high quality text-to-image), "seedream/5-lite-image-to-image" (high quality image-to-image). Shorthand aliases also work: "seedream" → seedream/5-lite-text-to-image, "banana" → nano-banana-2, "seedream-edit" → seedream/5-lite-image-to-image, "nano-banana-edit" → google/nano-banana-edit. Default: nano-banana-2',
         },
         aspect_ratio: {
           type: 'string',
@@ -1141,11 +1150,6 @@ function getGenerateImageDefinition() {
           description:
             'Target platform for saving to generated_content (e.g. "instagram", "tiktok")',
         },
-        poll: {
-          type: 'string',
-          description:
-            'If "true", poll until the image is ready (up to 120s). If "false", return immediately with prediction ID. Default: "true"',
-        },
       },
       required: ['prompt'],
     },
@@ -1153,7 +1157,7 @@ function getGenerateImageDefinition() {
 }
 
 async function handleGenerateImage(input: unknown): Promise<string> {
-  const { prompt, model, aspect_ratio, quality, reference_images, output_format, platform, poll } =
+  const { prompt, model, aspect_ratio, quality, reference_images, output_format, platform } =
     input as {
       prompt: string;
       model?: string;
@@ -1162,7 +1166,6 @@ async function handleGenerateImage(input: unknown): Promise<string> {
       reference_images?: string;
       output_format?: string;
       platform?: string;
-      poll?: string;
     };
 
   if (!prompt) {
@@ -1177,7 +1180,12 @@ async function handleGenerateImage(input: unknown): Promise<string> {
   }
 
   const client = new KieClient(apiKey);
-  const modelId = (model || 'nano-banana-2') as ImageModelId;
+  let modelId;
+  try {
+    modelId = resolveModelId(model || 'nano-banana-2');
+  } catch (err) {
+    return JSON.stringify({ error: err instanceof Error ? err.message : String(err) });
+  }
   const refImages = reference_images ? reference_images.split(',').map((u) => u.trim()) : undefined;
 
   try {
@@ -1192,70 +1200,30 @@ async function handleGenerateImage(input: unknown): Promise<string> {
 
     console.log(`[GenerateImage] Task created: ${predictionId} (model=${modelId})`);
 
-    const shouldPoll = poll !== 'false';
-    if (!shouldPoll) {
-      return JSON.stringify({
-        success: true,
-        prediction_id: predictionId,
-        status: 'pending',
-        message: 'Image generation started. Poll with generate_image using the prediction_id.',
+    // Hand off to the centralised image job tracker for background polling
+    if (imageTracker) {
+      console.log(`[GenerateImage] Handing off to ImageJobTracker for background polling`);
+      imageTracker.track({
+        predictionId,
+        prompt,
+        model: modelId,
+        aspectRatio: aspect_ratio,
+        quality,
+        platform,
+        sessionId: getCurrentSessionId(),
       });
-    }
-
-    // Poll until complete or timeout (120s)
-    const maxWait = 120_000;
-    const interval = 3_000;
-    const start = Date.now();
-    let result = await client.getStatus(predictionId);
-
-    while (result.status === 'processing' || result.status === 'pending') {
-      if (Date.now() - start > maxWait) {
-        return JSON.stringify({
-          success: false,
-          prediction_id: predictionId,
-          status: 'timeout',
-          message: 'Image generation timed out after 120s. It may still complete — check later.',
-        });
-      }
-      await new Promise((resolve) => setTimeout(resolve, interval));
-      result = await client.getStatus(predictionId);
-    }
-
-    if (result.status === 'failed') {
-      return JSON.stringify({
-        success: false,
-        prediction_id: predictionId,
-        status: 'failed',
-        error: result.error || 'Image generation failed',
-      });
-    }
-
-    // Save to generated_content DB
-    let savedId: string | null = null;
-    if (memoryManager && result.imageUrl) {
-      const saved = memoryManager.generatedContent.create({
-        content_type: 'image',
-        platform: platform ?? null,
-        prompt_used: prompt,
-        output: prompt,
-        media_url: result.imageUrl,
-        metadata: JSON.stringify({
-          model: modelId,
-          aspect_ratio: aspect_ratio || '1:1',
-          quality: quality || (modelId === 'nano-banana-2' ? '1K' : 'basic'),
-          prediction_id: predictionId,
-        }),
-      });
-      savedId = saved.id;
-      console.log(`[GenerateImage] Saved to generated_content: ${savedId}`);
+    } else {
+      console.error('[GenerateImage] imageTracker is NULL — background polling will NOT happen! Call setImageJobTracker() first.');
     }
 
     return JSON.stringify({
       success: true,
       prediction_id: predictionId,
-      status: 'completed',
-      image_url: result.imageUrl,
-      saved_content_id: savedId,
+      model: modelId,
+      status: 'generating',
+      message:
+        'Image generation submitted! It will be saved to your gallery and you\'ll get a ' +
+        'notification when it\'s ready. Seedream models typically take 1–3 minutes.',
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
