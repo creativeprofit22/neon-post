@@ -8,12 +8,79 @@ let _socEditingAccountId = null;  // null = adding, string = editing
 let _socDiscoverCache = null;     // cached discover/search results for tab persistence
 let _socDiscoverSearchCache = null; // cached raw search results (ContentResult[]) keyed by index
 let _socSavedCache = null;          // cached saved/bookmarked content from DB
+let _socTrendsCache = null;          // cached trends for Discover → Trends sub-tab
+let _socTrendsLastDetect = 0;        // timestamp of last detectTrends call
 let _socGalleryCache = null;        // cached gallery items for client-side filtering
 let _socGalleryFavOnly = false;     // favorites-only toggle state
 let _socLightboxItems = [];         // current lightbox items array
 let _socLightboxIndex = -1;         // current lightbox item index
 let _socSelectMode = false;         // gallery multi-select mode
+let _socCalendarInitialized = false; // calendar lazy-init flag
+let _socDiscoverTypeFilter = '';     // content type filter for Discover Search
 const _socSelectedIds = new Set();  // currently selected gallery item IDs
+
+// ─── Receive pushed search results (callable from init.js before panel is opened) ──
+
+function _socReceivePushedResults(data) {
+  if (!data || !data.results || !data.results.length) return;
+  // Assign stable IDs so save buttons can look up items from the cache
+  data.results.forEach(function (item, idx) {
+    if (!item.id) item.id = item.externalId || ('search-' + idx);
+  });
+  _socDiscoverCache = data.results;
+  _socDiscoverSearchCache = {};
+  data.results.forEach(function (item) {
+    _socDiscoverSearchCache[item.id] = item;
+  });
+  console.log('[SocialPanel] Cached ' + data.results.length + ' pushed search results');
+
+  // If panel is already open and showing Discover, re-render
+  var root = document.getElementById('social-view');
+  if (root && root.classList.contains('active')) {
+    var activeBtn = root.querySelector('.soc-tab-btn.active');
+    if (activeBtn && activeBtn.dataset.tab === 'discover') {
+      _socRenderDiscoverResults(data.results);
+    }
+  }
+}
+
+// ─── Navigation (callable from chat links) ────────────────────────────────
+
+/**
+ * Navigate directly to a specific tab (and optional sub-tab) in the Social panel.
+ * Called from chat message links with neon:// protocol.
+ */
+function navigateToSocialTab(tab, subTab) {
+  showSocialPanel();
+  var root = document.getElementById('social-view');
+  if (!root) return;
+
+  // Activate the top-level tab
+  var tabBtn = root.querySelector('.soc-tab-btn[data-tab="' + tab + '"]');
+  if (tabBtn) {
+    root.querySelectorAll('.soc-tab-btn').forEach(function (b) { b.classList.remove('active'); });
+    root.querySelectorAll('.soc-tab-content').forEach(function (c) { c.classList.remove('active'); });
+    tabBtn.classList.add('active');
+    var el = root.querySelector('#soc-tab-' + tab);
+    if (el) el.classList.add('active');
+  }
+
+  // Activate sub-tab if specified (e.g. "search" or "saved" within Discover)
+  if (subTab && tab === 'discover') {
+    root.querySelectorAll('.soc-discover-sub-tab').forEach(function (b) { b.classList.remove('active'); });
+    root.querySelectorAll('.soc-discover-view').forEach(function (v) { v.classList.remove('active'); });
+    var subBtn = root.querySelector('.soc-discover-sub-tab[data-discover-view="' + subTab + '"]');
+    if (subBtn) subBtn.classList.add('active');
+    var subEl = root.querySelector('#soc-discover-view-' + subTab);
+    if (subEl) subEl.classList.add('active');
+  }
+
+  // Refresh the tab data
+  if (tab === 'discover') _socLoadDiscovered();
+  if (tab === 'calendar') showCalendarPanel();
+  if (tab === 'gallery') _socLoadGallery();
+  if (tab === 'posts') _socLoadPosts();
+}
 
 // ─── Show / Hide / Toggle ──────────────────────────────────────────────────
 
@@ -75,6 +142,56 @@ function _socShowToast(message, type) {
     });
   }
   _socNotyf[type === 'error' ? 'error' : 'success'](message);
+}
+
+function _socShowRepurposePreview(root, item) {
+  var previewEl = root.querySelector('#soc-repurpose-preview');
+  if (!previewEl) return;
+
+  var platformEl = root.querySelector('#soc-repurpose-preview-platform');
+  var typeEl = root.querySelector('#soc-repurpose-preview-type');
+  var titleEl = root.querySelector('#soc-repurpose-preview-title');
+  var statsEl = root.querySelector('#soc-repurpose-preview-stats');
+  var creatorEl = root.querySelector('#soc-repurpose-preview-creator');
+  var tagsEl = root.querySelector('#soc-repurpose-preview-tags');
+  var bodyEl = root.querySelector('#soc-repurpose-preview-body');
+
+  if (platformEl) {
+    platformEl.textContent = (item.platform || 'unknown').toUpperCase();
+    platformEl.className = 'soc-repurpose-preview-card__platform platform--' + (item.platform || 'unknown');
+  }
+  if (typeEl) typeEl.textContent = item.content_type || '';
+  if (titleEl) titleEl.textContent = item.title || '(Untitled)';
+  if (statsEl) {
+    var parts = [];
+    if (item.views) parts.push(_socFormatNumber(item.views) + ' views');
+    if (item.likes) parts.push(_socFormatNumber(item.likes) + ' likes');
+    if (item.shares) parts.push(_socFormatNumber(item.shares) + ' shares');
+    if (item.comments) parts.push(_socFormatNumber(item.comments) + ' comments');
+    statsEl.textContent = parts.length ? parts.join(' · ') : '';
+    statsEl.style.display = parts.length ? '' : 'none';
+  }
+  if (creatorEl) {
+    creatorEl.textContent = item.source_author ? 'by @' + item.source_author : '';
+    creatorEl.style.display = item.source_author ? '' : 'none';
+  }
+  if (tagsEl) {
+    var tagList = item.hashtags || item.tags || '';
+    if (typeof tagList === 'string' && tagList) {
+      tagsEl.innerHTML = tagList.split(/[,\s]+/).filter(Boolean).slice(0, 8).map(function (t) {
+        return '<span class="soc-repurpose-tag">' + _socEscapeHtml(t.startsWith('#') ? t : '#' + t) + '</span>';
+      }).join('');
+      tagsEl.style.display = '';
+    } else {
+      tagsEl.style.display = 'none';
+    }
+  }
+  if (bodyEl) {
+    var text = item.transcript || item.body || '';
+    bodyEl.textContent = text.substring(0, 400) + (text.length > 400 ? '…' : '');
+    bodyEl.style.display = text ? '' : 'none';
+  }
+  previewEl.style.display = 'block';
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -145,12 +262,58 @@ function _socMakePlatformBadge(platform) {
 }
 
 function _socEngagementTier(item) {
-  const total = (item.likes || 0) + (item.comments || 0) + (item.shares || 0) + (item.views || 0);
-  if (total >= 50000) return { label: '🔥 Viral',    cls: 'tier-viral',   total: total };
-  if (total >= 10000) return { label: '🚀 Hot',      cls: 'tier-hot',     total: total };
-  if (total >= 1000)  return { label: '⚡ Trending',  cls: 'tier-trend',   total: total };
-  if (total >= 100)   return { label: '📈 Decent',    cls: 'tier-decent',  total: total };
-  return                     { label: '🌱 Fresh',     cls: 'tier-fresh',   total: total };
+  var total = (item.likes || 0) + (item.comments || 0) + (item.shares || 0) + (item.views || 0);
+
+  // If viral_score is available, use it for tier + badge
+  if (item.viral_score != null) {
+    var score = Math.round(item.viral_score);
+    var tier;
+    if (score >= 80)      tier = { label: 'Viral',   cls: 'tier-viral' };
+    else if (score >= 60) tier = { label: 'Hot',     cls: 'tier-hot' };
+    else if (score >= 40) tier = { label: 'Trending', cls: 'tier-trend' };
+    else if (score >= 20) tier = { label: 'Decent',  cls: 'tier-decent' };
+    else                  tier = { label: 'Fresh',   cls: 'tier-fresh' };
+
+    return {
+      label: tier.label,
+      cls: tier.cls,
+      total: total,
+      score: score,
+      hasViralScore: true
+    };
+  }
+
+  // Fallback: old sum-based tier for pre-existing data without viral_score
+  if (total >= 50000) return { label: 'Viral',    cls: 'tier-viral',   total: total, score: null, hasViralScore: false };
+  if (total >= 10000) return { label: 'Hot',      cls: 'tier-hot',     total: total, score: null, hasViralScore: false };
+  if (total >= 1000)  return { label: 'Trending', cls: 'tier-trend',   total: total, score: null, hasViralScore: false };
+  if (total >= 100)   return { label: 'Decent',   cls: 'tier-decent',  total: total, score: null, hasViralScore: false };
+  return                     { label: 'Fresh',    cls: 'tier-fresh',   total: total, score: null, hasViralScore: false };
+}
+
+function _socViralScoreTooltip(item) {
+  if (item.viral_score == null) return '';
+  var likes = item.likes || 0;
+  var comments = item.comments || 0;
+  var shares = item.shares || 0;
+  var views = item.views || 0;
+  var total = likes + comments + shares + views;
+
+  // Approximate breakdown for tooltip display
+  var engRate = views > 0 ? (((likes + comments + shares) / views) * 100).toFixed(2) : '0.00';
+  var qualScore = total > 0
+    ? Math.min(100, Math.round(((comments * 3 + shares * 2 + likes) / total) * 50))
+    : 0;
+
+  return (
+    '<div class="soc-viral-tooltip">' +
+      '<div class="soc-viral-tooltip__title">Viral Score Breakdown</div>' +
+      '<div class="soc-viral-tooltip__row"><span>Engagement Rate</span><span>' + engRate + '%</span></div>' +
+      '<div class="soc-viral-tooltip__row"><span>Quality Score</span><span>' + qualScore + '</span></div>' +
+      '<div class="soc-viral-tooltip__row"><span>Views</span><span>' + _socFormatNumber(views) + '</span></div>' +
+      '<div class="soc-viral-tooltip__row"><span>Total Engagement</span><span>' + _socFormatNumber(total) + '</span></div>' +
+    '</div>'
+  );
 }
 
 function _socMakeStatusBadge(status) {
@@ -177,14 +340,21 @@ function _socRenderContentCard(item, opts) {
 
   var actionsHtml = '';
   if (opts.showSave) {
-    actionsHtml =
+    actionsHtml +=
       '<button class="soc-btn soc-btn-sm soc-btn-secondary" onclick="event.stopPropagation(); socPanelActions.saveDiscovered(\'' + (item.id || '') + '\')">' +
         '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 7.8C5 6.12 6.34 4.8 8.02 4.8h7.96C17.66 4.8 19 6.12 19 7.8V18c0 .97-1.11 1.53-1.88.95L12 15l-5.12 3.95C6.11 19.53 5 18.97 5 18z"/></svg>' +
         ' Save' +
       '</button>';
   }
+  if (opts.showRepurpose) {
+    actionsHtml +=
+      '<button class="soc-btn soc-btn-sm soc-btn-accent" onclick="event.stopPropagation(); socPanelActions.repurposeSaved(\'' + item.id + '\')" title="Repurpose this content">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 1l4 4l-4 4"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4l4-4"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>' +
+        ' Repurpose' +
+      '</button>';
+  }
   if (opts.showDelete) {
-    actionsHtml =
+    actionsHtml +=
       '<button class="soc-icon-btn danger" onclick="event.stopPropagation(); socPanelActions.deleteSaved(\'' + item.id + '\')" title="Remove">' +
         '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" d="m19.5 5.5l-.62 10.025c-.158 2.561-.237 3.842-.88 4.763a4 4 0 0 1-1.2 1.128c-.957.584-2.24.584-4.806.584c-2.57 0-3.855 0-4.814-.585a4 4 0 0 1-1.2-1.13c-.642-.922-.72-2.205-.874-4.77L4.5 5.5M3 5.5h18m-4.944 0l-.683-1.408c-.453-.936-.68-1.403-1.071-1.695a2 2 0 0 0-.275-.172C13.594 2 13.074 2 12.035 2c-1.066 0-1.599 0-2.04.234a2 2 0 0 0-.278.18c-.395.303-.616.788-1.058 1.757L8.053 5.5"/></svg>' +
       '</button>';
@@ -193,7 +363,13 @@ function _socRenderContentCard(item, opts) {
   return (
     '<div class="' + cardCls + '" data-id="' + (item.id || '') + '"' + clickOpen + '>' +
       '<div class="soc-content-card__header">' +
-        '<span class="soc-engagement-tier ' + tier.cls + '">' + tier.label + '</span>' +
+        '<span class="soc-score-badge-wrap">' +
+          (tier.hasViralScore
+            ? '<span class="soc-score-badge ' + tier.cls + '">' + tier.score + '</span>'
+            : '') +
+          '<span class="soc-engagement-tier ' + tier.cls + '">' + tier.label + '</span>' +
+          _socViralScoreTooltip(item) +
+        '</span>' +
         '<span class="soc-engagement-total">' + _socFormatNumber(tier.total) + ' engagement</span>' +
       '</div>' +
       '<div class="soc-content-card__body">' +
@@ -239,6 +415,322 @@ function _socSkeletonCards(count) {
   return html;
 }
 
+// ─── Repurpose Draft Rendering ────────────────────────────────────────────
+
+var _socPlatformCharLimits = { x: 280, tiktok: 2200, instagram: 2200, linkedin: 3000, youtube: 5000 };
+
+function _socRenderRepurposeDrafts(root, data, platforms, sourceId) {
+  var draftsEl = root.querySelector('#soc-repurpose-drafts');
+  if (!draftsEl) return;
+
+  // Parse output: try JSON first, then split by platform headers
+  var drafts = {};
+  var output = data.output || '';
+  try {
+    var parsed = JSON.parse(output);
+    if (parsed && typeof parsed === 'object') {
+      platforms.forEach(function (p) {
+        if (parsed[p]) drafts[p] = parsed[p];
+      });
+    }
+  } catch (_e) {
+    // Fallback: split by platform name headers
+    platforms.forEach(function (p) {
+      var regex = new RegExp('(?:^|\\n)#+\\s*' + p + '[:\\s]*\\n([\\s\\S]*?)(?=\\n#+\\s|$)', 'i');
+      var match = output.match(regex);
+      drafts[p] = match ? match[1].trim() : output;
+    });
+  }
+
+  var html = '';
+  platforms.forEach(function (p) {
+    var draft = drafts[p] || '';
+    var draftObj = typeof draft === 'object' ? draft : { copy: draft };
+    var copy = draftObj.copy || draftObj.text || (typeof draft === 'string' ? draft : '');
+    var hashtags = draftObj.hashtags || '';
+    var charLimit = _socPlatformCharLimits[p] || 5000;
+    var charCount = copy.length;
+
+    html +=
+      '<div class="soc-draft-card" data-platform="' + p + '">' +
+        '<div class="soc-draft-card__header" onclick="_socToggleDraftCard(this)">' +
+          '<span class="soc-draft-card__platform platform--' + p + '">' + _socEscapeHtml(p.toUpperCase()) + '</span>' +
+          '<span class="soc-draft-card__char-count ' + (charCount > charLimit ? 'over' : '') + '">' + charCount + '/' + charLimit + '</span>' +
+          '<svg class="soc-draft-card__chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"/></svg>' +
+        '</div>' +
+        '<div class="soc-draft-card__body">' +
+          '<textarea class="soc-draft-card__textarea" data-platform="' + p + '" data-limit="' + charLimit + '">' + _socEscapeHtml(copy) + '</textarea>' +
+          (hashtags ? '<div class="soc-draft-card__hashtags">' + _socEscapeHtml(typeof hashtags === 'string' ? hashtags : hashtags.join(' ')) + '</div>' : '') +
+          '<div class="soc-draft-card__actions">' +
+            '<button class="soc-btn soc-btn-sm soc-btn-primary" onclick="_socScheduleDraft(this, \'' + p + '\', \'' + sourceId + '\')">Schedule</button>' +
+            '<button class="soc-btn soc-btn-sm soc-btn-secondary" onclick="_socCopyDraft(this)">Copy</button>' +
+            '<button class="soc-btn soc-btn-sm soc-btn-secondary" onclick="_socRegenerateDraft(this, \'' + p + '\', \'' + sourceId + '\')">Regenerate</button>' +
+          '</div>' +
+          '<div class="soc-draft-card__schedule" style="display:none">' +
+            '<input type="datetime-local" class="soc-draft-card__datetime">' +
+            '<button class="soc-btn soc-btn-sm soc-btn-accent" onclick="_socConfirmScheduleDraft(this, \'' + p + '\', \'' + sourceId + '\')">Confirm Schedule</button>' +
+            '<button class="soc-btn soc-btn-sm soc-btn-secondary" onclick="this.parentElement.style.display=\'none\'">Cancel</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  });
+
+  draftsEl.innerHTML = html;
+
+  // Attach char count listeners
+  draftsEl.querySelectorAll('.soc-draft-card__textarea').forEach(function (ta) {
+    ta.addEventListener('input', function () {
+      var card = ta.closest('.soc-draft-card');
+      var countEl = card && card.querySelector('.soc-draft-card__char-count');
+      var limit = parseInt(ta.dataset.limit, 10) || 5000;
+      if (countEl) {
+        countEl.textContent = ta.value.length + '/' + limit;
+        countEl.classList.toggle('over', ta.value.length > limit);
+      }
+    });
+  });
+}
+
+function _socToggleDraftCard(headerEl) {
+  var card = headerEl.closest('.soc-draft-card');
+  if (card) card.classList.toggle('collapsed');
+}
+
+function _socCopyDraft(btn) {
+  var card = btn.closest('.soc-draft-card');
+  var ta = card && card.querySelector('.soc-draft-card__textarea');
+  if (!ta) return;
+  navigator.clipboard.writeText(ta.value).then(function () {
+    _socShowToast('Copied to clipboard!', 'success');
+  });
+}
+
+function _socScheduleDraft(btn, _platform, _sourceId) {
+  var card = btn.closest('.soc-draft-card');
+  var scheduleEl = card && card.querySelector('.soc-draft-card__schedule');
+  if (scheduleEl) scheduleEl.style.display = 'flex';
+}
+
+function _socConfirmScheduleDraft(btn, platform, sourceId) {
+  var card = btn.closest('.soc-draft-card');
+  var ta = card && card.querySelector('.soc-draft-card__textarea');
+  var dtInput = card && card.querySelector('.soc-draft-card__datetime');
+  if (!ta || !dtInput || !dtInput.value) { _socShowToast('Pick a date/time', 'error'); return; }
+
+  var social = _socAPI();
+  if (!social) return;
+
+  var scheduleDate = new Date(dtInput.value);
+  var postData = {
+    platform: platform,
+    content: ta.value,
+    status: 'scheduled',
+    scheduled_at: scheduleDate.toISOString(),
+    source_content_id: (sourceId && sourceId !== 'undefined' && sourceId !== 'null') ? sourceId : null,
+  };
+  social.createPost(postData).then(function (result) {
+    if (result.success) {
+      _socShowToast('Scheduled for ' + platform.toUpperCase() + ' at ' + scheduleDate.toLocaleString(), 'success');
+      var scheduleEl = card.querySelector('.soc-draft-card__schedule');
+      if (scheduleEl) scheduleEl.style.display = 'none';
+      // Update card to show scheduled state
+      var actionsEl = card.querySelector('.soc-draft-card__actions');
+      if (actionsEl) {
+        actionsEl.innerHTML = '<span class="soc-draft-card__scheduled-badge">Scheduled &#10003;</span>';
+      }
+      ta.disabled = true;
+    } else {
+      _socShowToast(result.error || 'Schedule failed', 'error');
+    }
+  }).catch(function () {
+    _socShowToast('Schedule error', 'error');
+  });
+}
+
+function _socRegenerateDraft(btn, platform, sourceId) {
+  var social = _socAPI();
+  if (!social) return;
+  var card = btn.closest('.soc-draft-card');
+  var ta = card && card.querySelector('.soc-draft-card__textarea');
+  if (!ta) return;
+
+  btn.disabled = true;
+  ta.value = '';
+  ta.placeholder = 'Regenerating…';
+
+  social.generateContent({
+    content_type: 'repurpose',
+    source_content_id: sourceId,
+    target_platforms: [platform],
+  }).then(function (result) {
+    if (result.success && result.data) {
+      var output = result.data.output || '';
+      try {
+        var parsed = JSON.parse(output);
+        ta.value = (parsed[platform] && (parsed[platform].copy || parsed[platform].text)) || output;
+      } catch (_e) {
+        ta.value = output;
+      }
+      ta.dispatchEvent(new Event('input'));
+      _socShowToast(platform.toUpperCase() + ' draft regenerated', 'success');
+    } else {
+      ta.value = result.error || 'Regeneration failed';
+    }
+  }).catch(function () {
+    ta.value = 'Error regenerating';
+  }).finally(function () {
+    btn.disabled = false;
+    ta.placeholder = '';
+  });
+}
+
+// ─── Saved Batch Mode ────────────────────────────────────────────────────
+
+var _socSavedSelectMode = false;
+var _socSavedSelectedIds = new Set();
+
+function _socToggleSavedSelectMode() {
+  _socSavedSelectMode = !_socSavedSelectMode;
+  _socSavedSelectedIds.clear();
+  var root = document.getElementById('social-view');
+  if (!root) return;
+  var toggle = root.querySelector('#soc-saved-select-toggle');
+  if (toggle) {
+    toggle.textContent = _socSavedSelectMode ? 'Cancel Selection' : 'Select Multiple';
+    toggle.classList.toggle('active', _socSavedSelectMode);
+  }
+  var toolbar = root.querySelector('#soc-saved-batch-toolbar');
+  if (toolbar) toolbar.classList.toggle('active', _socSavedSelectMode);
+  // Re-render saved to show/hide checkboxes
+  root.querySelectorAll('#soc-saved-results .soc-content-card').forEach(function (card) {
+    card.classList.toggle('soc-selectable', _socSavedSelectMode);
+    card.classList.remove('soc-selected');
+  });
+  _socUpdateSavedBatchCount();
+}
+
+function _socToggleSavedItem(id) {
+  if (_socSavedSelectedIds.has(id)) {
+    _socSavedSelectedIds.delete(id);
+  } else {
+    _socSavedSelectedIds.add(id);
+  }
+  var root = document.getElementById('social-view');
+  var el = root && root.querySelector('#soc-saved-results .soc-content-card[data-id="' + id + '"]');
+  if (el) el.classList.toggle('soc-selected', _socSavedSelectedIds.has(id));
+  _socUpdateSavedBatchCount();
+}
+
+function _socSelectAllSaved() {
+  var root = document.getElementById('social-view');
+  if (!root) return;
+  root.querySelectorAll('#soc-saved-results .soc-content-card[data-id]').forEach(function (el) {
+    var id = el.dataset.id;
+    if (id) { _socSavedSelectedIds.add(id); el.classList.add('soc-selected'); }
+  });
+  _socUpdateSavedBatchCount();
+}
+
+function _socDeselectAllSaved() {
+  _socSavedSelectedIds.clear();
+  var root = document.getElementById('social-view');
+  if (!root) return;
+  root.querySelectorAll('#soc-saved-results .soc-content-card.soc-selected').forEach(function (el) {
+    el.classList.remove('soc-selected');
+  });
+  _socUpdateSavedBatchCount();
+}
+
+function _socUpdateSavedBatchCount() {
+  var root = document.getElementById('social-view');
+  var countEl = root && root.querySelector('#soc-saved-batch-count');
+  if (countEl) countEl.textContent = _socSavedSelectedIds.size + ' selected';
+  var repBtn = root && root.querySelector('#soc-saved-batch-repurpose');
+  if (repBtn) repBtn.disabled = _socSavedSelectedIds.size === 0;
+}
+
+function _socBatchRepurpose() {
+  var social = _socAPI();
+  if (!social || _socSavedSelectedIds.size === 0) return;
+
+  // Navigate to Create → Repurpose
+  var root = document.getElementById('social-view');
+  if (!root) return;
+
+  // Get checked platforms from the repurpose panel
+  root.querySelectorAll('.soc-tab-btn').forEach(function (b) { b.classList.remove('active'); });
+  root.querySelectorAll('.soc-tab-content').forEach(function (c) { c.classList.remove('active'); });
+  var createBtn = root.querySelector('.soc-tab-btn[data-tab="create"]');
+  if (createBtn) createBtn.classList.add('active');
+  var createTab = root.querySelector('#soc-tab-create');
+  if (createTab) createTab.classList.add('active');
+
+  root.querySelectorAll('.soc-sub-tab').forEach(function (b) { b.classList.remove('active'); });
+  root.querySelectorAll('.soc-create-panel').forEach(function (p) { p.classList.remove('active'); });
+  var repurposeSubBtn = root.querySelector('.soc-sub-tab[data-panel="repurpose"]');
+  if (repurposeSubBtn) repurposeSubBtn.classList.add('active');
+  var repurposePanel = root.querySelector('#soc-panel-repurpose');
+  if (repurposePanel) repurposePanel.classList.add('active');
+
+  var checks = root.querySelectorAll('#soc-repurpose-platforms input[type="checkbox"]:checked');
+  var targetPlatforms = [];
+  checks.forEach(function (cb) { targetPlatforms.push(cb.value); });
+  if (targetPlatforms.length === 0) {
+    _socShowToast('Check target platforms in the Repurpose panel first', 'error');
+    return;
+  }
+
+  var ids = Array.from(_socSavedSelectedIds);
+  var draftsEl = root.querySelector('#soc-repurpose-drafts');
+  if (!draftsEl) return;
+
+  var total = ids.length;
+  var done = 0;
+  draftsEl.innerHTML = '<div class="soc-batch-progress"><div class="soc-batch-progress__bar"><div class="soc-batch-progress__fill" id="soc-batch-fill"></div></div><span id="soc-batch-status">Processing 0/' + total + '…</span></div>';
+
+  function processNext() {
+    if (done >= total) {
+      _socShowToast('Batch repurpose complete! ' + total + ' items processed', 'success');
+      var statusEl = root.querySelector('#soc-batch-status');
+      if (statusEl) statusEl.textContent = 'Done! ' + total + '/' + total;
+      return;
+    }
+    var id = ids[done];
+    var item = _socSavedCache ? _socSavedCache.find(function (i) { return i.id === id; }) : null;
+    var statusEl = root.querySelector('#soc-batch-status');
+    if (statusEl) statusEl.textContent = 'Processing ' + (done + 1) + '/' + total + (item ? ' — ' + (item.title || '').substring(0, 30) : '') + '…';
+
+    social.generateContent({
+      content_type: 'repurpose',
+      source_content_id: id,
+      target_platforms: targetPlatforms,
+    }).then(function (result) {
+      done++;
+      var fillEl = root.querySelector('#soc-batch-fill');
+      if (fillEl) fillEl.style.width = Math.round((done / total) * 100) + '%';
+      if (result.success && result.data) {
+        // Append draft cards for this item
+        var wrapper = document.createElement('div');
+        wrapper.className = 'soc-batch-item-group';
+        wrapper.innerHTML = '<div class="soc-batch-item-label">' + _socEscapeHtml((item && item.title) || id) + '</div>';
+        draftsEl.appendChild(wrapper);
+        var tempRoot = document.createElement('div');
+        tempRoot.innerHTML = '<div id="soc-repurpose-drafts"></div>';
+        _socRenderRepurposeDrafts(tempRoot, result.data, targetPlatforms, id);
+        var rendered = tempRoot.querySelector('#soc-repurpose-drafts');
+        if (rendered) wrapper.innerHTML += rendered.innerHTML;
+      }
+      processNext();
+    }).catch(function () {
+      done++;
+      var fillEl = root.querySelector('#soc-batch-fill');
+      if (fillEl) fillEl.style.width = Math.round((done / total) * 100) + '%';
+      processNext();
+    });
+  }
+  processNext();
+}
+
 // ─── Init ──────────────────────────────────────────────────────────────────
 
 function _socInit() {
@@ -256,9 +748,11 @@ function _socInit() {
       if (el) el.classList.add('active');
 
       // Lazy-load each tab's data
-      if (target === 'discover') _socLoadDiscovered();
+      if (target === 'discover') { _socLoadDiscovered(); _socMaybeAutoDetectTrends(); }
       if (target === 'posts')    _socLoadPosts();
+      if (target === 'calendar') showCalendarPanel();
       if (target === 'gallery')  _socLoadGallery();
+      if (target === 'preview')  _socInitPreviewTab();
       if (target === 'accounts') { _socLoadAccounts(); _socLoadBrand(); }
     });
   });
@@ -310,7 +804,33 @@ function _socInit() {
       if (el) el.classList.add('active');
 
       if (target === 'saved') _socLoadSavedContent();
+      if (target === 'trends') _socLoadTrends();
     });
+  });
+
+  // ── Trends card click-to-expand ──
+  root.addEventListener('click', function (e) {
+    var card = e.target.closest('.soc-trend-card');
+    if (!card || e.target.closest('.soc-trend-dismiss')) return;
+    var samplesEl = card.querySelector('.soc-trend-card__samples');
+    if (!samplesEl) return;
+    if (samplesEl.style.display === 'none' || !samplesEl.style.display) {
+      var trendId = card.dataset.trendId;
+      var trend = _socTrendsCache && _socTrendsCache.find(function (t) { return t.id === trendId; });
+      if (trend && trend.sampleContent && trend.sampleContent.length) {
+        var html = '<div class="soc-trend-samples-list">';
+        trend.sampleContent.forEach(function (sample) {
+          var text = sample.title || sample.content || sample.text || '';
+          if (text.length > 120) text = text.substring(0, 120) + '…';
+          html += '<div class="soc-trend-sample-item">' + _socEscapeHtml(text) + '</div>';
+        });
+        html += '</div>';
+        samplesEl.innerHTML = html;
+      }
+      samplesEl.style.display = 'block';
+    } else {
+      samplesEl.style.display = 'none';
+    }
   });
 
   // ── Saved content controls ──
@@ -318,6 +838,16 @@ function _socInit() {
   const savedSort           = root.querySelector('#soc-saved-sort');
   if (savedPlatformFilter) savedPlatformFilter.addEventListener('change', () => { _socSavedCache = null; _socLoadSavedContent(); });
   if (savedSort)           savedSort.addEventListener('change',           () => _socRenderSavedResults());
+
+  // ── Saved batch mode ──
+  const savedSelectToggle = root.querySelector('#soc-saved-select-toggle');
+  if (savedSelectToggle) savedSelectToggle.addEventListener('click', _socToggleSavedSelectMode);
+  const savedBatchSelectAll = root.querySelector('#soc-saved-batch-select-all');
+  if (savedBatchSelectAll) savedBatchSelectAll.addEventListener('click', _socSelectAllSaved);
+  const savedBatchDeselect = root.querySelector('#soc-saved-batch-deselect');
+  if (savedBatchDeselect) savedBatchDeselect.addEventListener('click', _socDeselectAllSaved);
+  const savedBatchRepurpose = root.querySelector('#soc-saved-batch-repurpose');
+  if (savedBatchRepurpose) savedBatchRepurpose.addEventListener('click', _socBatchRepurpose);
 
   // ── Discover search ──
   const discoverSearch    = root.querySelector('#soc-discover-search');
@@ -375,39 +905,91 @@ function _socInit() {
   }
 
   // ── Repurpose ──
-  const repurposeBtn = root.querySelector('#soc-repurpose-btn');
-  if (repurposeBtn) {
-    repurposeBtn.addEventListener('click', () => {
-      const social    = _socAPI();
-      if (!social) return;
-      const urlEl     = root.querySelector('#soc-repurpose-url');
-      const platEl    = root.querySelector('#soc-repurpose-platform');
-      const outputEl  = root.querySelector('#soc-repurpose-output');
-      if (!urlEl || !urlEl.value.trim()) { _socShowToast('Paste a source URL', 'error'); return; }
+  // Populate the source content dropdown
+  const repurposeSourceEl = root.querySelector('#soc-repurpose-source');
+  if (repurposeSourceEl) {
+    const social = _socAPI();
+    if (social) {
+      social.getDiscovered(50).then(function (items) {
+        items.forEach(function (item) {
+          var opt = document.createElement('option');
+          opt.value = item.id;
+          var label = (item.title || item.body || '').substring(0, 60);
+          if (!label) label = item.source_url || item.id;
+          var badge = (item.platform || '?').toUpperCase();
+          var tag = item.content_type ? ' · ' + item.content_type : '';
+          opt.textContent = '[' + badge + tag + '] ' + label;
+          repurposeSourceEl.appendChild(opt);
+        });
+      });
+    }
+    // Show preview when selection changes
+    repurposeSourceEl.addEventListener('change', function () {
+      var previewEl = root.querySelector('#soc-repurpose-preview');
+      var draftsEl = root.querySelector('#soc-repurpose-drafts');
+      if (!repurposeSourceEl.value) {
+        if (previewEl) previewEl.style.display = 'none';
+        if (draftsEl) draftsEl.innerHTML = '';
+        return;
+      }
+      var item = null;
+      if (_socSavedCache) item = _socSavedCache.find(function (i) { return i.id === repurposeSourceEl.value; });
+      if (!item && social) {
+        social.getDiscovered(200).then(function (all) {
+          item = all.find(function (i) { return i.id === repurposeSourceEl.value; });
+          if (item) _socShowRepurposePreview(root, item);
+        });
+      } else if (item) {
+        _socShowRepurposePreview(root, item);
+      }
+    });
+  }
 
-      if (outputEl) outputEl.textContent = 'Repurposing…';
-      repurposeBtn.disabled = true;
+  const repurposeGenBtn = root.querySelector('#soc-repurpose-generate-btn');
+  if (repurposeGenBtn) {
+    repurposeGenBtn.addEventListener('click', () => {
+      const social = _socAPI();
+      if (!social) return;
+      const sourceEl = root.querySelector('#soc-repurpose-source');
+      const draftsEl = root.querySelector('#soc-repurpose-drafts');
+      if (!sourceEl || !sourceEl.value) { _socShowToast('Select source content', 'error'); return; }
+
+      var checks = root.querySelectorAll('#soc-repurpose-platforms input[type="checkbox"]:checked');
+      var targetPlatforms = [];
+      checks.forEach(function (cb) { targetPlatforms.push(cb.value); });
+      if (targetPlatforms.length === 0) { _socShowToast('Select at least one target platform', 'error'); return; }
+
+      // Show skeleton loading
+      if (draftsEl) {
+        draftsEl.innerHTML = targetPlatforms.map(function (p) {
+          return '<div class="soc-draft-card soc-draft-card--loading">' +
+            '<div class="soc-draft-card__header"><span class="soc-draft-card__platform">' + _socEscapeHtml(p.toUpperCase()) + '</span></div>' +
+            '<div class="soc-skeleton" style="height:60px;border-radius:4px"></div>' +
+          '</div>';
+        }).join('');
+      }
+      repurposeGenBtn.disabled = true;
 
       social.generateContent({
         content_type: 'repurpose',
-        platform: platEl ? platEl.value : null,
-        prompt_used: 'Repurpose content from: ' + urlEl.value.trim(),
+        source_content_id: sourceEl.value,
+        target_platforms: targetPlatforms,
       })
         .then(result => {
           if (result.success && result.data) {
-            if (outputEl) outputEl.textContent = result.data.output || 'Repurposed content appears here';
-            _socShowToast('Content repurposed!', 'success');
+            _socRenderRepurposeDrafts(root, result.data, targetPlatforms, sourceEl.value);
+            _socShowToast('Drafts generated!', 'success');
           } else {
-            if (outputEl) outputEl.textContent = result.error || 'Repurpose failed';
-            _socShowToast('Repurpose failed', 'error');
+            if (draftsEl) draftsEl.innerHTML = '<div class="soc-empty"><p>' + _socEscapeHtml(result.error || 'Generation failed') + '</p></div>';
+            _socShowToast('Generation failed', 'error');
           }
         })
         .catch(err => {
           console.error('[Social] Repurpose failed:', err);
-          if (outputEl) outputEl.textContent = 'Error repurposing content';
+          if (draftsEl) draftsEl.innerHTML = '<div class="soc-empty"><p>Error generating drafts</p></div>';
           _socShowToast('Repurpose error', 'error');
         })
-        .finally(() => { repurposeBtn.disabled = false; });
+        .finally(() => { repurposeGenBtn.disabled = false; });
     });
   }
 
@@ -661,6 +1243,10 @@ function _socInit() {
       const el = root.querySelector('#soc-kie-key');
       if (el && val) el.placeholder = '••••••••';
     }).catch(() => {});
+    settings.get('assembly.apiKey').then(val => {
+      const el = root.querySelector('#soc-assembly-key');
+      if (el && val) el.placeholder = '••••••••';
+    }).catch(() => {});
   }
 
   // Apify test
@@ -831,6 +1417,91 @@ function _socInit() {
     });
   }
 
+  // AssemblyAI test
+  const assemblyTestBtn = root.querySelector('#soc-assembly-test-btn');
+  if (assemblyTestBtn) {
+    assemblyTestBtn.addEventListener('click', () => {
+      const key = (root.querySelector('#soc-assembly-key') || {}).value || '';
+      const statusEl = root.querySelector('#soc-assembly-status');
+      assemblyTestBtn.disabled = true;
+      if (statusEl) statusEl.textContent = 'Testing…';
+      const social = _socAPI();
+      const testFn = social && social.validateAssemblyKey
+        ? social.validateAssemblyKey(key)
+        : Promise.reject(new Error('validateAssemblyKey not available'));
+      testFn
+        .then(result => {
+          if (statusEl) { statusEl.textContent = result.valid ? '✓ Valid' : '✗ Invalid'; statusEl.className = 'soc-key-status ' + (result.valid ? 'valid' : 'invalid'); }
+          if (result.valid) {
+            if (key && settings) {
+              settings.set('assembly.apiKey', key).then(() => {
+                _socShowToast(result.warning ? 'Key saved! ' + result.warning : 'AssemblyAI key valid & saved!', result.warning ? 'warning' : 'success');
+                const el = root.querySelector('#soc-assembly-key');
+                if (el) { el.value = ''; el.placeholder = '••••••••'; }
+                if (result.warning && statusEl) statusEl.textContent = '✓ Valid (CLI not installed)';
+              }).catch(() => _socShowToast('Key valid but failed to save', 'error'));
+            } else {
+              _socShowToast('AssemblyAI key is valid!', 'success');
+            }
+          } else {
+            _socShowToast('AssemblyAI key invalid: ' + (result.error || ''), 'error');
+          }
+        })
+        .catch(() => {
+          if (statusEl) { statusEl.textContent = '✗ Error'; statusEl.className = 'soc-key-status invalid'; }
+          _socShowToast('Test failed', 'error');
+        })
+        .finally(() => { assemblyTestBtn.disabled = false; });
+    });
+  }
+
+  // AssemblyAI save
+  const assemblySaveBtn = root.querySelector('#soc-assembly-save-btn');
+  if (assemblySaveBtn) {
+    assemblySaveBtn.addEventListener('click', () => {
+      const key = (root.querySelector('#soc-assembly-key') || {}).value || '';
+      if (!key) { _socShowToast('Enter a key to save', 'error'); return; }
+      if (!settings) { _socShowToast('Settings unavailable', 'error'); return; }
+      assemblySaveBtn.disabled = true;
+      settings.set('assembly.apiKey', key)
+        .then(() => {
+          _socShowToast('AssemblyAI key saved!', 'success');
+          const el = root.querySelector('#soc-assembly-key');
+          if (el) { el.value = ''; el.placeholder = '••••••••'; }
+        })
+        .catch(() => _socShowToast('Failed to save key', 'error'))
+        .finally(() => { assemblySaveBtn.disabled = false; });
+    });
+  }
+
+  // ── Content type filter ──
+  const discoverTypeFilter = root.querySelector('#soc-discover-type-filter');
+  if (discoverTypeFilter) {
+    discoverTypeFilter.addEventListener('change', () => {
+      _socDiscoverTypeFilter = discoverTypeFilter.value;
+      // Re-render from cache
+      if (_socDiscoverCache) {
+        _socRenderDiscoverResults(_socDiscoverCache);
+      }
+    });
+  }
+
+  // ── Clear search results button ──
+  const discoverClearBtn = root.querySelector('#soc-discover-clear-btn');
+  if (discoverClearBtn) {
+    discoverClearBtn.addEventListener('click', () => {
+      _socDiscoverCache = null;
+      _socDiscoverSearchCache = null;
+      _socDiscoverTypeFilter = '';
+      const searchInput = root.querySelector('#soc-discover-search');
+      if (searchInput) searchInput.value = '';
+      const typeFilter = root.querySelector('#soc-discover-type-filter');
+      if (typeFilter) typeFilter.value = '';
+      _socLoadDiscovered();
+      _socShowToast('Search results cleared', 'success');
+    });
+  }
+
   // Initial data load for the first visible tab
   _socLoadDiscovered();
 }
@@ -900,8 +1571,27 @@ function _socRefreshActiveTab() {
   const tab = activeBtn.dataset.tab;
   if (tab === 'discover') _socLoadDiscovered();
   if (tab === 'posts')    _socLoadPosts();
+  if (tab === 'calendar') _socCalendarRenderCurrentView();
   if (tab === 'gallery')  _socLoadGallery();
   if (tab === 'accounts') { _socLoadAccounts(); _socLoadBrand(); }
+}
+
+// ─── Targeted refresh functions (called from init.js event listeners) ───────
+
+// eslint-disable-next-line no-unused-vars
+function _socRefreshCalendar() {
+  _socCalendarRenderCurrentView();
+}
+
+// eslint-disable-next-line no-unused-vars
+function _socRefreshPosts() {
+  _socLoadPosts();
+}
+
+// eslint-disable-next-line no-unused-vars
+function _socRefreshDiscoverSaved() {
+  _socSavedCache = null;
+  _socLoadSavedContent();
 }
 
 // ─── Discover Tab ──────────────────────────────────────────────────────────
@@ -944,15 +1634,19 @@ function _socDiscoverSearch(query, platform) {
 
   social.searchContent(query, platform)
     .then(items => {
+      // Assign stable IDs so save buttons can look up items from the cache
+      if (items && items.length) {
+        items.forEach((item, idx) => {
+          if (!item.id) item.id = item.externalId || ('search-' + idx);
+        });
+      }
       // Cache search results so they persist across tab switches
       _socDiscoverCache = items;
       // Store raw search items for the Save button mapping
       _socDiscoverSearchCache = {};
       if (items && items.length) {
-        items.forEach((item, idx) => {
-          // Use the item's id (or index) as key for later lookup
-          const key = item.id || ('search-' + idx);
-          _socDiscoverSearchCache[key] = item;
+        items.forEach((item) => {
+          _socDiscoverSearchCache[item.id] = item;
         });
       }
       _socRenderDiscoverResults(items);
@@ -963,10 +1657,76 @@ function _socDiscoverSearch(query, platform) {
     });
 }
 
+function _socNormalizeContentType(raw) {
+  if (!raw) return 'other';
+  var t = raw.toLowerCase().trim();
+  if (t === 'video' || t === 'reel' || t === 'short' || t === 'shorts') return 'video';
+  if (t === 'image' || t === 'photo' || t === 'picture') return 'image';
+  if (t === 'carousel' || t === 'sidecar' || t === 'slideshow' || t === 'album') return 'carousel';
+  if (t === 'text' || t === 'tweet' || t === 'post' || t === 'article') return 'text';
+  return 'other';
+}
+
+var _socPlatformLabels = {
+  tiktok: 'TikTok', youtube: 'YouTube', instagram: 'Instagram',
+  twitter: 'Twitter/X', linkedin: 'LinkedIn'
+};
+
+function _socComputeDistribution(items) {
+  var counts = {};
+  var total = 0;
+  (items || []).forEach(function (item) {
+    var ct = _socNormalizeContentType(item.content_type);
+    counts[ct] = (counts[ct] || 0) + 1;
+    total++;
+  });
+  if (total === 0) return [];
+  var dist = [];
+  ['video', 'image', 'carousel', 'text', 'other'].forEach(function (key) {
+    if (counts[key]) {
+      dist.push({ type: key, count: counts[key], pct: Math.round((counts[key] / total) * 100) });
+    }
+  });
+  return dist;
+}
+
+function _socRenderDistribution(items) {
+  var root = document.getElementById('social-view');
+  var bar = root && root.querySelector('#soc-discover-distribution');
+  if (!bar) return;
+  var dist = _socComputeDistribution(items);
+  if (!dist.length) {
+    bar.classList.remove('active');
+    bar.innerHTML = '';
+    return;
+  }
+  var html = '';
+  dist.forEach(function (d) {
+    var label = d.type.charAt(0).toUpperCase() + d.type.slice(1);
+    html += '<span class="soc-distribution-pill soc-distribution-pill--' + d.type + '">' +
+      label + ' ' + d.pct + '%</span>';
+  });
+  bar.innerHTML = html;
+  bar.classList.add('active');
+}
+
+function _socFilterDiscoverByType(items) {
+  if (!_socDiscoverTypeFilter) return items;
+  return (items || []).filter(function (item) {
+    return _socNormalizeContentType(item.content_type) === _socDiscoverTypeFilter;
+  });
+}
+
 function _socRenderDiscoverResults(items) {
   const root    = document.getElementById('social-view');
   const results = root && root.querySelector('#soc-discover-results');
   if (!results) return;
+
+  // Compute and render distribution from full (unfiltered) set
+  _socRenderDistribution(items);
+
+  // Apply content type filter
+  var filtered = _socFilterDiscoverByType(items);
 
   if (!items || items.length === 0) {
     results.innerHTML =
@@ -981,8 +1741,26 @@ function _socRenderDiscoverResults(items) {
   // Determine if these are search results (have save button) or DB items
   const isSearch = !!_socDiscoverSearchCache;
 
-  let html = '<div class="soc-card-grid">';
-  items.forEach(function (item) {
+  // Show hint if filter reduced count
+  var hintHtml = '';
+  if (_socDiscoverTypeFilter && filtered.length < items.length) {
+    var typeName = _socDiscoverTypeFilter.charAt(0).toUpperCase() + _socDiscoverTypeFilter.slice(1);
+    var platformEl = root.querySelector('#soc-discover-platform');
+    var platformKey = platformEl ? platformEl.value : '';
+    var platformName = _socPlatformLabels[platformKey] || 'this platform';
+    hintHtml = '<div class="soc-discover-filter-hint">Showing ' + filtered.length + '/' + items.length +
+      ' \u2014 ' + typeName + ' posts are rare on ' + platformName + '</div>';
+  }
+
+  if (filtered.length === 0) {
+    var typeName2 = _socDiscoverTypeFilter.charAt(0).toUpperCase() + _socDiscoverTypeFilter.slice(1);
+    results.innerHTML = hintHtml +
+      '<div class="soc-empty"><p>No ' + typeName2 + ' content in these results</p></div>';
+    return;
+  }
+
+  let html = hintHtml + '<div class="soc-card-grid">';
+  filtered.forEach(function (item) {
     html += _socRenderContentCard(item, { showSave: isSearch });
   });
   html += '</div>';
@@ -1062,10 +1840,137 @@ function _socRenderSavedResults() {
 
   let html = '<div class="soc-card-grid">';
   sorted.forEach(function (item) {
-    html += _socRenderContentCard(item, { showDelete: true });
+    html += _socRenderContentCard(item, { showDelete: true, showRepurpose: true });
   });
   html += '</div>';
   results.innerHTML = html;
+
+  // Apply select mode state if active
+  if (_socSavedSelectMode) {
+    results.querySelectorAll('.soc-content-card').forEach(function (card) {
+      card.classList.add('soc-selectable');
+      if (_socSavedSelectedIds.has(card.dataset.id)) card.classList.add('soc-selected');
+    });
+  }
+
+  // Attach click handler for select mode
+  results.addEventListener('click', function (e) {
+    if (!_socSavedSelectMode) return;
+    var card = e.target.closest('.soc-content-card[data-id]');
+    if (!card) return;
+    // Don't intercept button clicks
+    if (e.target.closest('button') || e.target.closest('a')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    _socToggleSavedItem(card.dataset.id);
+  }, true);
+}
+
+// ─── Trends (Discover → Trends sub-tab) ───────────────────────────────────
+
+function _socMaybeAutoDetectTrends() {
+  if (Date.now() - _socTrendsLastDetect > 5 * 60 * 1000) {
+    const social = _socAPI();
+    if (social) {
+      _socTrendsLastDetect = Date.now();
+      social.detectTrends().catch(function (err) {
+        console.error('[Social] Auto-detect trends failed:', err);
+      });
+    }
+  }
+}
+
+function _socLoadTrends() {
+  const social  = _socAPI();
+  const root    = document.getElementById('social-view');
+  const results = root && root.querySelector('#soc-trends-results');
+  if (!results) return;
+
+  if (_socTrendsCache) {
+    _socRenderTrends(_socTrendsCache);
+    return;
+  }
+
+  results.innerHTML = '<div class="soc-card-grid">' + _socSkeletonCards(4) + '</div>';
+  if (!social) { results.innerHTML = '<div class="soc-empty"><p>Social API unavailable</p></div>'; return; }
+
+  // Run detection first, then fetch
+  var detect = (Date.now() - _socTrendsLastDetect > 5 * 60 * 1000)
+    ? (function () { _socTrendsLastDetect = Date.now(); return social.detectTrends(); })()
+    : Promise.resolve();
+
+  detect
+    .then(function () { return social.getTrends(); })
+    .then(function (trends) {
+      _socTrendsCache = trends;
+      _socRenderTrends(trends);
+    })
+    .catch(function (err) {
+      console.error('[Social] Failed to load trends:', err);
+      results.innerHTML = '<div class="soc-empty"><p>Failed to load trends</p></div>';
+    });
+}
+
+function _socRenderTrends(trends) {
+  var root    = document.getElementById('social-view');
+  var results = root && root.querySelector('#soc-trends-results');
+  if (!results) return;
+
+  if (!trends || trends.length === 0) {
+    results.innerHTML =
+      '<div class="soc-empty">' +
+      '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2 20h20M5 20V10m4 10V4m4 16v-8m4 8V8"/></svg>' +
+      '<p>No trends detected yet</p>' +
+      '<p class="hint">Save some content in the Discover tab and trends will appear here</p>' +
+      '</div>';
+    return;
+  }
+
+  var html = '<div class="soc-trends-list">';
+  trends.forEach(function (trend) {
+    html += _socRenderTrendCard(trend);
+  });
+  html += '</div>';
+  results.innerHTML = html;
+}
+
+function _socRenderTrendCard(trend) {
+  var statusClass = 'soc-trend-status--' + (trend.status || 'emerging').toLowerCase();
+  var statusLabel = trend.status || 'Emerging';
+  var score = trend.score != null ? trend.score : 0;
+  var platform = trend.platform || 'Cross-platform';
+  var sampleCount = (trend.sampleContent && trend.sampleContent.length) || 0;
+  var firstSeen = trend.firstSeen ? _socTimeAgo(trend.firstSeen) : '';
+
+  var keywords = '';
+  if (trend.keywords && trend.keywords.length) {
+    keywords = '<div class="soc-trend-keywords">';
+    trend.keywords.forEach(function (kw) {
+      keywords += '<span class="soc-trend-keyword">' + _socEscapeHtml(kw) + '</span>';
+    });
+    keywords += '</div>';
+  }
+
+  var html =
+    '<div class="soc-trend-card" data-trend-id="' + (trend.id || '') + '">' +
+      '<div class="soc-trend-card__header">' +
+        '<span class="soc-trend-status ' + statusClass + '">' + _socEscapeHtml(statusLabel) + '</span>' +
+        '<span class="soc-trend-score">Score: ' + score + '</span>' +
+        '<button class="soc-trend-dismiss" onclick="event.stopPropagation(); socPanelActions.dismissTrend(\'' + (trend.id || '') + '\')" title="Dismiss trend">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 6L6 18M6 6l12 12"/></svg>' +
+        '</button>' +
+      '</div>' +
+      '<div class="soc-trend-card__topic">' + _socEscapeHtml(trend.topic || trend.keyword || '') + '</div>' +
+      keywords +
+      '<div class="soc-trend-card__meta">' +
+        '<span class="soc-trend-platform">' + _socEscapeHtml(platform) + '</span>' +
+        (sampleCount ? '<span class="soc-trend-samples">' + sampleCount + ' sample' + (sampleCount !== 1 ? 's' : '') + '</span>' : '') +
+        (firstSeen ? '<span class="soc-trend-first-seen">' + firstSeen + '</span>' : '') +
+      '</div>' +
+      (sampleCount ? '<div class="soc-trend-card__samples" style="display:none"></div>' : '') +
+    '</div>';
+
+  return html;
 }
 
 // ─── Posts Tab ─────────────────────────────────────────────────────────────
@@ -1107,6 +2012,670 @@ function _socLoadPosts() {
       console.error('[Social] Failed to load posts:', err);
       tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--error)">Failed to load posts</td></tr>';
     });
+}
+
+// ─── Calendar Tab ─────────────────────────────────────────────────────────
+
+let _socCalendarView = localStorage.getItem('soc-calendar-view') || 'month';
+
+function showCalendarPanel() {
+  if (_socCalendarInitialized) return;
+  _socCalendarInitialized = true;
+
+  const root = document.getElementById('social-view');
+  if (!root) return;
+
+  const prevBtn  = root.querySelector('#soc-calendar-prev');
+  const nextBtn  = root.querySelector('#soc-calendar-next');
+  const todayBtn = root.querySelector('#soc-calendar-today');
+  const closeBtn = root.querySelector('#soc-calendar-sidebar-close');
+
+  if (prevBtn)  prevBtn.addEventListener('click', () => _socCalendarNavigate(-1));
+  if (nextBtn)  nextBtn.addEventListener('click', () => _socCalendarNavigate(1));
+  if (todayBtn) todayBtn.addEventListener('click', _socCalendarGoToday);
+  if (closeBtn) closeBtn.addEventListener('click', _socCalendarCloseSidebar);
+
+  // View switcher
+  root.querySelectorAll('.soc-calendar-view-btn').forEach(function (btn) {
+    if (btn.dataset.view === _socCalendarView) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+    btn.addEventListener('click', function () {
+      root.querySelectorAll('.soc-calendar-view-btn').forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      _socCalendarView = btn.dataset.view;
+      localStorage.setItem('soc-calendar-view', _socCalendarView);
+      _socCalendarSwitchView();
+    });
+  });
+
+  // Set initial view visibility and render
+  _socCalendarSwitchView();
+  _socCalendarGoToday();
+}
+
+let _socCalendarYear  = new Date().getFullYear();
+let _socCalendarMonth = new Date().getMonth();
+
+// Week view tracks start-of-week date (Monday)
+let _socCalendarWeekStart = (function () {
+  var d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); d.setHours(0, 0, 0, 0); return d;
+})();
+
+function _socCalendarNavigate(delta) {
+  if (_socCalendarView === 'week') {
+    _socCalendarWeekStart = new Date(_socCalendarWeekStart);
+    _socCalendarWeekStart.setDate(_socCalendarWeekStart.getDate() + delta * 7);
+    _socCalendarRenderCurrentView();
+    return;
+  }
+  // Month / agenda navigate by month
+  _socCalendarMonth += delta;
+  if (_socCalendarMonth > 11) { _socCalendarMonth = 0; _socCalendarYear++; }
+  if (_socCalendarMonth < 0)  { _socCalendarMonth = 11; _socCalendarYear--; }
+  _socCalendarRenderCurrentView();
+}
+
+function _socCalendarGoToday() {
+  var now = new Date();
+  _socCalendarYear  = now.getFullYear();
+  _socCalendarMonth = now.getMonth();
+  _socCalendarWeekStart = new Date(now);
+  _socCalendarWeekStart.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  _socCalendarWeekStart.setHours(0, 0, 0, 0);
+  _socCalendarRenderCurrentView();
+}
+
+function _socCalendarSwitchView() {
+  var root = document.getElementById('social-view');
+  if (!root) return;
+  var monthGrid  = root.querySelector('#soc-calendar-grid');
+  var weekdays   = root.querySelector('.soc-calendar-weekdays');
+  var weekView   = root.querySelector('#soc-calendar-week-view');
+  var agendaView = root.querySelector('#soc-calendar-agenda-view');
+
+  if (monthGrid)  monthGrid.style.display  = _socCalendarView === 'month' ? '' : 'none';
+  if (weekdays)   weekdays.style.display   = _socCalendarView === 'month' ? '' : 'none';
+  if (weekView)   weekView.style.display   = _socCalendarView === 'week' ? '' : 'none';
+  if (agendaView) agendaView.style.display = _socCalendarView === 'agenda' ? '' : 'none';
+
+  _socCalendarCloseSidebar();
+  _socCalendarRenderCurrentView();
+}
+
+function _socCalendarRenderCurrentView() {
+  if (_socCalendarView === 'week') {
+    _socRenderWeekView(_socCalendarWeekStart);
+  } else if (_socCalendarView === 'agenda') {
+    _socRenderAgendaView();
+  } else {
+    _socCalendarRender();
+  }
+  _socCalendarUpdateLabel();
+}
+
+function _socCalendarUpdateLabel() {
+  var root = document.getElementById('social-view');
+  if (!root) return;
+  var label = root.querySelector('#soc-calendar-month-label');
+  if (!label) return;
+  var monthNames = ['January','February','March','April','May','June',
+    'July','August','September','October','November','December'];
+
+  if (_socCalendarView === 'week') {
+    var end = new Date(_socCalendarWeekStart);
+    end.setDate(end.getDate() + 6);
+    var sMonth = monthNames[_socCalendarWeekStart.getMonth()].substring(0, 3);
+    var eMonth = monthNames[end.getMonth()].substring(0, 3);
+    if (_socCalendarWeekStart.getMonth() === end.getMonth()) {
+      label.textContent = sMonth + ' ' + _socCalendarWeekStart.getDate() + ' – ' + end.getDate() + ', ' + end.getFullYear();
+    } else {
+      label.textContent = sMonth + ' ' + _socCalendarWeekStart.getDate() + ' – ' + eMonth + ' ' + end.getDate() + ', ' + end.getFullYear();
+    }
+  } else {
+    label.textContent = monthNames[_socCalendarMonth] + ' ' + _socCalendarYear;
+  }
+}
+
+// Platform colors for calendar chips
+const _socCalendarPlatformColors = {
+  tiktok:    '#ff2d55',
+  youtube:   '#ff0000',
+  instagram: '#c13584',
+  twitter:   '#1da1f2',
+  x:         '#1da1f2',
+  linkedin:  '#0077b5',
+  facebook:  '#1877f2',
+  threads:   '#000000',
+  pinterest: '#e60023',
+};
+
+// Cached posts keyed by date string (YYYY-MM-DD)
+let _socCalendarPostsByDay = {};
+let _socDragPostStatus = null; // tracks status of chip being dragged
+
+function _socCalendarDateStr(date) {
+  var y = date.getFullYear();
+  var m = String(date.getMonth() + 1).padStart(2, '0');
+  var d = String(date.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + d;
+}
+
+function _socCalendarRender() {
+  var root = document.getElementById('social-view');
+  if (!root) return;
+
+  var grid  = root.querySelector('#soc-calendar-grid');
+  if (!grid) return;
+
+  _socCalendarUpdateLabel();
+
+  // Build 42-cell date array (6 weeks x 7 days, Mon-based)
+  var firstDay = new Date(_socCalendarYear, _socCalendarMonth, 1).getDay();
+  var startOffset = (firstDay + 6) % 7; // Mon=0
+  var daysInMonth = new Date(_socCalendarYear, _socCalendarMonth + 1, 0).getDate();
+
+  // Start date = first visible day (may be in prev month)
+  var startDate = new Date(_socCalendarYear, _socCalendarMonth, 1 - startOffset);
+  var cells = [];
+  for (var i = 0; i < 42; i++) {
+    var d = new Date(startDate);
+    d.setDate(d.getDate() + i);
+    cells.push(d);
+  }
+
+  var rangeStart = _socCalendarDateStr(cells[0]);
+  var rangeEnd   = _socCalendarDateStr(cells[41]);
+
+  // Show skeleton while loading
+  grid.innerHTML = '<div class="soc-calendar-loading">Loading posts…</div>';
+
+  var social = _socAPI();
+  if (!social) {
+    _socCalendarRenderGrid(root, grid, cells, {});
+    return;
+  }
+
+  social.getCalendarPosts(rangeStart, rangeEnd)
+    .then(function (posts) {
+      // Group posts by date
+      var byDay = {};
+      (posts || []).forEach(function (post) {
+        var dateKey = (post.scheduled_at || post.created_at || '').substring(0, 10);
+        if (!dateKey) return;
+        if (!byDay[dateKey]) byDay[dateKey] = [];
+        byDay[dateKey].push(post);
+      });
+      _socCalendarPostsByDay = byDay;
+      _socCalendarRenderGrid(root, grid, cells, byDay);
+    })
+    .catch(function (err) {
+      console.error('[Social] Calendar fetch failed:', err);
+      _socCalendarPostsByDay = {};
+      _socCalendarRenderGrid(root, grid, cells, {});
+    });
+}
+
+function _socCalendarRenderGrid(root, grid, cells, postsByDay) {
+  var today = new Date();
+  var todayStr = _socCalendarDateStr(today);
+  var html = '';
+
+  for (var i = 0; i < cells.length; i++) {
+    var date = cells[i];
+    var dateStr = _socCalendarDateStr(date);
+    var isOutside = date.getMonth() !== _socCalendarMonth;
+    var isToday = dateStr === todayStr;
+    var dayPosts = postsByDay[dateStr] || [];
+    html += _socRenderCalendarDay(date, dateStr, dayPosts, isToday, isOutside);
+  }
+
+  grid.innerHTML = html;
+
+  // Click handlers for all day cells
+  grid.querySelectorAll('.soc-calendar-cell').forEach(function (cell) {
+    cell.addEventListener('click', function () {
+      grid.querySelectorAll('.soc-calendar-cell').forEach(function (c) {
+        c.classList.remove('soc-calendar-cell-selected');
+      });
+      cell.classList.add('soc-calendar-cell-selected');
+      _socCalendarShowDay(cell.dataset.date);
+    });
+
+    // Drop handlers for drag-to-reschedule
+    cell.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      var postStatus = e.dataTransfer.types.includes('text/plain') ? 'unknown' : '';
+      var dateStr = cell.dataset.date;
+      var todayStr = _socCalendarDateStr(new Date());
+      if (dateStr < todayStr && _socDragPostStatus === 'scheduled') {
+        cell.classList.add('soc-calendar-cell-drop-invalid');
+      } else {
+        cell.classList.add('soc-calendar-cell-drop-target');
+      }
+    });
+
+    cell.addEventListener('dragleave', function () {
+      cell.classList.remove('soc-calendar-cell-drop-target');
+      cell.classList.remove('soc-calendar-cell-drop-invalid');
+    });
+
+    cell.addEventListener('drop', function (e) {
+      e.preventDefault();
+      cell.classList.remove('soc-calendar-cell-drop-target');
+      cell.classList.remove('soc-calendar-cell-drop-invalid');
+      var postId = e.dataTransfer.getData('text/plain');
+      var dateStr = cell.dataset.date;
+      var todayStr = _socCalendarDateStr(new Date());
+      if (!postId) return;
+      if (dateStr < todayStr && _socDragPostStatus === 'scheduled') {
+        _socShowToast('Cannot move scheduled posts to past dates', 'error');
+        return;
+      }
+      _socReschedulePost(postId, dateStr);
+    });
+  });
+
+  // Drag handlers on chips
+  grid.querySelectorAll('.soc-calendar-chip--draggable').forEach(function (chip) {
+    chip.addEventListener('dragstart', function (e) {
+      e.stopPropagation();
+      e.dataTransfer.setData('text/plain', chip.dataset.postId);
+      e.dataTransfer.effectAllowed = 'move';
+      _socDragPostStatus = chip.dataset.postStatus || 'draft';
+      chip.classList.add('soc-calendar-chip--dragging');
+    });
+    chip.addEventListener('dragend', function () {
+      chip.classList.remove('soc-calendar-chip--dragging');
+      _socDragPostStatus = null;
+      grid.querySelectorAll('.soc-calendar-cell').forEach(function (c) {
+        c.classList.remove('soc-calendar-cell-drop-target');
+        c.classList.remove('soc-calendar-cell-drop-invalid');
+      });
+    });
+  });
+}
+
+function _socRenderCalendarDay(date, dateStr, posts, isToday, isOutside) {
+  var cls = 'soc-calendar-cell';
+  if (isToday)   cls += ' soc-calendar-cell-today';
+  if (isOutside) cls += ' soc-calendar-cell-outside';
+
+  var dayNum = date.getDate();
+  var html = '<div class="' + cls + '" data-date="' + dateStr + '">';
+  html += '<span class="soc-calendar-day-num">' + dayNum + '</span>';
+
+  // Render up to 3 post chips
+  var maxChips = 3;
+  var shown = Math.min(posts.length, maxChips);
+  for (var i = 0; i < shown; i++) {
+    var post = posts[i];
+    var platform = (post.platform || '').toLowerCase();
+    var color = _socCalendarPlatformColors[platform] || 'var(--text-secondary)';
+    var time = '';
+    var schedStr = post.scheduled_at || post.created_at || '';
+    if (schedStr && schedStr.length > 10) {
+      var d = new Date(schedStr);
+      var h = d.getHours();
+      var m = String(d.getMinutes()).padStart(2, '0');
+      var ampm = h >= 12 ? 'p' : 'a';
+      time = (h % 12 || 12) + ':' + m + ampm;
+    }
+    var chipTitle = _socEscapeHtml(post.title || post.body || post.content || 'Untitled');
+    if (chipTitle.length > 20) chipTitle = chipTitle.substring(0, 20) + '…';
+    var isDraggable = post.status === 'draft' || post.status === 'scheduled';
+    html +=
+      '<div class="soc-calendar-chip' + (isDraggable ? ' soc-calendar-chip--draggable' : '') + '"' +
+        ' style="border-left-color:' + color + '"' +
+        ' title="' + _socEscapeHtml(post.title || post.body || '') + '"' +
+        (isDraggable ? ' draggable="true" data-post-id="' + _socEscapeHtml(post.id || '') + '" data-post-status="' + post.status + '"' : '') +
+      '>' +
+        (time ? '<span class="soc-calendar-chip-time">' + time + '</span>' : '') +
+        '<span class="soc-calendar-chip-title">' + chipTitle + '</span>' +
+      '</div>';
+  }
+
+  // Overflow indicator
+  if (posts.length > maxChips) {
+    html += '<div class="soc-calendar-more">+' + (posts.length - maxChips) + ' more</div>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function _socCalendarShowDay(dateStr) {
+  var root = document.getElementById('social-view');
+  if (!root) return;
+  var sidebar  = root.querySelector('#soc-calendar-sidebar');
+  var titleEl  = root.querySelector('#soc-calendar-sidebar-title');
+  var postsEl  = root.querySelector('#soc-calendar-sidebar-posts');
+  if (!sidebar || !titleEl || !postsEl) return;
+
+  var parts = dateStr.split('-');
+  var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  titleEl.textContent = monthNames[parseInt(parts[1], 10) - 1] + ' ' + parseInt(parts[2], 10) + ', ' + parts[0];
+  sidebar.classList.add('open');
+  sidebar.dataset.selectedDate = dateStr;
+
+  var dayPosts = _socCalendarPostsByDay[dateStr] || [];
+
+  // Quick Schedule button (always shown)
+  var html = '<button class="soc-btn soc-btn-accent soc-calendar-quick-schedule-btn" onclick="socPanelActions.calendarQuickScheduleToggle()">' +
+    '+ Quick Schedule</button>';
+
+  // Quick Schedule form (hidden by default)
+  html += '<div class="soc-calendar-quick-form" id="soc-calendar-quick-form" style="display:none;">' +
+    '<select id="soc-calendar-quick-platform">' +
+      '<option value="tiktok">TikTok</option>' +
+      '<option value="youtube">YouTube</option>' +
+      '<option value="instagram">Instagram</option>' +
+      '<option value="twitter">X / Twitter</option>' +
+      '<option value="linkedin">LinkedIn</option>' +
+      '<option value="facebook">Facebook</option>' +
+    '</select>' +
+    '<textarea id="soc-calendar-quick-content" placeholder="Post content..." rows="3"></textarea>' +
+    '<input type="time" id="soc-calendar-quick-time" value="12:00" />' +
+    '<div class="soc-calendar-quick-actions">' +
+      '<button class="soc-btn soc-btn-accent" onclick="socPanelActions.calendarQuickScheduleSave()">Schedule</button>' +
+      '<button class="soc-btn soc-btn-secondary" onclick="socPanelActions.calendarQuickScheduleToggle()">Cancel</button>' +
+    '</div>' +
+  '</div>';
+
+  if (dayPosts.length === 0) {
+    html += '<p class="soc-calendar-empty">No posts scheduled for this day</p>';
+    postsEl.innerHTML = html;
+    return;
+  }
+
+  dayPosts.forEach(function (post) {
+    var platform = (post.platform || '').toLowerCase();
+    var color = _socCalendarPlatformColors[platform] || 'var(--text-secondary)';
+    var time = '';
+    var schedStr = post.scheduled_at || post.created_at || '';
+    if (schedStr && schedStr.length > 10) {
+      var d = new Date(schedStr);
+      var h = d.getHours();
+      var m = String(d.getMinutes()).padStart(2, '0');
+      var ampm = h >= 12 ? 'PM' : 'AM';
+      time = (h % 12 || 12) + ':' + m + ' ' + ampm;
+    }
+    var rawContent = post.title || post.body || post.content || 'Untitled';
+    var preview = rawContent.length > 50 ? _socEscapeHtml(rawContent.substring(0, 50)) + '…' : _socEscapeHtml(rawContent);
+    var postId = _socEscapeHtml(post.id || '');
+    html +=
+      '<div class="soc-calendar-sidebar-post" style="border-left: 3px solid ' + color + '" data-post-id="' + postId + '">' +
+        '<div class="soc-calendar-sidebar-post-header">' +
+          _socMakePlatformBadge(post.platform || 'unknown') +
+          ' ' + _socMakeStatusBadge(post.status) +
+        '</div>' +
+        '<div class="soc-calendar-sidebar-post-title">' + preview + '</div>' +
+        (time ? '<div class="soc-calendar-sidebar-post-time">' + time + '</div>' : '') +
+        '<div class="soc-calendar-sidebar-post-actions">' +
+          '<button class="soc-btn soc-btn-sm soc-btn-secondary" onclick="socPanelActions.calendarReschedule(\'' + postId + '\')" title="Reschedule">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l2 2"/></g></svg>' +
+            ' Reschedule' +
+          '</button>' +
+          '<button class="soc-icon-btn danger" onclick="socPanelActions.calendarDeletePost(\'' + postId + '\', \'' + _socEscapeHtml(dateStr) + '\')" title="Delete">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" d="m19.5 5.5l-.62 10.025c-.158 2.561-.237 3.842-.88 4.763a4 4 0 0 1-1.2 1.128c-.957.584-2.24.584-4.806.584c-2.57 0-3.855 0-4.814-.585a4 4 0 0 1-1.2-1.13c-.642-.922-.72-2.205-.874-4.77L4.5 5.5M3 5.5h18m-4.944 0l-.683-1.408c-.453-.936-.68-1.403-1.071-1.695a2 2 0 0 0-.275-.172C13.594 2 13.074 2 12.035 2c-1.066 0-1.599 0-2.04.234a2 2 0 0 0-.278.18c-.395.303-.616.788-1.058 1.757L8.053 5.5"/></svg>' +
+          '</button>' +
+        '</div>' +
+        '<div class="soc-calendar-reschedule-picker" id="soc-calendar-reschedule-' + postId + '" style="display:none;">' +
+          '<input type="datetime-local" class="soc-calendar-reschedule-input" />' +
+          '<div class="soc-calendar-quick-actions">' +
+            '<button class="soc-btn soc-btn-sm soc-btn-accent" onclick="socPanelActions.calendarRescheduleSave(\'' + postId + '\', \'' + _socEscapeHtml(dateStr) + '\')">Save</button>' +
+            '<button class="soc-btn soc-btn-sm soc-btn-secondary" onclick="socPanelActions.calendarRescheduleCancel(\'' + postId + '\')">Cancel</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+  });
+  postsEl.innerHTML = html;
+}
+
+function _socReschedulePost(postId, newDateStr) {
+  var social = _socAPI();
+  if (!social) { _socShowToast('Social API unavailable', 'error'); return; }
+
+  // Find the post to preserve its original time
+  var originalTime = '12:00:00';
+  Object.keys(_socCalendarPostsByDay).forEach(function (dayKey) {
+    (_socCalendarPostsByDay[dayKey] || []).forEach(function (post) {
+      if (String(post.id) === String(postId)) {
+        var schedStr = post.scheduled_at || post.created_at || '';
+        if (schedStr && schedStr.length > 10) {
+          var d = new Date(schedStr);
+          var h = String(d.getHours()).padStart(2, '0');
+          var m = String(d.getMinutes()).padStart(2, '0');
+          var s = String(d.getSeconds()).padStart(2, '0');
+          originalTime = h + ':' + m + ':' + s;
+        }
+      }
+    });
+  });
+
+  var newScheduledAt = newDateStr + 'T' + originalTime;
+
+  social.reschedulePost(postId, newScheduledAt)
+    .then(function (result) {
+      if (result.success) {
+        _socShowToast('Post rescheduled!', 'success');
+        _socCalendarRender();
+      } else {
+        _socShowToast(result.error || 'Failed to reschedule', 'error');
+      }
+    })
+    .catch(function () { _socShowToast('Failed to reschedule', 'error'); });
+}
+
+function _socCalendarCloseSidebar() {
+  const root = document.getElementById('social-view');
+  if (!root) return;
+  const sidebar = root.querySelector('#soc-calendar-sidebar');
+  if (sidebar) sidebar.classList.remove('open');
+  const grid = root.querySelector('#soc-calendar-grid');
+  if (grid) grid.querySelectorAll('.soc-calendar-cell').forEach(c => c.classList.remove('soc-calendar-cell-selected'));
+}
+
+// ─── Calendar: Shared fetch helper ────────────────────────────────────────
+
+function _socCalendarFetchRange(rangeStart, rangeEnd, callback) {
+  var social = _socAPI();
+  if (!social) { callback({}); return; }
+  social.getCalendarPosts(rangeStart, rangeEnd)
+    .then(function (posts) {
+      var byDay = {};
+      (posts || []).forEach(function (post) {
+        var dateKey = (post.scheduled_at || post.created_at || '').substring(0, 10);
+        if (!dateKey) return;
+        if (!byDay[dateKey]) byDay[dateKey] = [];
+        byDay[dateKey].push(post);
+      });
+      _socCalendarPostsByDay = byDay;
+      callback(byDay);
+    })
+    .catch(function (err) {
+      console.error('[Social] Calendar fetch failed:', err);
+      _socCalendarPostsByDay = {};
+      callback({});
+    });
+}
+
+// ─── Calendar: Week View ──────────────────────────────────────────────────
+
+function _socRenderWeekView(startDate) {
+  var root = document.getElementById('social-view');
+  if (!root) return;
+  var container = root.querySelector('#soc-calendar-week-view');
+  if (!container) return;
+
+  _socCalendarUpdateLabel();
+
+  // Build 7 days starting from startDate (Mon)
+  var days = [];
+  for (var i = 0; i < 7; i++) {
+    var d = new Date(startDate);
+    d.setDate(d.getDate() + i);
+    days.push(d);
+  }
+
+  var rangeStart = _socCalendarDateStr(days[0]);
+  var rangeEnd   = _socCalendarDateStr(days[6]);
+
+  container.innerHTML = '<div class="soc-calendar-loading">Loading posts…</div>';
+
+  _socCalendarFetchRange(rangeStart, rangeEnd, function (byDay) {
+    var todayStr = _socCalendarDateStr(new Date());
+    var dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    var html = '<div class="soc-week-grid">';
+
+    for (var i = 0; i < 7; i++) {
+      var date = days[i];
+      var dateStr = _socCalendarDateStr(date);
+      var isToday = dateStr === todayStr;
+      var dayPosts = byDay[dateStr] || [];
+
+      html += '<div class="soc-week-column' + (isToday ? ' soc-week-column-today' : '') + '" data-date="' + dateStr + '">';
+      html += '<div class="soc-week-day-header">';
+      html += '<span class="soc-week-day-name">' + dayNames[date.getDay()] + '</span>';
+      html += '<span class="soc-week-day-num' + (isToday ? ' soc-week-day-num-today' : '') + '">' + date.getDate() + '</span>';
+      html += '</div>';
+      html += '<div class="soc-week-day-posts">';
+
+      if (dayPosts.length === 0) {
+        html += '<div class="soc-week-empty">No posts</div>';
+      } else {
+        dayPosts.forEach(function (post) {
+          var platform = (post.platform || '').toLowerCase();
+          var color = _socCalendarPlatformColors[platform] || 'var(--text-secondary)';
+          var time = '';
+          var schedStr = post.scheduled_at || post.created_at || '';
+          if (schedStr && schedStr.length > 10) {
+            var dt = new Date(schedStr);
+            var h = dt.getHours();
+            var m = String(dt.getMinutes()).padStart(2, '0');
+            var ampm = h >= 12 ? 'PM' : 'AM';
+            time = (h % 12 || 12) + ':' + m + ' ' + ampm;
+          }
+          var content = post.title || post.body || post.content || 'Untitled';
+          var preview = content.length > 60 ? _socEscapeHtml(content.substring(0, 60)) + '…' : _socEscapeHtml(content);
+
+          html +=
+            '<div class="soc-week-card" style="border-left-color:' + color + '">' +
+              '<div class="soc-week-card-header">' +
+                _socMakePlatformBadge(post.platform || 'unknown') +
+                ' ' + _socMakeStatusBadge(post.status) +
+              '</div>' +
+              (time ? '<div class="soc-week-card-time">' + time + '</div>' : '') +
+              '<div class="soc-week-card-content">' + preview + '</div>' +
+            '</div>';
+        });
+      }
+
+      html += '</div></div>';
+    }
+
+    html += '</div>';
+    container.innerHTML = html;
+  });
+}
+
+// ─── Calendar: Agenda View ────────────────────────────────────────────────
+
+function _socRenderAgendaView() {
+  var root = document.getElementById('social-view');
+  if (!root) return;
+  var container = root.querySelector('#soc-calendar-agenda-view');
+  if (!container) return;
+
+  _socCalendarUpdateLabel();
+
+  // Fetch the full month range
+  var firstDay = new Date(_socCalendarYear, _socCalendarMonth, 1).getDay();
+  var startOffset = (firstDay + 6) % 7;
+  var startDate = new Date(_socCalendarYear, _socCalendarMonth, 1 - startOffset);
+  var endDate = new Date(_socCalendarYear, _socCalendarMonth + 1, 0);
+  // Extend to end of last visible week
+  var endOffset = (7 - ((endDate.getDay() + 6) % 7 + 1)) % 7;
+  endDate.setDate(endDate.getDate() + endOffset);
+
+  var rangeStart = _socCalendarDateStr(startDate);
+  var rangeEnd   = _socCalendarDateStr(endDate);
+
+  container.innerHTML = '<div class="soc-calendar-loading">Loading posts…</div>';
+
+  _socCalendarFetchRange(rangeStart, rangeEnd, function (byDay) {
+    // Collect all posts, sort chronologically
+    var allPosts = [];
+    Object.keys(byDay).sort().forEach(function (dateStr) {
+      byDay[dateStr].forEach(function (post) {
+        allPosts.push({ dateStr: dateStr, post: post });
+      });
+    });
+
+    if (allPosts.length === 0) {
+      container.innerHTML = '<div class="soc-agenda-empty">No posts scheduled this month</div>';
+      return;
+    }
+
+    // Sort by scheduled_at / created_at
+    allPosts.sort(function (a, b) {
+      var aTime = a.post.scheduled_at || a.post.created_at || '';
+      var bTime = b.post.scheduled_at || b.post.created_at || '';
+      return aTime.localeCompare(bTime);
+    });
+
+    // Group by date
+    var todayStr = _socCalendarDateStr(new Date());
+    var monthNames = ['January','February','March','April','May','June',
+      'July','August','September','October','November','December'];
+    var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    var html = '';
+    var lastDate = '';
+
+    allPosts.forEach(function (entry) {
+      if (entry.dateStr !== lastDate) {
+        lastDate = entry.dateStr;
+        var d = new Date(entry.dateStr + 'T00:00:00');
+        var isToday = entry.dateStr === todayStr;
+        html += '<div class="soc-agenda-date-header' + (isToday ? ' soc-agenda-date-today' : '') + '">' +
+          '<span class="soc-agenda-date-day">' + dayNames[d.getDay()] + '</span>' +
+          '<span class="soc-agenda-date-full">' + monthNames[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear() + '</span>' +
+          (isToday ? '<span class="soc-agenda-today-badge">Today</span>' : '') +
+        '</div>';
+      }
+
+      var post = entry.post;
+      var platform = (post.platform || '').toLowerCase();
+      var color = _socCalendarPlatformColors[platform] || 'var(--text-secondary)';
+      var time = '';
+      var schedStr = post.scheduled_at || post.created_at || '';
+      if (schedStr && schedStr.length > 10) {
+        var dt = new Date(schedStr);
+        var h = dt.getHours();
+        var m = String(dt.getMinutes()).padStart(2, '0');
+        var ampm = h >= 12 ? 'PM' : 'AM';
+        time = (h % 12 || 12) + ':' + m + ' ' + ampm;
+      }
+      var content = post.title || post.body || post.content || 'Untitled';
+      var preview = content.length > 120 ? _socEscapeHtml(content.substring(0, 120)) + '…' : _socEscapeHtml(content);
+
+      html +=
+        '<div class="soc-agenda-item" style="border-left-color:' + color + '">' +
+          '<div class="soc-agenda-item-time">' + (time || '—') + '</div>' +
+          '<div class="soc-agenda-item-body">' +
+            '<div class="soc-agenda-item-header">' +
+              _socMakePlatformBadge(post.platform || 'unknown') +
+              ' ' + _socMakeStatusBadge(post.status) +
+            '</div>' +
+            '<div class="soc-agenda-item-content">' + preview + '</div>' +
+          '</div>' +
+        '</div>';
+    });
+
+    container.innerHTML = html;
+  });
 }
 
 // ─── Gallery Tab ───────────────────────────────────────────────────────────
@@ -1432,6 +3001,7 @@ window.socPanelActions = {
     social.saveDiscovered(payload)
       .then(result => {
         if (result.success) {
+          _socSavedCache = null; // invalidate so Saved tab reloads from DB
           _socShowToast('Content saved to library', 'success');
         } else {
           _socShowToast(result.error || 'Failed to save content', 'error');
@@ -1462,17 +3032,172 @@ window.socPanelActions = {
       .catch(() => _socShowToast('Failed to remove', 'error'));
   },
 
+  dismissTrend(id) {
+    const social = _socAPI();
+    if (!social || !id) return;
+    social.dismissTrend(id)
+      .then(function () {
+        if (_socTrendsCache) {
+          _socTrendsCache = _socTrendsCache.filter(function (t) { return t.id !== id; });
+        }
+        _socRenderTrends(_socTrendsCache || []);
+        _socShowToast('Trend dismissed', 'success');
+      })
+      .catch(function () { _socShowToast('Failed to dismiss trend', 'error'); });
+  },
+
   openSavedUrl(url) {
     if (url && window.pocketAgent && window.pocketAgent.app) {
       window.pocketAgent.app.openExternal(url);
     }
   },
 
+  repurposeSaved(id) {
+    // Find the saved item from cache
+    var item = null;
+    if (_socSavedCache) {
+      item = _socSavedCache.find(function (i) { return i.id === id; });
+    }
+    if (!item) return;
+
+    // Navigate to Create → Repurpose sub-tab
+    var root = document.getElementById('social-view');
+    if (!root) return;
+
+    // Switch to Create tab
+    root.querySelectorAll('.soc-tab-btn').forEach(function (b) { b.classList.remove('active'); });
+    root.querySelectorAll('.soc-tab-content').forEach(function (c) { c.classList.remove('active'); });
+    var createBtn = root.querySelector('.soc-tab-btn[data-tab="create"]');
+    if (createBtn) createBtn.classList.add('active');
+    var createTab = root.querySelector('#soc-tab-create');
+    if (createTab) createTab.classList.add('active');
+
+    // Switch to Repurpose sub-tab
+    root.querySelectorAll('.soc-sub-tab').forEach(function (b) { b.classList.remove('active'); });
+    root.querySelectorAll('.soc-create-panel').forEach(function (p) { p.classList.remove('active'); });
+    var repurposeBtn = root.querySelector('.soc-sub-tab[data-panel="repurpose"]');
+    if (repurposeBtn) repurposeBtn.classList.add('active');
+    var repurposePanel = root.querySelector('#soc-panel-repurpose');
+    if (repurposePanel) repurposePanel.classList.add('active');
+
+    // Select the content in the repurpose source dropdown
+    var sourceEl = root.querySelector('#soc-repurpose-source');
+    if (sourceEl) {
+      // Ensure the option exists
+      var optExists = Array.from(sourceEl.options).some(function (o) { return o.value === id; });
+      if (!optExists) {
+        var opt = document.createElement('option');
+        opt.value = id;
+        var label = (item.title || item.body || '').substring(0, 60);
+        if (!label) label = item.source_url || id;
+        opt.textContent = '[' + (item.platform || '?') + '] ' + label;
+        sourceEl.appendChild(opt);
+      }
+      sourceEl.value = id;
+      sourceEl.dispatchEvent(new Event('change'));
+    }
+
+    _socShowToast('Content loaded — select target platforms and repurpose', 'success');
+  },
+
   deletePost(id) {
-    if (!confirm('Delete this post?')) return;
-    const row = document.querySelector('#social-view tr[data-id="' + id + '"]');
-    if (row) row.remove();
-    _socShowToast('Post removed', 'success');
+    var social = _socAPI();
+    if (!social || !confirm('Delete this post?')) return;
+    social.deletePost(id)
+      .then(function (result) {
+        if (result.success) {
+          var row = document.querySelector('#social-view tr[data-id="' + id + '"]');
+          if (row) row.remove();
+          _socShowToast('Post removed', 'success');
+          _socLoadPosts();
+        } else {
+          _socShowToast(result.error || 'Failed to delete', 'error');
+        }
+      })
+      .catch(function () { _socShowToast('Failed to delete post', 'error'); });
+  },
+
+  calendarQuickScheduleToggle() {
+    var form = document.getElementById('soc-calendar-quick-form');
+    if (!form) return;
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  },
+
+  calendarQuickScheduleSave() {
+    var social = _socAPI();
+    if (!social) { _socShowToast('Social API unavailable', 'error'); return; }
+    var sidebar = document.getElementById('soc-calendar-sidebar');
+    var dateStr = sidebar ? sidebar.dataset.selectedDate : '';
+    if (!dateStr) return;
+
+    var platform = (document.getElementById('soc-calendar-quick-platform') || {}).value || 'tiktok';
+    var content  = (document.getElementById('soc-calendar-quick-content') || {}).value || '';
+    var time     = (document.getElementById('soc-calendar-quick-time') || {}).value || '12:00';
+
+    if (!content.trim()) { _socShowToast('Write some content first', 'error'); return; }
+
+    var scheduledAt = dateStr + 'T' + time + ':00';
+
+    social.createPost({ platform: platform, content: content.trim(), status: 'scheduled', scheduled_at: scheduledAt })
+      .then(function (result) {
+        if (result.success) {
+          _socShowToast('Post scheduled!', 'success');
+          var form = document.getElementById('soc-calendar-quick-form');
+          if (form) form.style.display = 'none';
+          var ta = document.getElementById('soc-calendar-quick-content');
+          if (ta) ta.value = '';
+          _socCalendarRender();
+        } else {
+          _socShowToast(result.error || 'Failed to schedule', 'error');
+        }
+      })
+      .catch(function () { _socShowToast('Failed to schedule post', 'error'); });
+  },
+
+  calendarReschedule(postId) {
+    var picker = document.getElementById('soc-calendar-reschedule-' + postId);
+    if (!picker) return;
+    picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+  },
+
+  calendarRescheduleCancel(postId) {
+    var picker = document.getElementById('soc-calendar-reschedule-' + postId);
+    if (picker) picker.style.display = 'none';
+  },
+
+  calendarRescheduleSave(postId, dateStr) {
+    var social = _socAPI();
+    if (!social) { _socShowToast('Social API unavailable', 'error'); return; }
+    var picker = document.getElementById('soc-calendar-reschedule-' + postId);
+    if (!picker) return;
+    var input = picker.querySelector('.soc-calendar-reschedule-input');
+    if (!input || !input.value) { _socShowToast('Pick a new date/time', 'error'); return; }
+
+    social.reschedulePost(postId, input.value)
+      .then(function (result) {
+        if (result.success) {
+          _socShowToast('Post rescheduled!', 'success');
+          _socCalendarRender();
+        } else {
+          _socShowToast(result.error || 'Failed to reschedule', 'error');
+        }
+      })
+      .catch(function () { _socShowToast('Failed to reschedule', 'error'); });
+  },
+
+  calendarDeletePost(postId, dateStr) {
+    var social = _socAPI();
+    if (!social || !confirm('Delete this post?')) return;
+    social.deletePost(postId)
+      .then(function (result) {
+        if (result.success) {
+          _socShowToast('Post deleted', 'success');
+          _socCalendarRender();
+        } else {
+          _socShowToast(result.error || 'Failed to delete', 'error');
+        }
+      })
+      .catch(function () { _socShowToast('Failed to delete post', 'error'); });
   },
 
   deleteGenerated(id) {
@@ -1633,3 +3358,300 @@ window.socPanelActions = {
       .catch(() => {});
   },
 };
+
+// ══════════════════════════════════════════════════════════════════════
+// PREVIEW TAB — Platform Mockup Renderers
+// ══════════════════════════════════════════════════════════════════════
+
+function _socFormatCount(n) {
+  if (!n || n <= 0) return '0';
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return n.toString();
+}
+
+function _socEscHtml(s) {
+  var d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+function _socMediaHtml(imageUrl, fallbackEmoji) {
+  if (imageUrl) return '<img src="' + _socEscHtml(imageUrl) + '" alt="media">';
+  return fallbackEmoji || '📷';
+}
+
+function _socRenderIGMockup(el, data) {
+  var user = _socEscHtml(data.username || 'youraccount');
+  var initials = (data.username || 'YA').slice(0, 2).toUpperCase();
+  var caption = _socEscHtml(data.caption || '');
+  var img = data.imageUrl;
+
+  el.innerHTML =
+    '<div class="mockup-header">' +
+      '<div class="mockup-avatar"><div class="mockup-avatar-inner">' +
+        (data.avatarUrl ? '<img src="' + _socEscHtml(data.avatarUrl) + '">' : '<div class="mockup-avatar-fallback">' + initials + '</div>') +
+      '</div></div>' +
+      '<span class="mockup-username">' + user + '</span>' +
+      '<span class="mockup-more">•••</span>' +
+    '</div>' +
+    '<div class="mockup-media">' + _socMediaHtml(img, '📷') + '</div>' +
+    '<div class="mockup-actions">' +
+      '<div class="mockup-actions-left">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="transform:rotate(-45deg)"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 0l-7 7m7-7l7 7"/></svg>' +
+      '</div>' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>' +
+    '</div>' +
+    (data.likes ? '<div class="mockup-likes">' + _socFormatCount(data.likes) + ' likes</div>' : '') +
+    '<div class="mockup-caption-area"><div class="mockup-caption"><strong>' + user + '</strong> ' + caption + '</div></div>' +
+    '<div class="mockup-timestamp">Just now</div>';
+}
+
+function _socRenderTTMockup(el, data) {
+  var user = _socEscHtml(data.username || 'creator');
+  var caption = _socEscHtml(data.caption || '');
+  var img = data.imageUrl;
+  var initial = (data.username || 'C').slice(0, 1).toUpperCase();
+
+  el.innerHTML =
+    '<div class="mockup-media">' + _socMediaHtml(img, '🎬') + '</div>' +
+    '<div class="mockup-gradient"></div>' +
+    '<div class="mockup-sidebar">' +
+      '<div class="mockup-sidebar-avatar">' +
+        (data.avatarUrl ? '<img src="' + _socEscHtml(data.avatarUrl) + '">' : initial) +
+        '<div class="mockup-follow-badge">+</div>' +
+      '</div>' +
+      '<div class="mockup-sidebar-item"><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><span class="mockup-sidebar-count">' + _socFormatCount(data.likes) + '</span></div>' +
+      '<div class="mockup-sidebar-item"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><span class="mockup-sidebar-count">' + _socFormatCount(data.comments) + '</span></div>' +
+      '<div class="mockup-sidebar-item"><svg viewBox="0 0 24 24"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg><span class="mockup-sidebar-count">' + _socFormatCount(data.shares) + '</span></div>' +
+      '<div class="mockup-disc"><div class="mockup-disc-inner"></div></div>' +
+    '</div>' +
+    '<div class="mockup-bottom">' +
+      '<div class="mockup-tt-user">@' + user + '</div>' +
+      (caption ? '<div class="mockup-tt-caption">' + caption + '</div>' : '') +
+      '<div class="mockup-tt-music"><svg viewBox="0 0 24 24" width="14" height="14" fill="#fff"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg><span class="mockup-tt-music-text">Original Sound · Original Sound</span></div>' +
+    '</div>' +
+    '<div class="mockup-progress"><div class="mockup-progress-fill"></div></div>';
+}
+
+function _socRenderTWMockup(el, data) {
+  var user = _socEscHtml(data.username || 'user');
+  var caption = _socEscHtml(data.caption || '');
+  var img = data.imageUrl;
+  var initial = (data.username || 'U').slice(0, 2).toUpperCase();
+
+  el.innerHTML =
+    '<div class="mockup-header">' +
+      '<div class="mockup-avatar">' +
+        (data.avatarUrl ? '<img src="' + _socEscHtml(data.avatarUrl) + '">' : '<span class="mockup-avatar-fallback">' + initial + '</span>') +
+      '</div>' +
+      '<div style="flex:1">' +
+        '<div class="mockup-tw-names">' +
+          '<span class="mockup-tw-displayname">' + user + '</span>' +
+          '<span class="mockup-tw-handle">@' + user.toLowerCase().replace(/\s/g, '') + '</span>' +
+          '<span class="mockup-tw-time"> · 1m</span>' +
+        '</div>' +
+        '<div class="mockup-tw-body">' + caption + '</div>' +
+        (img ? '<div class="mockup-tw-media"><img src="' + _socEscHtml(img) + '"></div>' : '') +
+        '<div class="mockup-tw-actions">' +
+          '<div class="mockup-tw-action"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>' + _socFormatCount(data.comments) + '</div>' +
+          '<div class="mockup-tw-action"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12l2-2m0 0l4 4m-4-4l4-4m8 0l2 2m0 0l-4-4m4 4l-4 4"/></svg>' + _socFormatCount(data.shares) + '</div>' +
+          '<div class="mockup-tw-action"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>' + _socFormatCount(data.likes) + '</div>' +
+          '<div class="mockup-tw-action"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+}
+
+function _socRenderFBMockup(el, data) {
+  var user = _socEscHtml(data.username || 'Your Page');
+  var caption = _socEscHtml(data.caption || '');
+  var img = data.imageUrl;
+  var initials = (data.username || 'YP').split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+
+  el.innerHTML =
+    '<div class="mockup-header">' +
+      '<div class="mockup-avatar">' +
+        (data.avatarUrl ? '<img src="' + _socEscHtml(data.avatarUrl) + '">' : initials) +
+      '</div>' +
+      '<div class="mockup-fb-info">' +
+        '<div class="mockup-fb-name">' + user + '</div>' +
+        '<div class="mockup-fb-meta"><span>Just now</span><span>·</span><span>🌐</span></div>' +
+      '</div>' +
+    '</div>' +
+    (caption ? '<div class="mockup-fb-caption">' + caption + '</div>' : '') +
+    '<div class="mockup-media">' + _socMediaHtml(img, '📷') + '</div>' +
+    '<div class="mockup-fb-reactions">' +
+      '<div style="display:flex;align-items:center;gap:4px">' +
+        '<span class="mockup-fb-reaction-icon" style="background:#1877f2;z-index:3">👍</span>' +
+        '<span class="mockup-fb-reaction-icon" style="background:#f33e58;z-index:2">❤️</span>' +
+        '<span class="mockup-fb-reaction-icon" style="background:#f7b928;z-index:1">😆</span>' +
+        '<span style="margin-left:4px">' + _socFormatCount(data.likes || 0) + '</span>' +
+      '</div>' +
+      '<div style="display:flex;gap:12px">' +
+        (data.comments ? '<span>' + _socFormatCount(data.comments) + ' comments</span>' : '') +
+        (data.shares ? '<span>' + _socFormatCount(data.shares) + ' shares</span>' : '') +
+      '</div>' +
+    '</div>' +
+    '<div class="mockup-fb-divider"></div>' +
+    '<div class="mockup-fb-actions">' +
+      '<div class="mockup-fb-action">👍 Like</div>' +
+      '<div class="mockup-fb-action">💬 Comment</div>' +
+      '<div class="mockup-fb-action">↗ Share</div>' +
+    '</div>';
+}
+
+function _socRenderLIMockup(el, data) {
+  var user = _socEscHtml(data.username || 'Professional');
+  var caption = _socEscHtml(data.caption || '');
+  var img = data.imageUrl;
+  var initials = (data.username || 'P').split(' ').map(function(w) { return w[0]; }).join('').slice(0, 2).toUpperCase();
+
+  el.innerHTML =
+    '<div class="mockup-header">' +
+      '<div class="mockup-avatar">' +
+        (data.avatarUrl ? '<img src="' + _socEscHtml(data.avatarUrl) + '">' : initials) +
+      '</div>' +
+      '<div class="mockup-li-info">' +
+        '<div class="mockup-li-name">' + user + '</div>' +
+        '<div class="mockup-li-headline">Creator & Strategist</div>' +
+        '<div class="mockup-li-meta"><span>1m</span><span>·</span><span>🌐</span></div>' +
+      '</div>' +
+    '</div>' +
+    (caption ? '<div class="mockup-li-body">' + caption + '</div>' : '') +
+    (img ? '<div class="mockup-media"><img src="' + _socEscHtml(img) + '"></div>' : '') +
+    '<div class="mockup-li-engagement">' +
+      '<span>👍 ' + _socFormatCount(data.likes || 0) + '</span>' +
+      '<span>' + _socFormatCount(data.comments || 0) + ' comments · ' + _socFormatCount(data.shares || 0) + ' reposts</span>' +
+    '</div>' +
+    '<div class="mockup-li-divider"></div>' +
+    '<div class="mockup-li-actions">' +
+      '<div class="mockup-li-action"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"/></svg>Like</div>' +
+      '<div class="mockup-li-action"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>Comment</div>' +
+      '<div class="mockup-li-action"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 12l2-2m0 0l4 4m-4-4l4-4m8 0l2 2m0 0l-4-4m4 4l-4 4"/></svg>Repost</div>' +
+      '<div class="mockup-li-action"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>Send</div>' +
+    '</div>';
+}
+
+// Master render — updates all 5 mockups from current input fields
+function _socRenderAllPreviews() {
+  var root = document.getElementById('social-view');
+  if (!root) return;
+
+  var caption = (root.querySelector('#soc-preview-caption') || {}).value || '';
+  var username = (root.querySelector('#soc-preview-username') || {}).value || 'youraccount';
+  var imageUrl = (root.querySelector('#soc-preview-image-url') || {}).value || '';
+
+  var data = { caption: caption, username: username, imageUrl: imageUrl || null, likes: 1234, comments: 89, shares: 45 };
+
+  var igEl = root.querySelector('#soc-mockup-ig');
+  var ttEl = root.querySelector('#soc-mockup-tt');
+  var twEl = root.querySelector('#soc-mockup-tw');
+  var fbEl = root.querySelector('#soc-mockup-fb');
+  var liEl = root.querySelector('#soc-mockup-li');
+
+  if (igEl) _socRenderIGMockup(igEl, data);
+  if (ttEl) _socRenderTTMockup(ttEl, data);
+  if (twEl) _socRenderTWMockup(twEl, data);
+  if (fbEl) _socRenderFBMockup(fbEl, data);
+  if (liEl) _socRenderLIMockup(liEl, data);
+}
+
+// Load posts into the source selector dropdown
+function _socPreviewLoadSources() {
+  var select = document.querySelector('#soc-preview-source-select');
+  if (!select) return;
+  var social = _socAPI();
+  var settings = _socSettings();
+
+  // Load from scheduled/draft posts
+  Promise.all([
+    social && social.getPosts ? social.getPosts(50) : Promise.resolve([]),
+    social && social.getDiscovered ? social.getDiscovered(50) : Promise.resolve([]),
+  ]).then(function(results) {
+    var posts = results[0] || [];
+    var discovered = results[1] || [];
+    var html = '<option value="">-- Select a draft or scheduled post --</option>';
+
+    posts.forEach(function(p) {
+      var label = '[' + (p.platform || '?').toUpperCase() + '] ' + (p.content || '').slice(0, 60);
+      html += '<option value="post:' + p.id + '" data-type="post">' + _socEscHtml(label) + '</option>';
+    });
+
+    if (discovered.length) {
+      html += '<optgroup label="Saved Content">';
+      discovered.forEach(function(d) {
+        var label = '[' + (d.platform || '?').toUpperCase() + '] ' + (d.title || d.body || '').slice(0, 60);
+        html += '<option value="discovered:' + d.id + '" data-type="discovered">' + _socEscHtml(label) + '</option>';
+      });
+      html += '</optgroup>';
+    }
+
+    select.innerHTML = html;
+  }).catch(function() {});
+}
+
+// Wire up preview tab interactivity
+function _socInitPreviewTab() {
+  var root = document.getElementById('social-view');
+  if (!root) return;
+
+  var captionEl = root.querySelector('#soc-preview-caption');
+  var usernameEl = root.querySelector('#soc-preview-username');
+  var imageUrlEl = root.querySelector('#soc-preview-image-url');
+  var selectEl = root.querySelector('#soc-preview-source-select');
+
+  // Live preview on input
+  var debounceTimer;
+  function onInput() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(_socRenderAllPreviews, 150);
+  }
+
+  if (captionEl) captionEl.addEventListener('input', onInput);
+  if (usernameEl) usernameEl.addEventListener('input', onInput);
+  if (imageUrlEl) imageUrlEl.addEventListener('input', onInput);
+
+  // Source selector
+  if (selectEl) {
+    selectEl.addEventListener('change', function() {
+      var val = selectEl.value;
+      if (!val) return;
+      var social = _socAPI();
+      var parts = val.split(':');
+      var type = parts[0];
+      var id = parts.slice(1).join(':');
+
+      if (type === 'post' && social && social.getPosts) {
+        social.getPosts(100).then(function(posts) {
+          var p = posts.find(function(x) { return x.id === id; });
+          if (!p) return;
+          if (captionEl) captionEl.value = p.content || '';
+          _socRenderAllPreviews();
+        });
+      } else if (type === 'discovered' && social && social.getDiscovered) {
+        social.getDiscovered(100).then(function(items) {
+          var d = items.find(function(x) { return x.id === id; });
+          if (!d) return;
+          if (captionEl) captionEl.value = d.body || d.title || '';
+          if (usernameEl && d.source_author) usernameEl.value = d.source_author;
+          if (imageUrlEl && d.media_urls) {
+            try {
+              var urls = JSON.parse(d.media_urls);
+              if (Array.isArray(urls) && urls.length) imageUrlEl.value = urls[0];
+            } catch(e) {
+              imageUrlEl.value = d.media_urls;
+            }
+          }
+          _socRenderAllPreviews();
+        });
+      }
+    });
+  }
+
+  // Initial render
+  _socRenderAllPreviews();
+  _socPreviewLoadSources();
+}

@@ -97,6 +97,7 @@ const SOCIAL_TOOLS = [
   'mcp__neon-post__flag_comment',
   'mcp__neon-post__generate_image',
   'mcp__neon-post__upload_reference_image',
+  'mcp__neon-post__repurpose_content',
 ];
 
 // ── System prompts ──

@@ -127,6 +127,246 @@ async function initializeChat() {
   } else {
     console.warn('[Chat] onImageFailed not available on social API');
   }
+
+  // Listen for repurpose completed — render side-by-side comparison in chat
+  if (window.pocketAgent.social?.onRepurposeCompleted) {
+    window.pocketAgent.social.onRepurposeCompleted((data) => {
+      console.log('[Chat] Repurpose completed:', data.platforms?.length ?? 0, 'platforms');
+      removePipelinePlaceholder('repurpose');
+      if (data.drafts && data.drafts.length && typeof _socReceiveGeneratedContent === 'function') {
+        _socReceiveGeneratedContent(data.drafts);
+      }
+      renderRepurposeComparison(data);
+    });
+  }
+
+  // Listen for search rate-limit hit — show a user-friendly toast in the chat
+  if (window.pocketAgent.social?.onSearchLimitReached) {
+    window.pocketAgent.social.onSearchLimitReached((data) => {
+      console.log('[Chat] Search limit reached:', data.used, '/', data.limit);
+      addMessage(
+        'error',
+        'Search limit reached (' + data.used + '/' + data.limit + ' searches this session). ' +
+        'This keeps your API credits safe — start a new chat session to search again.',
+        true, [], null, true
+      );
+    });
+  }
+
+  // Listen for pipeline started events — show placeholders
+  if (window.pocketAgent.social?.onSearchStarted) {
+    window.pocketAgent.social.onSearchStarted((data) => {
+      console.log('[Chat] Search started:', data.query, 'on', data.platform);
+      addPipelinePlaceholder('search-' + data.platform, 'scraping', 'Searching ' + (data.platform || '') + '...', data.platform);
+    });
+  }
+
+  if (window.pocketAgent.social?.onProfileStarted) {
+    window.pocketAgent.social.onProfileStarted((data) => {
+      console.log('[Chat] Profile scrape started:', data.username, 'on', data.platform);
+      var label = 'Scraping @' + (data.username || '').replace(/^@/, '') + '...';
+      addPipelinePlaceholder('profile-' + data.platform, 'scraping', label, data.platform);
+    });
+  }
+
+  if (window.pocketAgent.social?.onRepurposeStarted) {
+    window.pocketAgent.social.onRepurposeStarted((data) => {
+      console.log('[Chat] Repurpose started:', data.platforms);
+      var label = 'Repurposing content for ' + (data.platforms || []).join(', ') + '...';
+      addPipelinePlaceholder('repurpose', 'repurpose', label, '');
+    });
+  }
+
+  if (window.pocketAgent.social?.onRepurposeProgress) {
+    window.pocketAgent.social.onRepurposeProgress((data) => {
+      console.log('[Chat] Repurpose progress:', data.stage);
+      updatePipelinePlaceholder('repurpose', data.stage);
+    });
+  }
+
+  // Listen for search results pushed from agent — render mini cards in chat + populate Discover cache
+  if (window.pocketAgent.social?.onSearchResultsPushed) {
+    window.pocketAgent.social.onSearchResultsPushed((data) => {
+      console.log('[Chat] Search results pushed:', data.results?.length ?? 0, 'items');
+      removePipelinePlaceholder('search-' + (data.platform || ''));
+      if (typeof _socReceivePushedResults === 'function') _socReceivePushedResults(data);
+      if (!data.results || !data.results.length) return;
+
+      var headerLabel = data.results.length + ' results';
+      renderMiniCardBlock('search', headerLabel, data.results, data.platform || '');
+    });
+  }
+
+  // Listen for post changes (created, updated, deleted) — refresh calendar + posts tabs
+  if (window.pocketAgent.social?.onPostChanged) {
+    window.pocketAgent.social.onPostChanged((data) => {
+      console.log('[Chat] Post changed:', data.postId, data.platform);
+      if (typeof _socRefreshCalendar === 'function') _socRefreshCalendar();
+      if (typeof _socRefreshPosts === 'function') _socRefreshPosts();
+    });
+  }
+
+  // Listen for content saved — refresh Discover Saved tab
+  if (window.pocketAgent.social?.onContentSaved) {
+    window.pocketAgent.social.onContentSaved((data) => {
+      console.log('[Chat] Content saved:', data.contentType, data.platform);
+      if (typeof _socRefreshDiscoverSaved === 'function') _socRefreshDiscoverSaved();
+    });
+  }
+
+  // Listen for trending results — render cards in chat + cache in discover tab
+  if (window.pocketAgent.social?.onTrendingResults) {
+    window.pocketAgent.social.onTrendingResults((data) => {
+      console.log('[Chat] Trending results:', data.platform, data.results?.length ?? 0, 'items');
+      if (typeof _socReceivePushedResults === 'function') _socReceivePushedResults(data);
+      if (!data.results || !data.results.length) return;
+
+      var headerLabel = 'Trending on ' + (data.platform || '').toUpperCase();
+      renderMiniCardBlock('trending', headerLabel, data.results, data.platform || '');
+    });
+  }
+
+  // Listen for profile results — render cards in chat + cache in discover tab
+  if (window.pocketAgent.social?.onProfileResults) {
+    window.pocketAgent.social.onProfileResults((data) => {
+      console.log('[Chat] Profile results:', data.platform, data.username, data.results?.length ?? 0, 'items');
+      removePipelinePlaceholder('profile-' + (data.platform || ''));
+      if (typeof _socReceivePushedResults === 'function') _socReceivePushedResults(data);
+      if (!data.results || !data.results.length) return;
+
+      var displayName = data.username ? '@' + data.username.replace(/^@/, '') : data.platform || 'Profile';
+      var headerLabel = escapeHtml(displayName) + ' on ' + (data.platform || '').toUpperCase();
+      renderMiniCardBlock('profile', headerLabel, data.results, data.platform || '');
+    });
+  }
+}
+
+/**
+ * Shared renderer for all mini card blocks (search, trending, profile).
+ * Inserts a card block into the chat message area.
+ */
+// eslint-disable-next-line no-unused-vars
+function renderMiniCardBlock(type, headerLabel, items, platform) {
+  var platformColors = { twitter: '#1da1f2', tiktok: '#fe2c55', instagram: '#e1306c', linkedin: '#0a66c2', youtube: '#ff0000' };
+  var accentColor = platformColors[platform] || 'var(--accent)';
+  var isTopicStyle = type === 'trending' && platform === 'twitter';
+
+  // Container
+  var container = document.createElement('div');
+  container.className = 'message mini-card-block';
+
+  // Header
+  var header = document.createElement('div');
+  header.className = 'mini-card-block-header';
+  header.innerHTML = '<span class="mini-card-block-label" style="color:' + accentColor + '">' + headerLabel + '</span>' +
+    '<span class="mini-card-block-count">' + items.length + '</span>';
+  container.appendChild(header);
+
+  // Grid
+  var grid = document.createElement('div');
+  grid.className = 'mini-card-grid';
+
+  items.forEach(function (item) {
+    var card = document.createElement('div');
+    card.className = 'mini-card';
+    card.style.borderLeftColor = accentColor;
+
+    var url = item.url || item.source_url || '';
+    if (url) card.setAttribute('data-url', url);
+
+    var innerHtml = '';
+
+    if (isTopicStyle) {
+      // Twitter trending: rank + topic name + tweet volume
+      var rank = item.rank || '';
+      var name = item.name || item.title || 'Unknown';
+      var volume = item.tweetVolume;
+      innerHtml += '<div class="mini-card-rank" style="color:' + accentColor + '">' + rank + '</div>';
+      innerHtml += '<div class="mini-card-body">';
+      innerHtml += '<div class="mini-card-title">' + escapeHtml(name) + '</div>';
+      if (volume) {
+        innerHtml += '<div class="mini-card-stats"><span class="mini-card-stat">' + formatCompactNumber(volume) + ' tweets</span></div>';
+      }
+      innerHtml += '</div>';
+    } else {
+      // Content card: title, meta, stats, viral score
+      var likes = item.likes || item.diggCount || 0;
+      var views = item.views || item.playCount || 0;
+      var comments = item.comments || item.commentCount || 0;
+      var shares = item.shares || item.shareCount || 0;
+      var creator = item.creatorUsername || item.source_author || '';
+      var title = item.title || item.caption || item.text || item.body || 'Untitled';
+      var truncTitle = title.length > 80 ? title.slice(0, 80) + '\u2026' : title;
+      var viralScore = item.viralScore || item.viral_score;
+      var timeAgo = item.timeAgo || item.time_ago || '';
+
+      innerHtml += '<div class="mini-card-body">';
+      innerHtml += '<div class="mini-card-title">' + escapeHtml(truncTitle) + '</div>';
+
+      // Meta row
+      var metaParts = [];
+      if (creator) metaParts.push('<span class="mini-card-creator">@' + escapeHtml(creator) + '</span>');
+      if (timeAgo) metaParts.push('<span class="mini-card-time">' + escapeHtml(timeAgo) + '</span>');
+      if (metaParts.length) innerHtml += '<div class="mini-card-meta">' + metaParts.join('') + '</div>';
+
+      // Stats pills
+      var stats = [];
+      if (views) stats.push('<span class="mini-card-stat">' + formatCompactNumber(views) + ' views</span>');
+      if (likes) stats.push('<span class="mini-card-stat">' + formatCompactNumber(likes) + ' likes</span>');
+      if (comments) stats.push('<span class="mini-card-stat">' + formatCompactNumber(comments) + ' comments</span>');
+      if (shares) stats.push('<span class="mini-card-stat">' + formatCompactNumber(shares) + ' shares</span>');
+      if (stats.length) innerHtml += '<div class="mini-card-stats">' + stats.join('') + '</div>';
+
+      innerHtml += '</div>';
+
+      // Viral score badge
+      if (viralScore) {
+        var vNum = parseFloat(viralScore) || 0;
+        var vClass = vNum >= 8 ? 'viral-high' : vNum >= 6 ? 'viral-good' : vNum >= 4 ? 'viral-avg' : 'viral-low';
+        innerHtml += '<div class="mini-card-viral ' + vClass + '">' + viralScore + '</div>';
+      }
+    }
+
+    card.innerHTML = innerHtml;
+
+    if (url) {
+      card.addEventListener('click', function () {
+        window.pocketAgent.app.openExternal(url);
+      });
+    }
+    grid.appendChild(card);
+  });
+
+  container.appendChild(grid);
+
+  // Navigation link to Discover tab
+  var navLink = document.createElement('div');
+  navLink.className = 'mini-card-block-nav';
+  navLink.innerHTML = '<a href="#">View in Discover \u2192</a>';
+  navLink.querySelector('a').addEventListener('click', function (e) {
+    e.preventDefault();
+    if (typeof navigateToSocialTab === 'function') {
+      navigateToSocialTab('discover', 'search');
+    }
+  });
+  container.appendChild(navLink);
+
+  // Insert into chat
+  var msgDiv = document.getElementById('messages');
+  var statusIndicator = msgDiv.querySelector('.status-indicator');
+  if (statusIndicator) {
+    msgDiv.insertBefore(container, statusIndicator);
+  } else {
+    msgDiv.appendChild(container);
+  }
+  msgDiv.scrollTop = msgDiv.scrollHeight;
+}
+
+function formatCompactNumber(n) {
+  if (n == null) return '0';
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return String(n);
 }
 
 /**

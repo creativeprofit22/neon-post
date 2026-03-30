@@ -31,7 +31,7 @@ setInterval(() => {
 
 export { setMemoryManager } from './memory-tools';
 export { setSoulMemoryManager } from './soul-tools';
-export { setSocialMemoryManager, setImageJobTracker } from './social-tools';
+export { setSocialMemoryManager, setImageJobTracker, socialToolEvents } from './social-tools';
 export { getSchedulerTools } from './scheduler-tools';
 export { getSocialTools } from './social-tools';
 export { showNotification } from './macos';

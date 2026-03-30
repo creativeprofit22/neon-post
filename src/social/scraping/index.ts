@@ -2,7 +2,7 @@
  * Social Scraping - Unified Search Router
  *
  * Routes to pocket-cli, Apify, or RapidAPI based on platform and user preference.
- * Priority: RapidAPI (TikTok) > Apify (TikTok/Instagram) > pocket-cli (YouTube/Twitter/Reddit).
+ * Priority: Apify (TikTok/Instagram/Twitter) > RapidAPI (TikTok fallback) > pocket-cli (YouTube/Twitter/Reddit).
  *
  * API keys are read from SettingsManager.
  */
@@ -22,7 +22,9 @@ import {
 import {
   searchTikTok as apifySearchTikTok,
   searchInstagram as apifySearchInstagram,
-  searchYouTube as apifySearchYouTube,
+  searchTwitter as apifySearchTwitter,
+  scrapeTwitterProfile as apifyScrapeTwitterProfile,
+  getTwitterTrending as apifyGetTwitterTrending,
 } from './apify';
 import {
   searchTikTok as rapidapiSearchTikTok,
@@ -62,9 +64,12 @@ export type {
 export {
   searchTikTok as apifySearchTikTok,
   searchInstagram as apifySearchInstagram,
-  searchYouTube as apifySearchYouTube,
+  searchTwitter as apifySearchTwitter,
+  scrapeTwitterProfile as apifyScrapeTwitterProfile,
+  getTwitterTrending as apifyGetTwitterTrending,
   ApifyError,
 } from './apify';
+export type { TwitterTrendResult } from './apify';
 
 export {
   searchTikTok as rapidapiSearchTikTok,
@@ -106,19 +111,22 @@ function getRapidAPIKey(): string | null {
 
 /**
  * Pick the default scraping method for a platform.
- * For TikTok: prefer RapidAPI if key exists, then Apify, then error.
+ * For TikTok: prefer Apify if key exists, then RapidAPI fallback, then error.
  * For Instagram: Apify only.
  * For YouTube/Twitter/Reddit: pocket-cli.
  */
 function defaultMethod(platform: ScrapingPlatform): ScrapingMethod {
   switch (platform) {
     case 'youtube':
-    case 'twitter':
     case 'reddit':
       return 'pocket-cli';
-    case 'tiktok': {
-      if (getRapidAPIKey()) return 'rapidapi';
+    case 'twitter': {
       if (getApifyKey()) return 'apify';
+      return 'pocket-cli';
+    }
+    case 'tiktok': {
+      if (getApifyKey()) return 'apify';
+      if (getRapidAPIKey()) return 'rapidapi';
       return 'apify'; // will error with "key not configured" message
     }
     case 'instagram':
@@ -137,7 +145,7 @@ export async function searchContent(
   query: string,
   options?: SearchOptions
 ): Promise<ContentResult[]> {
-  const limit = Math.min(Math.max(options?.limit ?? 10, 1), 20);
+  const limit = Math.min(Math.max(options?.limit ?? 5, 1), 10);
   const method = options?.method ?? defaultMethod(platform);
 
   console.log(
@@ -176,12 +184,11 @@ export async function searchContent(
         return apifySearchTikTok({ query, limit }, apiKey);
       case 'instagram':
         return apifySearchInstagram({ hashtags: query ? [query] : undefined, limit }, apiKey);
-      case 'youtube':
-        return apifySearchYouTube({ query, limit }, apiKey);
       case 'twitter':
-        throw new Error('Apify method is not available for Twitter. Use pocket-cli instead.');
+        return apifySearchTwitter({ searchTerms: [query], limit }, apiKey);
+      case 'youtube':
       case 'reddit':
-        throw new Error('Apify method is not available for Reddit. Use pocket-cli instead.');
+        throw new Error(`Apify method is not available for ${platform}. Use pocket-cli instead.`);
     }
   }
 
@@ -222,6 +229,17 @@ export async function getTrendingTikTok(region?: string, count?: number): Promis
   throw new Error('No API key configured for TikTok. Add RapidAPI or Apify key in Settings.');
 }
 
+/**
+ * Get trending topics on Twitter/X. Requires Apify key.
+ */
+export async function getTwitterTrending(location?: string) {
+  const apifyKey = getApifyKey();
+  if (!apifyKey) {
+    throw new Error('Apify API key not configured. Add your Apify API key in Settings to get Twitter trends.');
+  }
+  return apifyGetTwitterTrending({ location }, apifyKey);
+}
+
 // ── Profile scraping ──
 
 /**
@@ -233,7 +251,7 @@ export async function scrapeProfile(
   username: string,
   options?: { limit?: number }
 ): Promise<ContentResult[]> {
-  const limit = Math.min(Math.max(options?.limit ?? 10, 1), 20);
+  const limit = Math.min(Math.max(options?.limit ?? 5, 1), 10);
   const clean = username.replace(/^@/, '');
 
   console.log(
@@ -248,7 +266,7 @@ export async function scrapeProfile(
       }
       const apifyKey = getApifyKey();
       if (apifyKey) {
-        return apifySearchTikTok({ query: clean, limit }, apifyKey);
+        return apifySearchTikTok({ query: `@${clean}`, limit }, apifyKey);
       }
       throw new Error(
         'No API key configured for TikTok profile scraping. Add RapidAPI or Apify key in Settings.'
@@ -265,8 +283,15 @@ export async function scrapeProfile(
     }
     case 'youtube':
       return pocketGetYouTubeChannelVideos(clean, limit);
-    case 'twitter':
-      throw new Error('Profile scraping is not supported for Twitter. Use search instead.');
+    case 'twitter': {
+      const apifyKey = getApifyKey();
+      if (apifyKey) {
+        return apifyScrapeTwitterProfile({ handles: [clean], limit }, apifyKey);
+      }
+      throw new Error(
+        'Apify API key not configured. Add your Apify API key in Settings to scrape Twitter profiles.'
+      );
+    }
     case 'reddit':
       throw new Error('Profile scraping is not supported for Reddit. Use search instead.');
   }

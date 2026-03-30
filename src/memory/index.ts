@@ -84,6 +84,7 @@ import { SocialPostsStore, SOCIAL_POSTS_SCHEMA } from './social-posts';
 import { EngagementLogStore, ENGAGEMENT_LOG_SCHEMA } from './engagement';
 import { BrandConfigStore, BRAND_CONFIG_SCHEMA } from './brand-config';
 import { GeneratedContentStore, GENERATED_CONTENT_SCHEMA } from './generated-content';
+import { TrendsStore, EMERGING_TRENDS_SCHEMA } from './trends';
 
 // Types
 export type { Session } from './sessions';
@@ -122,6 +123,12 @@ export type {
   CreateGeneratedContentInput,
   UpdateGeneratedContentInput,
 } from './generated-content';
+export type {
+  EmergingTrend,
+  TrendStatusValue,
+  CreateTrendInput,
+  UpdateTrendInput,
+} from './trends';
 
 export class MemoryManager {
   private db: Database.Database;
@@ -140,6 +147,7 @@ export class MemoryManager {
   readonly engagementLog: EngagementLogStore;
   readonly brandConfig: BrandConfigStore;
   readonly generatedContent: GeneratedContentStore;
+  readonly trends: TrendsStore;
 
   constructor(dbPath: string) {
     this.db = new Database(dbPath);
@@ -153,6 +161,7 @@ export class MemoryManager {
     this.engagementLog = new EngagementLogStore(this.db);
     this.brandConfig = new BrandConfigStore(this.db);
     this.generatedContent = new GeneratedContentStore(this.db);
+    this.trends = new TrendsStore(this.db);
   }
 
   private initialize(): void {
@@ -331,6 +340,7 @@ export class MemoryManager {
     this.db.exec(ENGAGEMENT_LOG_SCHEMA);
     this.db.exec(BRAND_CONFIG_SCHEMA);
     this.db.exec(GENERATED_CONTENT_SCHEMA);
+    this.db.exec(EMERGING_TRENDS_SCHEMA);
 
     // Create FTS5 virtual table for keyword search
     try {
@@ -427,6 +437,18 @@ export class MemoryManager {
     if (!sessColumnsForWd.some((c) => c.name === 'working_directory')) {
       this.db.exec('ALTER TABLE sessions ADD COLUMN working_directory TEXT');
       console.log('[Memory] Migrated sessions table: added working_directory column');
+    }
+
+    // Migration: add source_content_id column to social_posts for linking posts to source content
+    const postColumns = this.db.pragma('table_info(social_posts)') as Array<{ name: string }>;
+    if (!postColumns.some((c) => c.name === 'source_content_id')) {
+      this.db.exec(
+        'ALTER TABLE social_posts ADD COLUMN source_content_id TEXT REFERENCES discovered_content(id) ON DELETE SET NULL'
+      );
+      this.db.exec(
+        'CREATE INDEX IF NOT EXISTS idx_social_posts_source ON social_posts(source_content_id)'
+      );
+      console.log('[Memory] Migrated social_posts table: added source_content_id column');
     }
   }
 

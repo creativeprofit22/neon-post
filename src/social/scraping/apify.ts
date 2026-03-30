@@ -1,7 +1,7 @@
 /**
  * Apify API Client - Content Scraping
  *
- * Calls Apify actor REST API to scrape TikTok, Instagram, and YouTube.
+ * Calls Apify actor REST API to scrape TikTok, Instagram, and Twitter/X.
  * Requires user's Apify API key (stored in SettingsManager).
  */
 
@@ -116,8 +116,13 @@ async function runActorAndCollect(
     // Still running (READY, RUNNING) — continue polling
   }
 
-  // Fetch dataset items
-  const datasetUrl = `${APIFY_BASE}/datasets/${datasetId}/items?format=json`;
+  // Fetch dataset items (cap download to the limit requested in input to avoid excess transfer)
+  const reqLimit = typeof input.maxItems === 'number' ? input.maxItems
+    : typeof input.resultsPerPage === 'number' ? input.resultsPerPage
+    : typeof input.resultsLimit === 'number' ? input.resultsLimit
+    : 0;
+  const limitParam = reqLimit > 0 ? `&limit=${reqLimit}` : '';
+  const datasetUrl = `${APIFY_BASE}/datasets/${datasetId}/items?format=json${limitParam}`;
   const dataset = await apifyFetch<ApifyItem[]>(datasetUrl, apiKey);
 
   // The items endpoint returns the array directly (not wrapped in data)
@@ -129,58 +134,152 @@ async function runActorAndCollect(
 // ── Mappers ──
 
 function mapTikTokItem(item: ApifyItem): ContentResult {
+  const authorMeta = (item.authorMeta ?? {}) as Record<string, unknown>;
+  const hashtagsRaw = Array.isArray(item.hashtags) ? item.hashtags : [];
+  const tags = hashtagsRaw
+    .map((h: Record<string, unknown>) => String(h.name ?? ''))
+    .filter((t: string) => t.length > 0);
+  const hasImages =
+    Array.isArray(item.imagePost) && (item.imagePost as unknown[]).length > 0;
+
+  // Extract media URLs — TikTok has videoUrl, or image URLs for slideshows
+  const mediaUrls: string[] = [];
+  if (item.videoUrl) mediaUrls.push(String(item.videoUrl));
+  if (hasImages) {
+    for (const img of item.imagePost as Record<string, unknown>[]) {
+      const imgUrl = img.imageURL ?? img.imageUrl ?? img.url;
+      if (imgUrl) mediaUrls.push(String(imgUrl));
+    }
+  }
+  if (!mediaUrls.length && item.musicMeta) {
+    const cover = (item.musicMeta as Record<string, unknown>).coverLarge;
+    if (cover) mediaUrls.push(String(cover));
+  }
+
   return {
     platform: 'tiktok',
-    externalId: String(item.id ?? item.videoId ?? ''),
-    url: String(item.webVideoUrl ?? item.url ?? item.link ?? ''),
-    title: String(item.text ?? item.title ?? ''),
-    caption: String(item.text ?? item.desc ?? item.description ?? ''),
-    views: Number(item.playCount ?? item.plays ?? item.views ?? 0),
-    likes: Number(item.diggCount ?? item.likes ?? item.likeCount ?? 0),
-    comments: Number(item.commentCount ?? item.comments ?? 0),
-    shares: Number(item.shareCount ?? item.shares ?? 0),
-    creatorUsername: String(
-      item.authorMeta?.toString() === '[object Object]'
-        ? ((item.authorMeta as Record<string, unknown>).name ?? '')
-        : (item.author ?? item.creatorUsername ?? '')
-    ),
+    externalId: String(item.id ?? ''),
+    url: String(item.webVideoUrl ?? item.url ?? ''),
+    title: String(item.text ?? '').slice(0, 100),
+    caption: String(item.text ?? ''),
+    views: Number(item.playCount ?? 0),
+    likes: Number(item.diggCount ?? 0),
+    comments: Number(item.commentCount ?? 0),
+    shares: Number(item.shareCount ?? 0),
+    creatorUsername: String(authorMeta.name ?? ''),
+    createdAt: item.createTimeISO ? String(item.createTimeISO) : undefined,
+    tags: tags.length > 0 ? tags : undefined,
+    contentType: hasImages ? 'slideshow' : 'video',
+    mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
   };
 }
 
 function mapInstagramItem(item: ApifyItem): ContentResult {
+  const hashtags = Array.isArray(item.hashtags) ? (item.hashtags as string[]) : undefined;
+
+  // Extract media URLs — Instagram has displayUrl (single), videoUrl (reel), or images[] (carousel)
+  const mediaUrls: string[] = [];
+  if (item.displayUrl) mediaUrls.push(String(item.displayUrl));
+  if (item.videoUrl) mediaUrls.push(String(item.videoUrl));
+  if (Array.isArray(item.images)) {
+    for (const img of item.images as string[]) {
+      if (img && !mediaUrls.includes(img)) mediaUrls.push(img);
+    }
+  }
+  if (Array.isArray(item.childPosts)) {
+    for (const child of item.childPosts as Record<string, unknown>[]) {
+      const childUrl = child.displayUrl ?? child.videoUrl;
+      if (childUrl) mediaUrls.push(String(childUrl));
+    }
+  }
+
   return {
     platform: 'instagram',
-    externalId: String(item.id ?? item.shortCode ?? ''),
-    url: String(item.url ?? item.displayUrl ?? item.link ?? ''),
-    title: String(item.caption ?? ''),
-    caption: String(item.caption ?? item.text ?? item.description ?? ''),
-    views: Number(item.videoViewCount ?? item.views ?? item.playCount ?? 0),
-    likes: Number(item.likesCount ?? item.likes ?? item.likeCount ?? 0),
-    comments: Number(item.commentsCount ?? item.comments ?? item.commentCount ?? 0),
-    shares: Number(item.shares ?? item.shareCount ?? 0),
-    creatorUsername: String(item.ownerUsername ?? item.owner ?? item.username ?? ''),
+    externalId: String(item.shortCode ?? ''),
+    url: String(item.url ?? ''),
+    title: String(item.caption ?? '').slice(0, 100),
+    caption: String(item.caption ?? ''),
+    views: Number(item.videoViewCount ?? 0),
+    likes: Number(item.likesCount ?? 0),
+    comments: Number(item.commentsCount ?? 0),
+    shares: 0,
+    creatorUsername: String(item.ownerUsername ?? ''),
+    createdAt: item.timestamp ? String(item.timestamp) : undefined,
+    contentType: item.type ? String(item.type) : undefined,
+    tags: hashtags && hashtags.length > 0 ? hashtags : undefined,
+    mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
   };
 }
 
-function mapYouTubeItem(item: ApifyItem): ContentResult {
+function mapTwitterItem(item: ApifyItem): ContentResult {
+  const author = (item.author ?? {}) as Record<string, unknown>;
+  const entities = (item.entities ?? {}) as Record<string, unknown>;
+  const hashtagsRaw = Array.isArray(entities.hashtags) ? entities.hashtags : [];
+  const tags = hashtagsRaw
+    .map((h: Record<string, unknown>) => String(h.text ?? h.tag ?? ''))
+    .filter((t: string) => t.length > 0);
+  // Extract media URLs — Twitter has media[] array with image/video URLs
+  const mediaUrls: string[] = [];
+  const media = (entities.media ?? item.media) as Record<string, unknown>[] | undefined;
+  if (Array.isArray(media)) {
+    for (const m of media) {
+      const mUrl = m.media_url_https ?? m.url ?? m.preview_image_url;
+      if (mUrl) mediaUrls.push(String(mUrl));
+    }
+  }
+  // Also check extendedEntities (higher-res media)
+  const extEntities = (item.extendedEntities ?? {}) as Record<string, unknown>;
+  const extMedia = extEntities.media as Record<string, unknown>[] | undefined;
+  if (Array.isArray(extMedia)) {
+    for (const m of extMedia) {
+      const mUrl = m.media_url_https ?? m.url;
+      if (mUrl && !mediaUrls.includes(String(mUrl))) mediaUrls.push(String(mUrl));
+    }
+  }
+
   return {
-    platform: 'youtube',
-    externalId: String(item.id ?? item.videoId ?? ''),
-    url: String(item.url ?? item.link ?? ''),
-    title: String(item.title ?? ''),
-    caption: String(item.description ?? item.text ?? ''),
-    views: Number(item.viewCount ?? item.views ?? 0),
-    likes: Number(item.likes ?? item.likeCount ?? 0),
-    comments: Number(item.commentsCount ?? item.commentCount ?? item.comments ?? 0),
-    shares: Number(item.shares ?? 0),
-    creatorUsername: String(item.channelName ?? item.channelTitle ?? item.author ?? ''),
+    platform: 'twitter',
+    externalId: String(item.id ?? ''),
+    url: String(item.twitterUrl ?? item.url ?? ''),
+    title: String(item.text ?? '').slice(0, 100),
+    caption: String(item.text ?? ''),
+    views: Number(item.viewCount ?? 0),
+    likes: Number(item.likeCount ?? 0),
+    comments: Number(item.replyCount ?? 0),
+    shares: Number(item.retweetCount ?? 0),
+    creatorUsername: String(author.userName ?? ''),
+    createdAt: item.createdAt ? String(item.createdAt) : undefined,
+    tags: tags.length > 0 ? tags : undefined,
+    mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
+  };
+}
+
+export interface TwitterTrendResult {
+  name: string;
+  tweetVolume: number | null;
+  rank: number;
+}
+
+function mapTwitterTrendItem(item: ApifyItem, index: number): TwitterTrendResult {
+  const rawVolume = String(item.volume ?? '').replace(/[^0-9]/g, '');
+  return {
+    name: String(item.trend ?? item.name ?? item.title ?? ''),
+    tweetVolume: rawVolume ? parseInt(rawVolume, 10) || null : null,
+    rank: index + 1,
   };
 }
 
 // ── Public API ──
 
 /**
- * Search TikTok via Apify actor.
+ * Search TikTok via the clockworks~tiktok-scraper actor.
+ *
+ * Auto-detects intent from the query:
+ *   #hashtag  → hashtags input
+ *   @username → profiles input
+ *   keyword   → searchQueries input
+ *
+ * Callers can also pass explicit `hashtags` array for hashtag mode.
  */
 export async function searchTikTok(
   params: { hashtags?: string[]; query?: string; limit?: number },
@@ -188,22 +287,52 @@ export async function searchTikTok(
 ): Promise<ContentResult[]> {
   assertApiKey(apiKey);
 
-  const input: Record<string, unknown> = {
-    resultsPerPage: params.limit ?? 20,
-  };
+  const ACTOR_ID = 'clockworks~tiktok-scraper';
+  const limit = params.limit ?? 10;
+  const query = (params.query ?? '').trim();
+
+  // ── Explicit hashtags array ──
   if (params.hashtags && params.hashtags.length > 0) {
-    input.hashtags = params.hashtags;
-  }
-  if (params.query) {
-    input.searchQueries = [params.query];
+    const tags = params.hashtags.map((h) => h.replace(/^#/, '').toLowerCase());
+    const input = { hashtags: tags, resultsPerPage: limit };
+    console.log(`${LOG_PREFIX} TikTok hashtag search (explicit): ${params.hashtags.join(', ')}`);
+    const items = await runActorAndCollect(ACTOR_ID, input, apiKey);
+    return items.slice(0, limit).map(mapTikTokItem);
   }
 
-  const items = await runActorAndCollect('clockworks~tiktok-scraper', input, apiKey);
-  return items.map(mapTikTokItem);
+  // ── @username → profiles ──
+  if (query.startsWith('@')) {
+    const input = { profiles: [query], resultsPerPage: limit };
+    console.log(`${LOG_PREFIX} TikTok profile scrape: ${query}`);
+    const items = await runActorAndCollect(ACTOR_ID, input, apiKey);
+    return items.slice(0, limit).map(mapTikTokItem);
+  }
+
+  // ── #hashtag query ──
+  if (query.startsWith('#')) {
+    const tag = query.replace(/^#/, '').toLowerCase();
+    const input = { hashtags: [tag], resultsPerPage: limit };
+    console.log(`${LOG_PREFIX} TikTok hashtag search: #${tag}`);
+    const items = await runActorAndCollect(ACTOR_ID, input, apiKey);
+    return items.slice(0, limit).map(mapTikTokItem);
+  }
+
+  // ── Keyword → searchQueries ──
+  const input = { searchQueries: [query], resultsPerPage: limit };
+  console.log(`${LOG_PREFIX} TikTok keyword search: "${query}"`);
+  const items = await runActorAndCollect(ACTOR_ID, input, apiKey);
+  return items.slice(0, limit).map(mapTikTokItem);
 }
 
 /**
- * Search Instagram via Apify actor.
+ * Search Instagram via apify~instagram-scraper actor.
+ *
+ * Everything goes through startUrls:
+ *   Profile → https://www.instagram.com/username/
+ *   Hashtag → https://www.instagram.com/explore/tags/tagname
+ *
+ * Actual actor fields (from build schema):
+ *   startUrls, maxItems, until, customMapFunction
  */
 export async function searchInstagram(
   params: { hashtags?: string[]; username?: string; limit?: number },
@@ -211,39 +340,99 @@ export async function searchInstagram(
 ): Promise<ContentResult[]> {
   assertApiKey(apiKey);
 
-  const input: Record<string, unknown> = {
-    resultsLimit: params.limit ?? 20,
-  };
+  const ACTOR_ID = 'apify~instagram-scraper';
+  const limit = params.limit ?? 20;
+
+  const directUrls: string[] = [];
+
   if (params.hashtags && params.hashtags.length > 0) {
-    input.hashtags = params.hashtags;
-  }
-  if (params.username) {
-    input.directUrls = [`https://www.instagram.com/${params.username}/`];
+    for (const h of params.hashtags) {
+      const tag = h.replace(/^#/, '').toLowerCase();
+      directUrls.push(`https://www.instagram.com/explore/tags/${tag}/`);
+    }
   }
 
-  const items = await runActorAndCollect('apify~instagram-scraper', input, apiKey);
-  return items.map(mapInstagramItem);
+  if (params.username) {
+    const username = params.username.replace(/^@/, '');
+    directUrls.push(`https://www.instagram.com/${username}/`);
+  }
+
+  const input = { directUrls, resultsType: 'posts', resultsLimit: limit };
+  console.log(`${LOG_PREFIX} Instagram scrape: ${directUrls.join(', ')}`);
+  const items = await runActorAndCollect(ACTOR_ID, input, apiKey);
+  return items.slice(0, limit).map(mapInstagramItem);
 }
 
 /**
- * Search YouTube via Apify actor.
+ * Search Twitter/X via the kaitoeasyapi pay-per-result actor.
+ *
+ * Input: single `twitterContent` string, `maxItems`, `queryType`.
+ * No minimum item requirement — pay only for what you get.
  */
-export async function searchYouTube(
-  params: { query?: string; channelUrl?: string; limit?: number },
+export async function searchTwitter(
+  params: { searchTerms: string[]; limit?: number },
   apiKey: string
 ): Promise<ContentResult[]> {
   assertApiKey(apiKey);
 
-  const input: Record<string, unknown> = {
-    maxResults: params.limit ?? 20,
-  };
-  if (params.query) {
-    input.searchKeywords = params.query;
-  }
-  if (params.channelUrl) {
-    input.startUrls = [{ url: params.channelUrl }];
-  }
+  const ACTOR_ID = 'kaitoeasyapi~twitter-x-data-tweet-scraper-pay-per-result-cheapest';
+  const limit = params.limit ?? 10;
 
-  const items = await runActorAndCollect('apify~youtube-scraper', input, apiKey);
-  return items.map(mapYouTubeItem);
+  const input = {
+    twitterContent: params.searchTerms.join(' OR '),
+    maxItems: limit,
+    queryType: 'Latest',
+  };
+
+  console.log(`${LOG_PREFIX} Twitter search: ${input.twitterContent}`);
+  const items = await runActorAndCollect(ACTOR_ID, input, apiKey);
+  return items.slice(0, limit).map(mapTwitterItem);
+}
+
+/**
+ * Scrape a Twitter/X user's profile for their recent tweets.
+ *
+ * Uses "from:handle" search syntax with the kaitoeasyapi actor.
+ */
+export async function scrapeTwitterProfile(
+  params: { handles: string[]; limit?: number },
+  apiKey: string
+): Promise<ContentResult[]> {
+  assertApiKey(apiKey);
+
+  const ACTOR_ID = 'kaitoeasyapi~twitter-x-data-tweet-scraper-pay-per-result-cheapest';
+  const limit = params.limit ?? 5;
+
+  const queries = params.handles.map((h) => `from:${h.replace(/^@/, '')}`);
+  const input = {
+    twitterContent: queries.join(' OR '),
+    maxItems: limit,
+    queryType: 'Latest',
+  };
+
+  console.log(`${LOG_PREFIX} Twitter profile scrape: ${input.twitterContent}`);
+  const items = await runActorAndCollect(ACTOR_ID, input, apiKey);
+  return items.slice(0, limit).map(mapTwitterItem);
+}
+
+/**
+ * Get trending topics on Twitter/X via the karamelo~twitter-trends-scraper actor.
+ *
+ * Actual actor field (from build schema): `country`
+ */
+export async function getTwitterTrending(
+  params: { location?: string },
+  apiKey: string
+): Promise<TwitterTrendResult[]> {
+  assertApiKey(apiKey);
+
+  const ACTOR_ID = 'karamelo~twitter-trends-scraper';
+  const input: Record<string, unknown> = {
+    country: params.location ?? 'United States',
+    live: true,
+  };
+
+  console.log(`${LOG_PREFIX} Twitter trending: country=${input.country}`);
+  const items = await runActorAndCollect(ACTOR_ID, input, apiKey);
+  return items.map(mapTwitterTrendItem);
 }

@@ -83,6 +83,20 @@ export interface ReplyPromptContext {
   count?: number;
 }
 
+/** Context for repurposing content across platforms */
+export interface RepurposePromptContext extends ContentPromptContext {
+  /** The original post caption/text */
+  sourceContent: string;
+  /** Where the content came from */
+  sourcePlatform: string;
+  /** Performance stats from the source post */
+  sourceStats?: { likes: number; comments: number; shares: number; views: number };
+  /** Video transcript if available */
+  sourceTranscript?: string;
+  /** Platforms to repurpose for */
+  targetPlatforms: string[];
+}
+
 // ── Helpers ──
 
 function brandBlock(ctx: ContentPromptContext): string {
@@ -273,6 +287,65 @@ ${ctx.brandVoice ? `\n## Voice\n${ctx.brandVoice}` : ''}${ctx.brandTone ? `\nTon
 
 ## Output
 Generate ${count} reply options, numbered 1-${count}. No explanations, just the replies.`;
+}
+
+/**
+ * Generate a prompt to repurpose content across platforms.
+ */
+export function repurposePrompt(ctx: RepurposePromptContext): string {
+  const statsBlock = ctx.sourceStats
+    ? `\n## Source Performance\n- Likes: ${ctx.sourceStats.likes}\n- Comments: ${ctx.sourceStats.comments}\n- Shares: ${ctx.sourceStats.shares}\n- Views: ${ctx.sourceStats.views}\n`
+    : '';
+
+  const transcriptBlock = ctx.sourceTranscript
+    ? `\n## Source Transcript\n${ctx.sourceTranscript}\n`
+    : '';
+
+  const platformInstructions: Record<string, string> = {
+    x: '**X/Twitter:** Max 280 characters. Distill the core insight into a punchy, shareable take. Use a thread if the idea needs more room.',
+    twitter:
+      '**X/Twitter:** Max 280 characters. Distill the core insight into a punchy, shareable take. Use a thread if the idea needs more room.',
+    instagram:
+      '**Instagram:** Write a caption with a strong hook line. Include 15-20 relevant hashtags. Suggest a visual format (carousel, reel, single image).',
+    tiktok:
+      '**TikTok:** Write a short video script with a clear HOOK (first 3s), BODY, and CTA. Keep it under 60 seconds. Include trending sound/hashtag suggestions.',
+    linkedin:
+      '**LinkedIn:** Reframe the content professionally. Lead with a bold first line. Use line breaks for readability. End with a question or CTA to drive engagement.',
+    youtube:
+      '**YouTube:** Adapt as a video concept with a compelling title, description, and key talking points. Include timestamps structure.',
+  };
+
+  const targetBlocks = ctx.targetPlatforms
+    .map((p) => platformInstructions[p.toLowerCase()] ?? `**${p}:** Adapt to platform-appropriate style and length.`)
+    .join('\n\n');
+
+  return `You are a social media content repurposing specialist.
+
+## Source Content (from ${ctx.sourcePlatform})
+${ctx.sourceContent}
+${statsBlock}${transcriptBlock}
+## Topic
+${ctx.topic}
+${brandBlock(ctx)}
+## Target Platforms — Per-Platform Instructions
+
+${targetBlocks}
+
+## Repurposing Guidelines
+- Preserve the core message and value of the original content
+- Adapt the format, tone, and length to each target platform's native style
+- Don't just copy-paste — reimagine the content for each audience
+- If the source performed well, analyze what made it resonate and carry that forward
+${ctx.additionalInstructions ? `\n## Additional Instructions\n${ctx.additionalInstructions}\n` : ''}
+## Output
+For each target platform, output a clearly labeled section:
+
+### [Platform Name]
+[Ready-to-post content for that platform]
+
+---
+
+Produce content for ALL ${ctx.targetPlatforms.length} target platform(s): ${ctx.targetPlatforms.join(', ')}.`;
 }
 
 /**

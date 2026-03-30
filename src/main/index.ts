@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 import { AgentManager } from '../agent';
 import { MemoryManager } from '../memory';
 import { ImageJobTracker } from '../image';
-import { setImageJobTracker } from '../tools';
+import { setImageJobTracker, socialToolEvents, getCurrentSessionId } from '../tools';
 import { createScheduler, CronScheduler } from '../scheduler';
 import { createTelegramBot, TelegramBot } from '../channels/telegram';
 import { createiOSChannel, iOSChannel } from '../channels/ios';
@@ -655,6 +655,138 @@ async function initializeAgent(): Promise<void> {
       win.webContents.send('image:failed', data);
     } else {
       console.warn('[Main] image:failed — chat window not available, event dropped!');
+    }
+  });
+
+  // Forward search results from agent tools to the Social panel's Discover tab
+  socialToolEvents.on('search:started', (data) => {
+    console.log(`[Main] search:started — "${data.query}" on ${data.platform}`);
+    const win = getWindow(WIN.CHAT);
+    if (win) {
+      win.webContents.send('social:searchStarted', data);
+    }
+  });
+
+  socialToolEvents.on('profile:started', (data) => {
+    console.log(`[Main] profile:started — @${data.username} on ${data.platform}`);
+    const win = getWindow(WIN.CHAT);
+    if (win) {
+      win.webContents.send('social:profileStarted', data);
+    }
+  });
+
+  socialToolEvents.on('repurpose:started', (data) => {
+    console.log(`[Main] repurpose:started — ${data.platforms?.join(', ')}`);
+    const win = getWindow(WIN.CHAT);
+    if (win) {
+      win.webContents.send('social:repurposeStarted', data);
+    }
+  });
+
+  socialToolEvents.on('repurpose:progress', (data) => {
+    console.log(`[Main] repurpose:progress — ${data.stage}`);
+    const win = getWindow(WIN.CHAT);
+    if (win) {
+      win.webContents.send('social:repurposeProgress', data);
+    }
+  });
+
+  socialToolEvents.on('search:results', (data) => {
+    console.log(`[Main] search:results event — ${data.results?.length ?? 0} items for "${data.query}"`);
+    const win = getWindow(WIN.CHAT);
+    if (win) {
+      win.webContents.send('social:searchResultsPushed', data);
+    }
+    // Persist as a message so mini-cards survive tab switches / history reloads
+    if (memory && data.results?.length) {
+      const sid = getCurrentSessionId() || 'default';
+      memory.saveMessage('assistant', `[Search results: ${data.results.length} items for "${data.query}"]`, sid, {
+        type: 'social-results',
+        subtype: 'search',
+        platform: data.platform,
+        headerLabel: `${data.results.length} results`,
+        results: data.results,
+      });
+    }
+  });
+
+  // Forward schedule/post/content change events to the Social panel
+  socialToolEvents.on('schedule:created', (data) => {
+    console.log(`[Main] schedule:created — post ${data.postId} on ${data.platform}`);
+    const win = getWindow(WIN.CHAT);
+    if (win) {
+      win.webContents.send('social:postChanged', data);
+    }
+  });
+
+  socialToolEvents.on('post:published', (data) => {
+    console.log(`[Main] post:published — post ${data.postId} on ${data.platform}`);
+    const win = getWindow(WIN.CHAT);
+    if (win) {
+      win.webContents.send('social:postChanged', data);
+    }
+  });
+
+  socialToolEvents.on('content:saved', (data) => {
+    console.log(`[Main] content:saved — ${data.contentType} ${data.id} on ${data.platform}`);
+    const win = getWindow(WIN.CHAT);
+    if (win) {
+      win.webContents.send('social:contentSaved', data);
+    }
+  });
+
+  // Forward results events (trending, profile) to the renderer
+  socialToolEvents.on('trending:results', (data) => {
+    console.log(`[Main] trending:results — ${data.results?.length ?? 0} items on ${data.platform}`);
+    const win = getWindow(WIN.CHAT);
+    if (win) {
+      win.webContents.send('social:trendingResults', data);
+    }
+    if (memory && data.results?.length) {
+      const sid = getCurrentSessionId() || 'default';
+      memory.saveMessage('assistant', `[Trending: ${data.results.length} items on ${data.platform}]`, sid, {
+        type: 'social-results',
+        subtype: 'trending',
+        platform: data.platform,
+        headerLabel: `Trending on ${(data.platform || '').toUpperCase()}`,
+        results: data.results,
+      });
+    }
+  });
+
+  socialToolEvents.on('profile:results', (data) => {
+    console.log(`[Main] profile:results — ${data.results?.length ?? 0} posts for @${data.username}`);
+    const win = getWindow(WIN.CHAT);
+    if (win) {
+      win.webContents.send('social:profileResults', data);
+    }
+    if (memory && data.results?.length) {
+      const sid = getCurrentSessionId() || 'default';
+      const displayName = data.username ? `@${data.username.replace(/^@/, '')}` : data.platform || 'Profile';
+      memory.saveMessage('assistant', `[Profile: ${data.results.length} posts from ${displayName}]`, sid, {
+        type: 'social-results',
+        subtype: 'profile',
+        platform: data.platform,
+        headerLabel: `${displayName} on ${(data.platform || '').toUpperCase()}`,
+        results: data.results,
+      });
+    }
+  });
+
+  socialToolEvents.on('repurpose:completed', (data) => {
+    console.log(`[Main] repurpose:completed — ${data.drafts?.length ?? 0} drafts`);
+    const win = getWindow(WIN.CHAT);
+    if (win) {
+      win.webContents.send('social:repurposeCompleted', data);
+    }
+  });
+
+  // Forward search rate-limit notification to the UI as a toast
+  socialToolEvents.on('search:limitReached', (data) => {
+    console.log(`[Main] search:limitReached — ${data.used}/${data.limit} in session ${data.sessionId}`);
+    const win = getWindow(WIN.CHAT);
+    if (win) {
+      win.webContents.send('social:searchLimitReached', data);
     }
   });
 

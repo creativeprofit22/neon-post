@@ -23,14 +23,15 @@ describe('Agent Modes', () => {
   // ============ AGENT_MODES registry ============
 
   describe('AGENT_MODES registry', () => {
-    it('should contain all five modes', () => {
+    it('should contain all six modes', () => {
       const modeIds = Object.keys(AGENT_MODES);
       expect(modeIds).toContain('general');
       expect(modeIds).toContain('coder');
       expect(modeIds).toContain('researcher');
       expect(modeIds).toContain('writer');
       expect(modeIds).toContain('therapist');
-      expect(modeIds).toHaveLength(5);
+      expect(modeIds).toContain('creator');
+      expect(modeIds).toHaveLength(6);
     });
 
     it('should have matching id field for each mode', () => {
@@ -188,8 +189,8 @@ describe('Agent Modes', () => {
   // ============ ALL_MODE_IDS ============
 
   describe('ALL_MODE_IDS', () => {
-    it('should be an array of 5 mode IDs', () => {
-      expect(ALL_MODE_IDS).toHaveLength(5);
+    it('should be an array of 6 mode IDs', () => {
+      expect(ALL_MODE_IDS).toHaveLength(6);
     });
 
     it('should contain all expected mode IDs', () => {
@@ -269,7 +270,7 @@ describe('Agent Modes', () => {
   describe('getAllModes', () => {
     it('should return an array of all modes', () => {
       const modes = getAllModes();
-      expect(modes).toHaveLength(5);
+      expect(modes).toHaveLength(6);
     });
 
     it('should return AgentMode objects', () => {

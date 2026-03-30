@@ -129,6 +129,15 @@ export const SETTINGS_SCHEMA: SettingDefinition[] = [
     description: 'Your RapidAPI key for TikTok scraping (TikTok Scraper 7)',
     type: 'password',
   },
+  {
+    key: 'assembly.apiKey',
+    defaultValue: '',
+    encrypted: true,
+    category: 'api_keys',
+    label: 'AssemblyAI Key',
+    description: 'Your AssemblyAI API key for video transcription (Universal v3)',
+    type: 'password',
+  },
 
   // Agent settings
   {

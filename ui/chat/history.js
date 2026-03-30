@@ -41,6 +41,17 @@ async function loadHistory() {
           }
         }
 
+        // Render social result cards (search, trending, profile)
+        if (msg.metadata?.type === 'social-results') {
+          renderMiniCardBlock(
+            msg.metadata.subtype || 'search',
+            msg.metadata.headerLabel || `${(msg.metadata.results || []).length} results`,
+            msg.metadata.results || [],
+            msg.metadata.platform || ''
+          );
+          continue;
+        }
+
         // Render generated images as image bubbles instead of text
         if (msg.metadata?.type === 'generated-image') {
           renderGeneratedImage({

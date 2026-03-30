@@ -1,7 +1,7 @@
 /**
  * Social tools for the agent
  *
- * 16 tools for social media operations:
+ * 18 tools for social media operations:
  * - search_content: Search content across platforms
  * - scrape_profile: Scrape a user's profile posts
  * - get_trending: Get trending content
@@ -18,32 +18,57 @@
  * - flag_comment: Flag a comment for review
  * - generate_image: Generate images via Kie.ai (text-to-image / image-to-image)
  * - upload_reference_image: Upload a local image for use as reference in image generation
+ * - repurpose_content: Repurpose content across platforms with transcription support
+ * - analyze_trends: Detect trending topics from discovered content
  */
 
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { MemoryManager } from '../memory';
-import { searchContent, scrapeProfile, getTrendingTikTok, downloadVideo } from '../social/scraping';
+import { searchContent, scrapeProfile, getTrendingTikTok, getTwitterTrending, downloadVideo } from '../social/scraping';
 import type { ScrapingPlatform } from '../social/scraping';
+import type { TwitterTrendResult } from '../social/scraping';
+import { checkCache, storeInCache, computeQueryHash } from '../social/scraping/cache';
 import { postContent, buildCredentialsFromAccount } from '../social/posting';
 import { Platform } from '../social/posting/types';
 import type { PlatformPostOptions } from '../social/posting/types';
 import { processVideo } from '../social/video/pipeline';
-import { transcribeVideo } from '../social/video/transcribe';
+
 import { fetchComments, prioritizeComments } from '../social/engagement/monitor';
 import { postReply } from '../social/engagement/reply';
-import { captionPrompt, hookPrompt, threadPrompt, scriptPrompt } from '../social/content/prompts';
+import { captionPrompt, hookPrompt, threadPrompt, scriptPrompt, repurposePrompt } from '../social/content/prompts';
 import type {
   ContentPromptContext,
   HookPromptContext,
   ThreadPromptContext,
   ScriptPromptContext,
+  RepurposePromptContext,
 } from '../social/content/prompts';
+import { transcribeContent } from '../social/transcription/assemblyai';
+import { calculateViralScore } from '../social/scoring/viral-score';
+import type { ScoringPlatform } from '../social/scoring/viral-score';
+import { detectTrends } from '../social/scoring/trend-detect';
 import { KieClient, resolveModelId } from '../image';
 import type { ImageJobTracker } from '../image';
 import { SettingsManager } from '../settings';
+import { EventEmitter } from 'node:events';
 import { getCurrentSessionId } from './session-context';
 
 let memoryManager: MemoryManager | null = null;
 let imageTracker: ImageJobTracker | null = null;
+
+/** Emits events that the main process can forward to the renderer */
+export const socialToolEvents = new EventEmitter();
+
+// ── Search rate limiting ──
+const SEARCH_LIMIT_PER_SESSION = 5;
+const SEARCH_DEFAULT_RESULTS = 5;
+const SEARCH_MAX_RESULTS = 10;
+const searchCountBySession = new Map<string, number>();
+
+// ── Per-session cache offset tracking ──
+// Key: `${sessionId}:${queryHash}`, Value: current offset into cached results
+const cacheOffsetByQuery = new Map<string, number>();
 
 export function setSocialMemoryManager(memory: MemoryManager): void {
   memoryManager = memory;
@@ -59,7 +84,7 @@ function getSearchContentDefinition() {
   return {
     name: 'search_content',
     description:
-      'Search social media content across platforms (YouTube, TikTok, Instagram, Twitter, Reddit). Returns matching posts/videos with metadata.',
+      'Search social media content across platforms (YouTube, TikTok, Instagram, Twitter, Reddit). Returns matching posts/videos with metadata. Results are automatically displayed as cards in the chat and pushed to the Discover tab.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -73,7 +98,13 @@ function getSearchContentDefinition() {
         },
         limit: {
           type: 'number',
-          description: 'Max results to return (1-20, default 10)',
+          description: `Max results to return (1-${SEARCH_MAX_RESULTS}, default ${SEARCH_DEFAULT_RESULTS})`,
+        },
+        content_type: {
+          type: 'string',
+          enum: ['video', 'image', 'carousel', 'text'],
+          description:
+            'Filter results by content type. Optional — omit to return all types.',
         },
       },
       required: ['platform', 'query'],
@@ -81,21 +112,139 @@ function getSearchContentDefinition() {
   };
 }
 
+// ── Content type distribution priors (fraction, 0-1) ──
+const CONTENT_TYPE_PRIORS: Record<string, Record<string, number>> = {
+  tiktok: { video: 0.97, image: 0.01, carousel: 0.0, text: 0.0 },
+  instagram: { video: 0.4, image: 0.3, carousel: 0.3, text: 0.0 },
+  twitter: { video: 0.25, image: 0.35, carousel: 0.0, text: 0.4 },
+  linkedin: { video: 0.15, image: 0.2, carousel: 0.2, text: 0.45 },
+  youtube: { video: 1.0, image: 0.0, carousel: 0.0, text: 0.0 },
+  reddit: { video: 0.1, image: 0.2, carousel: 0.0, text: 0.7 },
+};
+
+const OVERFETCH_CAP = 50;
+
+function getOverfetchMultiplier(platform: string, contentType: string): number {
+  const priors = CONTENT_TYPE_PRIORS[platform];
+  if (!priors) return 1;
+  const freq = priors[contentType] ?? 0;
+  if (freq <= 0) return OVERFETCH_CAP;
+  return Math.min(Math.ceil(1 / freq), OVERFETCH_CAP);
+}
+
 async function handleSearchContent(input: unknown): Promise<string> {
-  const { platform, query, limit } = input as {
+  const { platform, query, limit, content_type } = input as {
     platform: string;
     query: string;
     limit?: number;
+    content_type?: 'video' | 'image' | 'carousel' | 'text';
   };
 
   if (!platform || !query) {
     return JSON.stringify({ error: 'Missing required fields: platform, query' });
   }
 
+  // ── Rate limit check ──
+  const sessionId = getCurrentSessionId() || '__default';
+  const used = searchCountBySession.get(sessionId) || 0;
+  if (used >= SEARCH_LIMIT_PER_SESSION) {
+    // Notify the UI with a toast (avoids wasting agent tokens on a long explanation)
+    socialToolEvents.emit('search:limitReached', {
+      used,
+      limit: SEARCH_LIMIT_PER_SESSION,
+      sessionId,
+    });
+    // Short message to the agent so it stops retrying
+    return JSON.stringify({ error: 'Search limit reached for this session. Do not retry.' });
+  }
+
+  // Emit started event so the UI can show a placeholder
+  socialToolEvents.emit('search:started', { platform, query });
+
   try {
-    const results = await searchContent(platform as ScrapingPlatform, query, { limit });
-    console.log(`[SearchContent] Found ${results.length} results for "${query}" on ${platform}`);
-    return JSON.stringify({ success: true, count: results.length, results });
+    const requestedLimit = Math.min(Math.max(limit ?? SEARCH_DEFAULT_RESULTS, 1), SEARCH_MAX_RESULTS);
+
+    // Over-fetch when filtering for a rare content type on the platform
+    const overfetchMultiplier = content_type ? getOverfetchMultiplier(platform, content_type) : 1;
+    const fetchLimit = Math.min(requestedLimit * overfetchMultiplier, OVERFETCH_CAP);
+
+    const queryHash = computeQueryHash(platform, query);
+    const offsetKey = `${sessionId}:${queryHash}`;
+
+    let results;
+    let fromCache = false;
+
+    // ── Cache-before-scrape ──
+    if (memoryManager) {
+      const currentOffset = cacheOffsetByQuery.get(offsetKey) ?? 0;
+      const cached = checkCache(memoryManager, platform, query, fetchLimit, currentOffset, 'search');
+      if (cached) {
+        results = cached;
+        fromCache = true;
+        cacheOffsetByQuery.set(offsetKey, currentOffset + fetchLimit);
+        console.log(`[SearchContent] Cache HIT for "${query}" on ${platform} (offset=${currentOffset})`);
+      }
+    }
+
+    if (!results) {
+      results = await searchContent(platform as ScrapingPlatform, query, { limit: fetchLimit });
+      console.log(`[SearchContent] Found ${results.length} results for "${query}" on ${platform}`);
+
+      // Store all results in cache for future lookups
+      if (memoryManager && results.length > 0) {
+        storeInCache(memoryManager, results, platform, query, 'search');
+      }
+
+      // Reset offset for this query since we got fresh results
+      cacheOffsetByQuery.set(offsetKey, fetchLimit);
+    }
+
+    // Only count against rate limit when we actually hit the API
+    if (!fromCache) {
+      searchCountBySession.set(sessionId, used + 1);
+    }
+
+    // ── Content type filtering ──
+    const totalBeforeFilter = results.length;
+    if (content_type) {
+      results = results.filter(
+        (r) => r.contentType?.toLowerCase() === content_type.toLowerCase()
+      );
+    }
+    // Slice to the originally requested limit
+    results = results.slice(0, requestedLimit);
+
+    // Attach ephemeral viral scores to each result
+    const scoringPlatforms: string[] = ['tiktok', 'youtube', 'instagram', 'twitter', 'linkedin'];
+    const scoredResults = results.map((r) => {
+      if (scoringPlatforms.includes(platform)) {
+        const breakdown = calculateViralScore(
+          platform as ScoringPlatform,
+          { likes: r.likes, comments: r.comments, shares: r.shares, views: r.views },
+          r.createdAt
+        );
+        return { ...r, viral_score: breakdown.score, viral_tier: breakdown.tier };
+      }
+      return r;
+    });
+
+    // Push results to the Social panel's Discover tab
+    if (scoredResults.length > 0) {
+      socialToolEvents.emit('search:results', { query, platform, results: scoredResults });
+    }
+
+    // Build response — include a note when filtering returned fewer than requested
+    const response: Record<string, unknown> = {
+      success: true,
+      count: scoredResults.length,
+      results: scoredResults,
+      cached: fromCache,
+    };
+    if (content_type && scoredResults.length < requestedLimit) {
+      response.note = `Found ${scoredResults.length} ${content_type} posts out of ${totalBeforeFilter} total. ${content_type} content is rare on ${platform}.`;
+    }
+
+    return JSON.stringify(response);
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     return JSON.stringify({ error: msg });
@@ -106,13 +255,13 @@ function getScrapeProfileDefinition() {
   return {
     name: 'scrape_profile',
     description:
-      "Scrape a user's social media profile for their recent posts. Supports TikTok, Instagram, and YouTube.",
+      "Scrape a user's social media profile for their recent posts. Supports TikTok, Instagram, YouTube, and X/Twitter.",
     input_schema: {
       type: 'object' as const,
       properties: {
         platform: {
           type: 'string',
-          description: 'Platform: youtube, tiktok, instagram',
+          description: 'Platform: youtube, tiktok, instagram, twitter',
         },
         username: {
           type: 'string',
@@ -120,7 +269,7 @@ function getScrapeProfileDefinition() {
         },
         limit: {
           type: 'number',
-          description: 'Max posts to return (1-20, default 10)',
+          description: 'Max posts to return (1-10, default 5)',
         },
       },
       required: ['platform', 'username'],
@@ -139,10 +288,50 @@ async function handleScrapeProfile(input: unknown): Promise<string> {
     return JSON.stringify({ error: 'Missing required fields: platform, username' });
   }
 
+  const sessionId = getCurrentSessionId() || '__default';
+  const clean = username.replace(/^@/, '');
+  const profileQuery = `profile:${clean}`;
+  const queryHash = computeQueryHash(platform, profileQuery);
+  const offsetKey = `${sessionId}:${queryHash}`;
+  const clampedLimit = Math.min(Math.max(limit ?? 5, 1), 10);
+
+  // Emit started event so the UI can show a placeholder
+  socialToolEvents.emit('profile:started', { platform, username });
+
   try {
-    const results = await scrapeProfile(platform as ScrapingPlatform, username, { limit });
-    console.log(`[ScrapeProfile] Found ${results.length} posts for @${username} on ${platform}`);
-    return JSON.stringify({ success: true, count: results.length, results });
+    let results;
+    let fromCache = false;
+
+    // ── Cache-before-scrape ──
+    if (memoryManager) {
+      const currentOffset = cacheOffsetByQuery.get(offsetKey) ?? 0;
+      const cached = checkCache(memoryManager, platform, profileQuery, clampedLimit, currentOffset, 'profile');
+      if (cached) {
+        results = cached;
+        fromCache = true;
+        cacheOffsetByQuery.set(offsetKey, currentOffset + clampedLimit);
+        console.log(`[ScrapeProfile] Cache HIT for @${clean} on ${platform} (offset=${currentOffset})`);
+      }
+    }
+
+    if (!results) {
+      results = await scrapeProfile(platform as ScrapingPlatform, username, { limit });
+      console.log(`[ScrapeProfile] Found ${results.length} posts for @${clean} on ${platform}`);
+
+      // Store results in cache
+      if (memoryManager && results.length > 0) {
+        storeInCache(memoryManager, results, platform, profileQuery, 'profile');
+      }
+
+      cacheOffsetByQuery.set(offsetKey, clampedLimit);
+    }
+
+    // Push profile results to the renderer
+    if (results.length > 0) {
+      socialToolEvents.emit('profile:results', { platform, username, results });
+    }
+
+    return JSON.stringify({ success: true, count: results.length, results, cached: fromCache });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     return JSON.stringify({ error: msg });
@@ -153,17 +342,18 @@ function getGetTrendingDefinition() {
   return {
     name: 'get_trending',
     description:
-      'Get trending content. Currently supports TikTok trending videos with optional region filter.',
+      'Get trending content on social media platforms. Supports TikTok trending videos, Twitter/X trending topics, and Instagram trending hashtags.',
     input_schema: {
       type: 'object' as const,
       properties: {
         platform: {
           type: 'string',
-          description: 'Platform: tiktok (more platforms coming soon)',
+          description: 'Platform: tiktok, twitter, instagram',
         },
         region: {
           type: 'string',
-          description: 'Region code (e.g. "US", "GB") for localized trending',
+          description:
+            'Region filter. For TikTok: country code (e.g. "US", "GB"). For Twitter: country name (e.g. "United States", "United Kingdom"). Ignored for Instagram.',
         },
         count: {
           type: 'number',
@@ -187,15 +377,36 @@ async function handleGetTrending(input: unknown): Promise<string> {
   }
 
   try {
-    if (platform !== 'tiktok') {
-      return JSON.stringify({
-        error: `Trending is currently only supported for TikTok. Got: ${platform}`,
-      });
-    }
+    switch (platform) {
+      case 'tiktok': {
+        const results = await getTrendingTikTok(region, count);
+        console.log(`[GetTrending] Found ${results.length} trending items on TikTok`);
 
-    const results = await getTrendingTikTok(region, count);
-    console.log(`[GetTrending] Found ${results.length} trending items on ${platform}`);
-    return JSON.stringify({ success: true, count: results.length, results });
+        socialToolEvents.emit('trending:results', { platform, results });
+        return JSON.stringify({ success: true, count: results.length, results });
+      }
+      case 'twitter': {
+        const trends = await getTwitterTrending(region);
+        console.log(`[GetTrending] Found ${trends.length} trending topics on Twitter`);
+
+        socialToolEvents.emit('trending:results', { platform, results: trends });
+        return JSON.stringify({ success: true, count: trends.length, results: trends });
+      }
+      case 'instagram': {
+        // Instagram has no dedicated trending API — use hashtag search as proxy
+        const results = await searchContent('instagram' as ScrapingPlatform, '#trending', {
+          limit: count ?? 20,
+        });
+        console.log(`[GetTrending] Found ${results.length} trending items on Instagram`);
+
+        socialToolEvents.emit('trending:results', { platform, results });
+        return JSON.stringify({ success: true, count: results.length, results });
+      }
+      default:
+        return JSON.stringify({
+          error: `Trending is supported for tiktok, twitter, and instagram. Got: ${platform}`,
+        });
+    }
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     return JSON.stringify({ error: msg });
@@ -206,7 +417,7 @@ function getDownloadVideoDefinition() {
   return {
     name: 'download_video',
     description:
-      'Download a video from a URL (YouTube, TikTok, Instagram, etc.). Uses yt-dlp with HTTP fallback.',
+      'Download a video from a URL (YouTube, TikTok, Instagram, etc.). Uses yt-dlp with HTTP fallback. Downloads to the Neon-post workspace by default.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -216,26 +427,32 @@ function getDownloadVideoDefinition() {
         },
         output_dir: {
           type: 'string',
-          description: 'Directory to save the downloaded video',
+          description: 'Optional directory override. Defaults to Documents/Neon-post/downloads.',
         },
       },
-      required: ['url', 'output_dir'],
+      required: ['url'],
     },
   };
+}
+
+function getDefaultDownloadDir(): string {
+  return join(homedir(), 'Documents', 'Neon-post', 'downloads');
 }
 
 async function handleDownloadVideo(input: unknown): Promise<string> {
   const { url, output_dir } = input as {
     url: string;
-    output_dir: string;
+    output_dir?: string;
   };
 
-  if (!url || !output_dir) {
-    return JSON.stringify({ error: 'Missing required fields: url, output_dir' });
+  if (!url) {
+    return JSON.stringify({ error: 'Missing required field: url' });
   }
 
+  const dir = output_dir || getDefaultDownloadDir();
+
   try {
-    const filePath = await downloadVideo(url, output_dir);
+    const filePath = await downloadVideo(url, dir);
     console.log(`[DownloadVideo] Downloaded: ${filePath}`);
     return JSON.stringify({ success: true, filePath });
   } catch (error) {
@@ -329,12 +546,14 @@ async function handlePostContent(input: unknown): Promise<string> {
 
     // Track the post in the database
     if (result.success) {
-      memoryManager.socialPosts.create({
+      const post = memoryManager.socialPosts.create({
         social_account_id: account_id,
         platform,
         status: 'posted',
         content: text,
       });
+
+      socialToolEvents.emit('post:published', { platform, postId: post.id, content: text });
     }
 
     return JSON.stringify(result);
@@ -406,6 +625,9 @@ async function handleSchedulePost(input: unknown): Promise<string> {
     });
 
     console.log(`[SchedulePost] Scheduled post ${post.id} for ${scheduled_at} on ${platform}`);
+
+    socialToolEvents.emit('schedule:created', { platform, postId: post.id, scheduled_at, content });
+
     return JSON.stringify({
       success: true,
       message: `Post scheduled for ${scheduled_at}`,
@@ -637,29 +859,13 @@ function getTranscribeVideoDefinition() {
   return {
     name: 'transcribe_video',
     description:
-      'Transcribe audio/video to text with timestamps. Uses Whisper via the video engine. Returns segments with timing data.',
+      'Transcribe audio/video to text with timestamps. Primary: AssemblyAI (Universal v3). Fallback: local Whisper engine. Returns full transcript with timed segments.',
     input_schema: {
       type: 'object' as const,
       properties: {
         input_path: {
           type: 'string',
-          description: 'Absolute path to the audio/video file',
-        },
-        language: {
-          type: 'string',
-          description: 'Language code (e.g. "en", "es") — auto-detected if omitted',
-        },
-        model_size: {
-          type: 'string',
-          description: 'Whisper model size: tiny, base, small, medium, large (default: base)',
-        },
-        output_path: {
-          type: 'string',
-          description: 'Optional: path to write transcript file (srt/vtt/json/txt)',
-        },
-        output_format: {
-          type: 'string',
-          description: 'Output format: srt, vtt, json, txt (default: json)',
+          description: 'Absolute path to the audio/video file, or a public URL',
         },
       },
       required: ['input_path'],
@@ -668,32 +874,42 @@ function getTranscribeVideoDefinition() {
 }
 
 async function handleTranscribeVideo(input: unknown): Promise<string> {
-  const { input_path, language, model_size, output_path, output_format } = input as {
-    input_path: string;
-    language?: string;
-    model_size?: string;
-    output_path?: string;
-    output_format?: string;
-  };
+  const { input_path } = input as { input_path: string };
 
   if (!input_path) {
     return JSON.stringify({ error: 'Missing required field: input_path' });
   }
 
-  try {
-    const result = await transcribeVideo({
-      inputPath: input_path,
-      language,
-      modelSize: model_size as 'tiny' | 'base' | 'small' | 'medium' | 'large' | undefined,
-      outputPath: output_path,
-      outputFormat: output_format as 'srt' | 'vtt' | 'json' | 'txt' | undefined,
-    });
+  console.log(`[TranscribeVideo] Starting transcription: ${input_path}`);
 
-    console.log(`[TranscribeVideo] ${result.success ? 'Transcribed' : 'Failed'}: ${input_path}`);
-    return JSON.stringify(result);
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    return JSON.stringify({ error: msg });
+  // Verify file exists if it's a local path
+  if (!input_path.startsWith('http')) {
+    try {
+      const fs = await import('node:fs');
+      if (!fs.existsSync(input_path)) {
+        console.error(`[TranscribeVideo] File not found: ${input_path}`);
+        return JSON.stringify({ error: `File not found: ${input_path}` });
+      }
+      const stats = fs.statSync(input_path);
+      console.log(`[TranscribeVideo] File exists, size: ${(stats.size / 1024 / 1024).toFixed(1)}MB`);
+    } catch (fsErr) {
+      console.error(`[TranscribeVideo] Cannot access file: ${fsErr}`);
+    }
+  }
+
+  try {
+    // Primary: AssemblyAI (CLI script → HTTP fallback → Whisper API fallback)
+    const result = await transcribeContent(input_path);
+
+    console.log(`[TranscribeVideo] Success: ${result.text.length} chars, ${result.segments.length} segments`);
+    return JSON.stringify({
+      success: true,
+      transcription: result,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[TranscribeVideo] All transcription methods failed: ${msg}`);
+    return JSON.stringify({ error: `Transcription failed: ${msg}` });
   }
 }
 
@@ -891,7 +1107,22 @@ async function handleSaveContent(input: unknown): Promise<string> {
         source_author: source_author ?? null,
         tags: tags ?? null,
       });
+      // Compute and persist viral score
+      const scoringPlatforms: string[] = ['tiktok', 'youtube', 'instagram', 'twitter', 'linkedin'];
+      if (scoringPlatforms.includes(platform)) {
+        const breakdown = calculateViralScore(
+          platform as ScoringPlatform,
+          { likes: saved.likes, comments: saved.comments, shares: saved.shares, views: saved.views },
+          saved.discovered_at
+        );
+        memoryManager.discoveredContent.updateViralScore(saved.id, breakdown.score, breakdown.tier);
+        console.log(`[SaveContent] Saved discovered content: ${saved.id} (viral_score=${breakdown.score}, tier=${breakdown.tier})`);
+        socialToolEvents.emit('content:saved', { contentType: 'discovered', id: saved.id, platform });
+        return JSON.stringify({ success: true, id: saved.id, type: 'discovered', viral_score: breakdown.score, viral_tier: breakdown.tier });
+      }
+
       console.log(`[SaveContent] Saved discovered content: ${saved.id}`);
+      socialToolEvents.emit('content:saved', { contentType: 'discovered', id: saved.id, platform });
       return JSON.stringify({ success: true, id: saved.id, type: 'discovered' });
     } else if (type === 'generated') {
       const saved = memoryManager.generatedContent.create({
@@ -909,6 +1140,7 @@ async function handleSaveContent(input: unknown): Promise<string> {
         prompt_used: title ?? null,
       });
       console.log(`[SaveContent] Saved generated content: ${saved.id}`);
+      socialToolEvents.emit('content:saved', { contentType: 'generated', id: saved.id, platform });
       return JSON.stringify({ success: true, id: saved.id, type: 'generated' });
     } else {
       return JSON.stringify({
@@ -1275,11 +1507,379 @@ async function handleUploadReferenceImage(input: unknown): Promise<string> {
   }
 }
 
+// ── Repurpose content tool ──
+
+function getRepurposeContentDefinition() {
+  return {
+    name: 'repurpose_content',
+    description:
+      'Repurpose existing content for different platforms. Takes a source content ID (from discovered_content DB) or a raw URL, and generates platform-specific drafts. ' +
+      'If the source is a video without a transcript, it will be transcribed automatically. ' +
+      'Returns a structured prompt + source summary for the agent to use in its response.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        source_content_id: {
+          type: 'string',
+          description: 'ID from the discovered_content database',
+        },
+        source_url: {
+          type: 'string',
+          description: 'Alternative: raw URL to look up content by source_url',
+        },
+        target_platforms: {
+          type: 'string',
+          description:
+            'Comma-separated target platforms: twitter, instagram, tiktok, linkedin, youtube',
+        },
+        tone: {
+          type: 'string',
+          description: 'Optional tone override (e.g. casual, professional, edgy)',
+        },
+        additional_instructions: {
+          type: 'string',
+          description: 'Optional extra instructions for the repurposing prompt',
+        },
+      },
+      required: ['target_platforms'],
+    },
+  };
+}
+
+function resolveSourceContent(
+  memory: MemoryManager,
+  id?: string,
+  url?: string
+): import('../memory/discovered-content').DiscoveredContent | string {
+  if (id) {
+    const found = memory.discoveredContent.getById(id);
+    if (!found) return JSON.stringify({ error: `Content not found: ${id}` });
+    return found;
+  }
+  if (url) {
+    const recent = memory.discoveredContent.getRecent(200);
+    const found = recent.find((c) => c.source_url === url);
+    if (!found)
+      return JSON.stringify({
+        error: `No content found for URL: ${url}. Use search_content or save_content first.`,
+      });
+    return found;
+  }
+  return JSON.stringify({ error: 'Provide either source_content_id or source_url' });
+}
+
+async function handleRepurposeContent(input: unknown): Promise<string> {
+  if (!memoryManager) {
+    return JSON.stringify({ error: 'Memory not initialized' });
+  }
+
+  const { source_content_id, source_url, target_platforms, tone, additional_instructions } =
+    input as {
+      source_content_id?: string;
+      source_url?: string;
+      target_platforms: string;
+      tone?: string;
+      additional_instructions?: string;
+    };
+
+  if (!target_platforms) {
+    return JSON.stringify({ error: 'Missing required field: target_platforms' });
+  }
+
+  const platforms = target_platforms.split(',').map((p) => p.trim().toLowerCase());
+
+  // Emit started event so the UI can show a placeholder
+  socialToolEvents.emit('repurpose:started', { platforms, source_content_id, source_url });
+
+  // Step 1: Resolve source content
+  const content = resolveSourceContent(memoryManager, source_content_id, source_url);
+  if (typeof content === 'string') {
+    return content; // Error JSON
+  }
+
+  // Step 2: If video content without transcript, attempt transcription
+  let transcript: string | undefined;
+  const metadata = content.metadata ? JSON.parse(content.metadata) : {};
+
+  if (metadata.transcript) {
+    transcript = metadata.transcript;
+  } else if (
+    content.content_type === 'video' &&
+    content.source_url
+  ) {
+    try {
+      socialToolEvents.emit('repurpose:progress', { stage: 'Fetching transcript...' });
+      const result = await transcribeContent(content.source_url);
+      transcript = result.text;
+      // Store transcript in metadata for future use
+      metadata.transcript = transcript;
+      memoryManager.discoveredContent.update(content.id, {
+        metadata: JSON.stringify(metadata),
+      });
+      console.log(`[RepurposeContent] Transcribed video content: ${content.id}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[RepurposeContent] Transcription failed: ${msg}`);
+      // Continue without transcript — not fatal
+    }
+  }
+
+  // Step 3: Build RepurposePromptContext
+  const sourceText = content.body || content.title || '';
+  const hasMedia = !!content.media_urls;
+
+  const ctx: RepurposePromptContext = {
+    platform: content.platform,
+    topic: content.title || sourceText.slice(0, 100),
+    sourceContent: sourceText,
+    sourcePlatform: content.platform,
+    sourceStats:
+      content.likes || content.comments || content.shares || content.views
+        ? {
+            likes: content.likes,
+            comments: content.comments,
+            shares: content.shares,
+            views: content.views,
+          }
+        : undefined,
+    sourceTranscript: transcript,
+    targetPlatforms: platforms,
+    brandTone: tone,
+    additionalInstructions: additional_instructions,
+  };
+
+  // Step 4: Handle image strategy for visual platforms
+  const visualPlatforms = ['instagram', 'tiktok'];
+  const targetsVisual = platforms.some((p) => visualPlatforms.includes(p));
+  const needsVisual = targetsVisual && !hasMedia;
+
+  // Parse source media URLs for reference
+  let sourceMediaUrls: string[] = [];
+  if (content.media_urls) {
+    try {
+      const parsed = JSON.parse(content.media_urls);
+      sourceMediaUrls = Array.isArray(parsed) ? parsed : [content.media_urls];
+    } catch {
+      sourceMediaUrls = content.media_urls.split(',').map((u: string) => u.trim()).filter(Boolean);
+    }
+  }
+
+  if (needsVisual) {
+    ctx.additionalInstructions = [
+      ctx.additionalInstructions || '',
+      'The source content has no media. For visual platforms (Instagram, TikTok), include an IMAGE PROMPT section describing an image that should be generated to accompany the post. The agent can pass this prompt to the generate_image tool.',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+  } else if (targetsVisual && sourceMediaUrls.length > 0) {
+    ctx.additionalInstructions = [
+      ctx.additionalInstructions || '',
+      `The source content has ${sourceMediaUrls.length} media file(s). For visual platforms, the agent should use the source images as reference_images with the generate_image tool (image-to-image) to create adapted visuals — or use the original URLs directly if they suit the target platform.`,
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+  }
+
+  // Step 5: Generate prompt
+  socialToolEvents.emit('repurpose:progress', { stage: 'Generating drafts...' });
+  const prompt = repurposePrompt(ctx);
+
+  console.log(
+    `[RepurposeContent] Generated repurpose prompt for ${platforms.join(', ')} from ${content.platform} content: ${content.id}`
+  );
+
+  // Step 6: Emit event for panel + chat comparison UI
+  socialToolEvents.emit('repurpose:completed', {
+    source_content_id: content.id,
+    platforms,
+    source_platform: content.platform,
+    source_title: content.title,
+    source_body: sourceText.slice(0, 500),
+    source_transcript: transcript?.slice(0, 500),
+    source_stats: ctx.sourceStats,
+    source_media_urls: sourceMediaUrls.length > 0 ? sourceMediaUrls : undefined,
+    has_transcript: !!transcript,
+  });
+
+  // Step 7: Return prompt + source summary
+  return JSON.stringify({
+    success: true,
+    source: {
+      id: content.id,
+      platform: content.platform,
+      content_type: content.content_type,
+      title: content.title,
+      body_preview: sourceText.slice(0, 300),
+      has_media: hasMedia,
+      has_transcript: !!transcript,
+      stats: ctx.sourceStats,
+      media_urls: sourceMediaUrls.length > 0 ? sourceMediaUrls : undefined,
+    },
+    target_platforms: platforms,
+    needs_image_generation: needsVisual,
+    use_source_images_as_reference: targetsVisual && sourceMediaUrls.length > 0,
+    prompt,
+  });
+}
+
 // ── Export all tools ──
 
 /**
  * Get all social media tools
  */
+function getAnalyzeTrendsDefinition() {
+  return {
+    name: 'analyze_trends',
+    description:
+      'Analyze trends from two sources: (1) real platform trending data via Apify (Twitter/TikTok), and (2) pattern detection on saved content library. Results are tagged with source: "platform" or "library".',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        platform: {
+          type: 'string',
+          description:
+            'Optional platform filter: youtube, tiktok, instagram, twitter, reddit. Omit for all platforms.',
+        },
+        min_score: {
+          type: 'number',
+          description: 'Minimum trend score threshold (0-100, default 40). Only applies to library trends.',
+        },
+      },
+      required: [],
+    },
+  };
+}
+
+async function handleAnalyzeTrends(input: unknown): Promise<string> {
+  const { platform, min_score } = (input ?? {}) as {
+    platform?: string;
+    min_score?: number;
+  };
+
+  if (!memoryManager) {
+    return JSON.stringify({ error: 'Memory manager not initialized' });
+  }
+
+  try {
+    const combined: Array<Record<string, unknown>> = [];
+
+    // ── (1) Fetch real platform trends if Apify key is configured ──
+    const apifyKey = SettingsManager.get('apify.apiKey') as string | undefined;
+    if (apifyKey) {
+      const platformTrends = await fetchPlatformTrends(platform);
+      combined.push(...platformTrends);
+    }
+
+    // ── (2) Run library trend detection on saved content ──
+    let items = memoryManager.discoveredContent.getRecent(100);
+    if (platform) {
+      items = items.filter((item) => item.platform === platform);
+    }
+
+    if (items.length >= 2) {
+      let trends = detectTrends(items);
+
+      const threshold = min_score ?? 40;
+      if (threshold > 40) {
+        trends = trends.filter((t) => t.score >= threshold);
+      }
+
+      const libraryTrends = trends.slice(0, 10).map((t) => ({
+        source: 'library' as const,
+        keywords: t.keywords,
+        score: t.score,
+        status: t.status,
+        velocity: t.velocity,
+        volume: t.volume,
+        recency: t.recency,
+        growth: t.growth,
+        item_count: t.items.length,
+        sample_content: t.items.slice(0, 3).map((item) => ({
+          title: item.title,
+          url: item.source_url,
+          platform: item.platform,
+          viral_score: item.viral_score,
+        })),
+      }));
+
+      combined.push(...libraryTrends);
+
+      // Persist library trends to the database
+      for (const trend of libraryTrends) {
+        memoryManager.trends.upsert({
+          keyword: trend.keywords.join(', '),
+          platform: platform ?? null,
+          score: trend.score,
+          status: trend.status === 'breakout' || trend.status === 'rising' || trend.status === 'emerging'
+            ? trend.status
+            : 'emerging',
+          sample_content_ids: trend.sample_content.map((s) => s.url).filter((u): u is string => u != null),
+        });
+      }
+    }
+
+    // Emit event for chat cards
+    socialToolEvents.emit('trending:results', combined);
+
+    return JSON.stringify({ success: true, count: combined.length, trends: combined });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    return JSON.stringify({ error: msg });
+  }
+}
+
+/** Fetch real trending data from platform APIs via Apify. */
+async function fetchPlatformTrends(
+  platform?: string
+): Promise<Array<Record<string, unknown>>> {
+  const results: Array<Record<string, unknown>> = [];
+
+  const shouldFetchTwitter = !platform || platform === 'twitter';
+  const shouldFetchTikTok = !platform || platform === 'tiktok';
+
+  // Twitter trends
+  if (shouldFetchTwitter) {
+    try {
+      const twitterTrends: TwitterTrendResult[] = await getTwitterTrending();
+      for (const t of twitterTrends) {
+        results.push({
+          source: 'platform',
+          platform: 'twitter',
+          keywords: [t.name],
+          score: null,
+          status: 'trending',
+          rank: t.rank,
+          tweet_volume: t.tweetVolume,
+        });
+      }
+    } catch (err) {
+      console.warn('[social-tools] Failed to fetch Twitter trends:', err instanceof Error ? err.message : err);
+    }
+  }
+
+  // TikTok trends
+  if (shouldFetchTikTok) {
+    try {
+      const tiktokTrends = await getTrendingTikTok(undefined, 20);
+      for (const t of tiktokTrends) {
+        results.push({
+          source: 'platform',
+          platform: 'tiktok',
+          keywords: [t.title || t.creatorUsername || 'unknown'],
+          score: null,
+          status: 'trending',
+          url: t.url,
+          engagement: { views: t.views, likes: t.likes, comments: t.comments },
+        });
+      }
+    } catch (err) {
+      console.warn('[social-tools] Failed to fetch TikTok trends:', err instanceof Error ? err.message : err);
+    }
+  }
+
+  return results;
+}
+
 export function getSocialTools() {
   return [
     {
@@ -1345,6 +1945,14 @@ export function getSocialTools() {
     {
       ...getUploadReferenceImageDefinition(),
       handler: handleUploadReferenceImage,
+    },
+    {
+      ...getRepurposeContentDefinition(),
+      handler: handleRepurposeContent,
+    },
+    {
+      ...getAnalyzeTrendsDefinition(),
+      handler: handleAnalyzeTrends,
     },
   ];
 }

@@ -543,6 +543,45 @@ mark.search-highlight.current {
   color: var(--accent);
 }
 
+/* Pipeline Placeholder */
+.pipeline-placeholder {
+  max-width: 360px;
+  border-radius: 10px;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--accent);
+  border-left: 3px solid var(--accent);
+  animation: imageGenPulse 2s ease-in-out infinite;
+}
+
+.pipeline-placeholder-shimmer {
+  width: 100%;
+  height: 60px;
+  background: linear-gradient(
+    110deg,
+    rgba(168, 85, 247, 0.05) 0%,
+    rgba(168, 85, 247, 0.12) 40%,
+    rgba(236, 72, 153, 0.12) 60%,
+    rgba(168, 85, 247, 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmerSlide 1.8s ease-in-out infinite;
+}
+
+.pipeline-placeholder-label {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  background: linear-gradient(90deg, var(--accent), var(--accent-secondary, var(--accent)));
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: shimmerSlide 1.8s ease-in-out infinite;
+}
+
 /* Image Retry Button */
 .image-retry-btn {
   display: inline-block;
@@ -714,4 +753,368 @@ mark.search-highlight.current {
 .empty-state p {
   font-size: 14px;
   text-align: center;
+}
+
+/* ─── Unified Mini Card Block (search, trending, profile) ─────── */
+
+.mini-card-block {
+  align-self: flex-start;
+  background: rgba(28, 28, 30, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  border-bottom-left-radius: 6px;
+  padding: 12px;
+  max-width: 90%;
+  animation: slideUp 0.3s ease;
+}
+
+/* Block header */
+.mini-card-block-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.mini-card-block-label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mini-card-block-count {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  min-width: 18px;
+  text-align: center;
+}
+
+/* Card grid */
+.mini-card-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Individual mini card — compact ~52px */
+.mini-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 6px 10px;
+  min-height: 52px;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mini-card:hover {
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb, 99, 102, 241), 0.15);
+}
+
+.mini-card[data-url] {
+  cursor: pointer;
+}
+
+/* Trending rank badge (Twitter topics) */
+.mini-card-rank {
+  font-size: 14px;
+  font-weight: 700;
+  min-width: 22px;
+  text-align: center;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Card body — fills remaining space */
+.mini-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Title — single line, truncated */
+.mini-card-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Meta row: @creator, time-ago */
+.mini-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.mini-card-creator {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.mini-card-time {
+  opacity: 0.7;
+}
+
+/* Stats row — small pills */
+.mini-card-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.mini-card-stat {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 1px 6px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+/* Viral score badge — colored circle */
+.mini-card-viral {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 700;
+  color: white;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+
+.mini-card-viral.viral-high   { background: #22c55e; }
+.mini-card-viral.viral-good   { background: #3b82f6; }
+.mini-card-viral.viral-avg    { background: #6b7280; }
+.mini-card-viral.viral-low    { background: rgba(107, 114, 128, 0.4); }
+
+/* Footer nav link */
+.mini-card-block-nav {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.mini-card-block-nav a {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+
+.mini-card-block-nav a:hover {
+  opacity: 0.8;
+}
+
+/* ── Repurpose Comparison Block ───────────────────────────────────── */
+
+.repurpose-comparison {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-secondary);
+  max-width: 100%;
+}
+
+.repurpose-comparison-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.repurpose-comparison-icon {
+  font-size: 16px;
+}
+
+.repurpose-comparison-platforms {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.repurpose-platform-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+
+.repurpose-comparison-layout {
+  display: flex;
+  min-height: 200px;
+}
+
+.repurpose-panel {
+  flex: 1;
+  padding: 12px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.repurpose-panel-source {
+  border-right: 1px solid var(--border);
+  background: var(--bg-primary);
+}
+
+.repurpose-panel-drafts {
+  background: var(--bg-secondary);
+}
+
+.repurpose-panel-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.repurpose-source-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.repurpose-source-body {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.repurpose-transcript-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  margin-top: 4px;
+}
+
+.repurpose-transcript-body {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  padding: 8px 10px;
+  max-height: 120px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-left: 3px solid var(--accent);
+}
+
+.repurpose-source-stats {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.repurpose-source-media {
+  border-radius: 6px;
+  overflow: hidden;
+  max-height: 120px;
+}
+
+.repurpose-source-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.repurpose-drafts-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.repurpose-drafts-hint a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.repurpose-draft-slot {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.repurpose-draft-slot-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+}
+
+.repurpose-draft-status {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.repurpose-draft-slot-body {
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  min-height: 24px;
+}
+
+/* Responsive — stack vertically on narrow panels */
+@media (max-width: 600px) {
+  .repurpose-comparison-layout {
+    flex-direction: column;
+  }
+  .repurpose-panel-source {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
 }

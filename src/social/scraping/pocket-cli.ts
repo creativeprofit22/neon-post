@@ -23,6 +23,10 @@ export interface ContentResult {
   comments: number;
   shares: number;
   creatorUsername: string;
+  createdAt?: string;
+  tags?: string[];
+  contentType?: string;
+  mediaUrls?: string[];
 }
 
 export interface YouTubeVideo {

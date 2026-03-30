@@ -22,6 +22,7 @@ export interface SocialPost {
   shares: number;
   views: number;
   metadata: string | null;
+  source_content_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -34,6 +35,7 @@ export interface CreateSocialPostInput {
   media_urls?: string | null;
   scheduled_at?: string | null;
   metadata?: string | null;
+  source_content_id?: string | null;
 }
 
 export interface UpdateSocialPostInput {
@@ -99,8 +101,8 @@ export class SocialPostsStore {
     this.db
       .prepare(
         `INSERT INTO social_posts
-           (id, social_account_id, platform, status, content, media_urls, scheduled_at, metadata)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+           (id, social_account_id, platform, status, content, media_urls, scheduled_at, metadata, source_content_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         id,
@@ -110,7 +112,8 @@ export class SocialPostsStore {
         input.content,
         input.media_urls ?? null,
         input.scheduled_at ?? null,
-        input.metadata ?? null
+        input.metadata ?? null,
+        input.source_content_id ?? null
       );
     return this.getById(id)!;
   }
@@ -253,5 +256,59 @@ export class SocialPostsStore {
     return this.db
       .prepare('SELECT * FROM social_posts WHERE social_account_id = ? ORDER BY created_at DESC')
       .all(socialAccountId) as SocialPost[];
+  }
+
+  getInDateRange(startDate: string, endDate: string): SocialPost[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM social_posts
+         WHERE (
+           (status IN ('scheduled', 'posting') AND scheduled_at >= ? AND scheduled_at < ?)
+           OR (status = 'posted' AND posted_at >= ? AND posted_at < ?)
+           OR (status IN ('draft', 'failed') AND created_at >= ? AND created_at < ?)
+         )
+         ORDER BY COALESCE(scheduled_at, posted_at, created_at) ASC`
+      )
+      .all(startDate, endDate, startDate, endDate, startDate, endDate) as SocialPost[];
+  }
+
+  getPostCountByDay(
+    startDate: string,
+    endDate: string
+  ): { date: string; count: number; platforms: string[] }[] {
+    const rows = this.db
+      .prepare(
+        `SELECT
+           DATE(COALESCE(
+             CASE WHEN status IN ('scheduled', 'posting') THEN scheduled_at END,
+             CASE WHEN status = 'posted' THEN posted_at END,
+             created_at
+           )) AS date,
+           COUNT(*) AS count,
+           GROUP_CONCAT(DISTINCT platform) AS platforms
+         FROM social_posts
+         WHERE (
+           (status IN ('scheduled', 'posting') AND scheduled_at >= ? AND scheduled_at < ?)
+           OR (status = 'posted' AND posted_at >= ? AND posted_at < ?)
+           OR (status IN ('draft', 'failed') AND created_at >= ? AND created_at < ?)
+         )
+         GROUP BY date
+         ORDER BY date ASC`
+      )
+      .all(startDate, endDate, startDate, endDate, startDate, endDate) as Array<{
+      date: string;
+      count: number;
+      platforms: string;
+    }>;
+
+    return rows.map((row) => ({
+      date: row.date,
+      count: row.count,
+      platforms: row.platforms ? row.platforms.split(',') : [],
+    }));
+  }
+
+  updateSchedule(id: string, scheduledAt: string): SocialPost | null {
+    return this.update(id, { scheduled_at: scheduledAt, status: 'scheduled' });
   }
 }

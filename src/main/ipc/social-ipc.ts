@@ -10,6 +10,9 @@ import type { ImageJobTracker } from '../../image';
 import type { ScrapingPlatform } from '../../social/scraping/index';
 import type { GeneratedContentType } from '../../memory/generated-content';
 import type { SocialPostStatus } from '../../memory/social-posts';
+import { detectTrends } from '../../social/scoring/trend-detect';
+import { repurposePrompt } from '../../social/content/prompts';
+import type { TrendStatusValue } from '../../memory/trends';
 import type { IPCDependencies } from './types';
 import { getCurrentSessionId } from '../../tools/session-context';
 
@@ -198,6 +201,30 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
     }
   });
 
+  // ============ AssemblyAI Validation ============
+
+  ipcMain.handle('social:validateAssemblyKey', async (_, apiKey: string) => {
+    try {
+      const trimmed = (apiKey || '').trim() || SettingsManager.get('assembly.apiKey') || '';
+      if (!trimmed) return { valid: false, error: 'API key is empty' };
+
+      // Validate via REST API — lightweight auth check (no external deps needed)
+      const res = await fetch('https://api.assemblyai.com/v2/transcript?limit=1', {
+        headers: { authorization: trimmed },
+      });
+      if (res.ok) return { valid: true };
+
+      const body = await res.json().catch(() => null);
+      const errMsg =
+        (body as Record<string, unknown>)?.error ?? `HTTP ${res.status}`;
+      return { valid: false, error: String(errMsg) };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[SocialIPC] validateAssemblyKey error:', err);
+      return { valid: false, error: message };
+    }
+  });
+
   // ============ Brand Voice ============
 
   ipcMain.handle('social:saveBrand', async (_, brandData: unknown) => {
@@ -280,12 +307,13 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
     }
   );
 
-  ipcMain.handle('social:deleteDiscovered', async (_, id: string) => {
+  ipcMain.handle('social:deleteDiscovered', async (event, id: string) => {
     try {
       const memory = getMemory();
       if (!memory) return { success: false, error: 'Memory not initialized' };
       const deleted = memory.discoveredContent.delete(id);
       if (!deleted) return { success: false, error: 'Record not found' };
+      event.sender.send('social:contentChanged', { action: 'deleted', id });
       return { success: true };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -313,7 +341,7 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
   ipcMain.handle(
     'social:createPost',
     async (
-      _,
+      event,
       input: {
         platform: string;
         content: string;
@@ -322,12 +350,14 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
         media_urls?: string | null;
         scheduled_at?: string | null;
         metadata?: string | null;
+        source_content_id?: string | null;
       }
     ) => {
       try {
         const memory = getMemory();
         if (!memory) return { success: false, error: 'Memory not initialized' };
         const post = memory.socialPosts.create(input);
+        event.sender.send('social:postChanged', { action: 'created', postId: post.id, platform: input.platform });
         return { success: true, id: post.id };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -336,6 +366,69 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
       }
     }
   );
+
+  // ============ Calendar Queries ============
+
+  ipcMain.handle(
+    'social:getCalendarPosts',
+    async (_, startDate: string, endDate: string) => {
+      try {
+        const memory = getMemory();
+        if (!memory) return [];
+        return memory.socialPosts.getInDateRange(startDate, endDate);
+      } catch (err) {
+        console.error('[SocialIPC] getCalendarPosts error:', err);
+        return [];
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'social:getCalendarSummary',
+    async (_, startDate: string, endDate: string) => {
+      try {
+        const memory = getMemory();
+        if (!memory) return [];
+        return memory.socialPosts.getPostCountByDay(startDate, endDate);
+      } catch (err) {
+        console.error('[SocialIPC] getCalendarSummary error:', err);
+        return [];
+      }
+    }
+  );
+
+  ipcMain.handle(
+    'social:reschedulePost',
+    async (event, id: string, scheduledAt: string) => {
+      try {
+        const memory = getMemory();
+        if (!memory) return { success: false, error: 'Memory not initialized' };
+        const post = memory.socialPosts.updateSchedule(id, scheduledAt);
+        if (!post) return { success: false, error: 'Post not found' };
+        event.sender.send('social:postChanged', { action: 'rescheduled', postId: id, scheduledAt });
+        return { success: true, data: post };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[SocialIPC] reschedulePost error:', err);
+        return { success: false, error: message };
+      }
+    }
+  );
+
+  ipcMain.handle('social:deletePost', async (event, id: string) => {
+    try {
+      const memory = getMemory();
+      if (!memory) return { success: false, error: 'Memory not initialized' };
+      const deleted = memory.socialPosts.delete(id);
+      if (!deleted) return { success: false, error: 'Post not found' };
+      event.sender.send('social:postChanged', { action: 'deleted', postId: id });
+      return { success: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[SocialIPC] deletePost error:', err);
+      return { success: false, error: message };
+    }
+  });
 
   // ============ Generated Content ============
 
@@ -405,13 +498,53 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
         content_type: GeneratedContentType;
         platform?: string | null;
         prompt_used?: string | null;
+        source_content_id?: string | null;
+        target_platforms?: string[] | null;
       }
     ) => {
       try {
         const memory = getMemory();
         if (!memory) return { success: false, error: 'Memory not initialized' };
 
-        const prompt = input.prompt_used;
+        let prompt = input.prompt_used;
+
+        // Build prompt from discovered content for repurpose
+        if (input.content_type === 'repurpose' && input.source_content_id) {
+          const source = memory.discoveredContent.getById(input.source_content_id);
+          if (!source) return { success: false, error: 'Source content not found' };
+
+          const targets = input.target_platforms?.length
+            ? input.target_platforms
+            : input.platform
+              ? [input.platform]
+              : ['x'];
+
+          let transcript: string | undefined;
+          if (source.metadata) {
+            try {
+              const meta = JSON.parse(source.metadata);
+              if (meta.transcript) transcript = meta.transcript;
+            } catch {
+              // ignore parse errors
+            }
+          }
+
+          prompt = repurposePrompt({
+            sourceContent: source.body || source.title || '',
+            sourcePlatform: source.platform,
+            sourceStats: {
+              likes: source.likes,
+              comments: source.comments,
+              shares: source.shares,
+              views: source.views,
+            },
+            sourceTranscript: transcript,
+            targetPlatforms: targets,
+            platform: targets[0],
+            topic: source.title || source.body?.substring(0, 100) || 'content',
+          });
+        }
+
         if (!prompt) return { success: false, error: 'No prompt provided' };
 
         const apiKey = SettingsManager.get('anthropic.apiKey');
@@ -422,7 +555,7 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
         const client = new Anthropic({ apiKey });
         const response = await client.messages.create({
           model,
-          max_tokens: 1024,
+          max_tokens: 2048,
           messages: [{ role: 'user', content: prompt }],
         });
 
@@ -433,7 +566,7 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
 
         const generated = memory.generatedContent.create({
           content_type: input.content_type,
-          platform: input.platform ?? null,
+          platform: input.platform ?? input.target_platforms?.[0] ?? null,
           prompt_used: prompt,
           output,
         });
@@ -553,6 +686,67 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error('[SocialIPC] getImageStatus error:', err);
+      return { success: false, error: message };
+    }
+  });
+
+  // ============ Trend Detection ============
+
+  ipcMain.handle('social:detectTrends', async (_, limit?: number) => {
+    try {
+      const memory = getMemory();
+      if (!memory) return { success: false, error: 'Memory not initialized' };
+
+      // Get recent discovered content to analyze
+      const items = memory.discoveredContent.getRecent(limit ?? 200);
+      if (items.length < 2) return { success: true, trends: [] };
+
+      // Run the trend detection engine
+      const clusters = detectTrends(items);
+
+      // Upsert each detected trend into the database
+      const upserted = clusters.map((cluster) => {
+        const sampleIds = cluster.items.slice(0, 10).map((i) => i.id);
+        return memory.trends.upsert({
+          keyword: cluster.keywords.join(', '),
+          score: cluster.score,
+          status: cluster.status,
+          sample_content_ids: sampleIds,
+        });
+      });
+
+      return { success: true, trends: upserted };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[SocialIPC] detectTrends error:', err);
+      return { success: false, error: message };
+    }
+  });
+
+  ipcMain.handle('social:getTrends', async (_, status?: string) => {
+    try {
+      const memory = getMemory();
+      if (!memory) return [];
+      if (status) {
+        return memory.trends.getByStatus(status as TrendStatusValue);
+      }
+      return memory.trends.getActive();
+    } catch (err) {
+      console.error('[SocialIPC] getTrends error:', err);
+      return [];
+    }
+  });
+
+  ipcMain.handle('social:dismissTrend', async (_, id: string) => {
+    try {
+      const memory = getMemory();
+      if (!memory) return { success: false, error: 'Memory not initialized' };
+      const dismissed = memory.trends.dismiss(id);
+      if (!dismissed) return { success: false, error: 'Trend not found' };
+      return { success: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[SocialIPC] dismissTrend error:', err);
       return { success: false, error: message };
     }
   });

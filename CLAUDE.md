@@ -1,57 +1,53 @@
 # Neon Post
 
-A persistent desktop AI assistant (Electron + Claude Agent SDK) that runs 24/7 as a system tray app with continuous memory, Telegram integration, browser automation, social media management, and scheduled tasks.
+Desktop AI agent (Electron + Claude Agent SDK) — system tray app with persistent memory, Telegram integration, browser automation, social media management, and scheduled tasks.
+
+## Tech Stack
+
+Electron 40, TypeScript, Node.js, Claude Agent SDK, OpenAI (fallback), better-sqlite3, Puppeteer Core (CDP), Grammy (Telegram), Vitest, ESLint + Prettier
 
 ## Project Structure
 
 ```
 src/
-├── main/           # Electron main process (app lifecycle, tray, windows)
-│   └── ipc/        # IPC channel definitions
-├── agent/          # Claude Agent SDK wrapper and orchestration
-├── memory/         # SQLite persistence (messages, facts, embeddings, social)
-├── channels/       # Communication channels (Telegram, iOS relay)
-├── scheduler/      # Cron jobs, social scheduling, notifications
-├── browser/        # 2-tier browser automation (Electron + CDP)
-├── tools/          # Agent tool implementations
-├── config/         # Configuration and system prompts
-├── settings/       # User preferences and schema
-├── auth/           # OAuth flows
-├── image/          # Image generation (Kie.ai) with job tracking
-├── social/         # Content, posting (6 platforms), scraping, engagement, video
-├── mcp/            # Model Context Protocol servers
-└── utils/          # General helpers
-
+├── main/             # Electron main process, tray, windows
+│   └── ipc/          # IPC handlers (agent, cron, social, sessions, settings)
+├── agent/            # Claude Agent SDK wrapper, chat engine, providers
+├── memory/           # SQLite persistence (messages, facts, embeddings, social, trends)
+├── channels/         # Communication channels (Telegram, iOS relay)
+├── scheduler/        # Cron jobs, social scheduling, notifications
+├── browser/          # Browser automation (Electron + CDP)
+├── tools/            # Agent tool implementations
+├── config/           # Configuration and system prompts
+├── settings/         # User preferences, schema, themes
+├── auth/             # OAuth flows
+├── permissions/      # Permission system
+├── image/            # Image generation (Kie.ai) with job tracking
+├── social/           # Social media management
+│   ├── content/      # Content generation and system prompts
+│   ├── engagement/   # Engagement monitoring and replies
+│   ├── posting/      # Multi-platform posting (X, Instagram, TikTok, LinkedIn, YouTube)
+│   ├── scoring/      # Viral scoring and trend detection
+│   ├── scraping/     # Web scraping (Apify, RapidAPI)
+│   ├── transcription/# Audio/video transcription
+│   └── video/        # Video processing
+├── mcp/              # Model Context Protocol servers
+└── utils/            # General helpers
 ui/
-├── chat/           # Main chat interface (JS modules, CSS, panels)
-├── shared/         # Theme loader, base styles, CSS variables
-└── *.html          # Feature pages (settings, setup, cron, facts, soul, etc.)
-
-tests/              # Vitest unit tests
-assets/             # Tray icons and static assets
-scripts/            # Build and utility scripts
+├── chat/             # Chat interface (JS modules, CSS)
+├── shared/           # Theme loader, base styles, CSS variables
+└── *.html            # Feature pages (chat, settings, setup, cron, facts, soul, etc.)
+tests/                # Vitest unit tests
+scripts/              # Build and utility scripts
 ```
 
 ## Organization Rules
 
-**Keep code organized by responsibility:**
-- Electron main process -> `src/main/`
-- Agent logic -> `src/agent/`
-- Persistence -> `src/memory/`
-- External channels -> `src/channels/`
-- Tool implementations -> `src/tools/`
-- Configuration -> `src/config/` and `src/settings/`
-- Browser automation -> `src/browser/`
-- Image generation -> `src/image/`
-- Social media -> `src/social/`
+- Single responsibility per file, clear names, no monoliths
+- New domain logic goes in its own `src/` subdirectory
+- UI pages go in `ui/`, with JS/CSS modules in `ui/chat/`
 
-**Modularity principles:**
-- Single responsibility per file
-- Clear, descriptive file names
-- Group related functionality together
-- Avoid monolithic files
-
-## Code Quality - Zero Tolerance
+## Code Quality — Zero Tolerance
 
 After editing ANY file, run:
 
@@ -61,9 +57,4 @@ npm run typecheck && npm run lint
 
 Fix ALL errors/warnings before continuing.
 
-**Available scripts:**
-- `npm run lint` - ESLint check
-- `npm run lint:fix` - Auto-fix lint issues
-- `npm run typecheck` - TypeScript type checking
-- `npm run format` - Prettier auto-format
-- `npm run test` - Run all tests
+**Scripts:** `lint` | `lint:fix` | `typecheck` | `format` | `test` | `build`

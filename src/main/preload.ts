@@ -274,11 +274,22 @@ contextBridge.exposeInMainWorld('pocketAgent', {
     validateApifyKey: (key: string) => ipcRenderer.invoke('social:validateApifyKey', key),
     validateRapidAPIKey: (key: string) => ipcRenderer.invoke('social:validateRapidAPIKey', key),
     validateKieKey: (key: string) => ipcRenderer.invoke('social:validateKieKey', key),
+    validateAssemblyKey: (key: string) => ipcRenderer.invoke('social:validateAssemblyKey', key),
     downloadImage: (id: string) => ipcRenderer.invoke('social:downloadImage', id),
     generateImage: (data: Record<string, unknown>) =>
       ipcRenderer.invoke('social:generateImage', data),
+    getCalendarPosts: (startDate: string, endDate: string) =>
+      ipcRenderer.invoke('social:getCalendarPosts', startDate, endDate),
+    getCalendarSummary: (startDate: string, endDate: string) =>
+      ipcRenderer.invoke('social:getCalendarSummary', startDate, endDate),
+    reschedulePost: (id: string, scheduledAt: string) =>
+      ipcRenderer.invoke('social:reschedulePost', id, scheduledAt),
+    deletePost: (id: string) => ipcRenderer.invoke('social:deletePost', id),
     getImageStatus: (predictionId: string) =>
       ipcRenderer.invoke('social:getImageStatus', predictionId),
+    detectTrends: (limit?: number) => ipcRenderer.invoke('social:detectTrends', limit),
+    getTrends: (status?: string) => ipcRenderer.invoke('social:getTrends', status),
+    dismissTrend: (id: string) => ipcRenderer.invoke('social:dismissTrend', id),
     onImageGenerating: (
       callback: (data: { predictionId: string; prompt: string; model: string }) => void
     ) => {
@@ -305,6 +316,97 @@ contextBridge.exposeInMainWorld('pocketAgent', {
     ) => {
       ipcRenderer.on('image:failed', (_, data) => {
         console.log('[Preload] image:failed received', data.predictionId);
+        callback(data);
+      });
+    },
+    onSearchStarted: (
+      callback: (data: { platform: string; query: string }) => void
+    ) => {
+      ipcRenderer.on('social:searchStarted', (_, data) => {
+        console.log('[Preload] search started:', data.query, 'on', data.platform);
+        callback(data);
+      });
+    },
+    onProfileStarted: (
+      callback: (data: { platform: string; username: string }) => void
+    ) => {
+      ipcRenderer.on('social:profileStarted', (_, data) => {
+        console.log('[Preload] profile started:', data.username, 'on', data.platform);
+        callback(data);
+      });
+    },
+    onRepurposeStarted: (
+      callback: (data: { platforms: string[]; source_content_id?: string; source_url?: string }) => void
+    ) => {
+      ipcRenderer.on('social:repurposeStarted', (_, data) => {
+        console.log('[Preload] repurpose started:', data.platforms?.join(', '));
+        callback(data);
+      });
+    },
+    onRepurposeProgress: (
+      callback: (data: { stage: string }) => void
+    ) => {
+      ipcRenderer.on('social:repurposeProgress', (_, data) => {
+        console.log('[Preload] repurpose progress:', data.stage);
+        callback(data);
+      });
+    },
+    onSearchResultsPushed: (
+      callback: (data: {
+        query: string;
+        platform: string;
+        results: Record<string, unknown>[];
+      }) => void
+    ) => {
+      ipcRenderer.on('social:searchResultsPushed', (_, data) => {
+        console.log('[Preload] search results pushed:', data.results?.length ?? 0, 'items');
+        callback(data);
+      });
+    },
+    onSearchLimitReached: (
+      callback: (data: { used: number; limit: number; sessionId: string }) => void
+    ) => {
+      ipcRenderer.on('social:searchLimitReached', (_, data) => {
+        callback(data);
+      });
+    },
+    onPostChanged: (
+      callback: (data: { platform: string; postId: string; scheduled_at?: string; content?: string }) => void
+    ) => {
+      ipcRenderer.on('social:postChanged', (_, data) => {
+        console.log('[Preload] social:postChanged received', data.postId);
+        callback(data);
+      });
+    },
+    onContentSaved: (
+      callback: (data: { contentType: string; id: string; platform: string }) => void
+    ) => {
+      ipcRenderer.on('social:contentSaved', (_, data) => {
+        console.log('[Preload] social:contentSaved received', data.id);
+        callback(data);
+      });
+    },
+    onTrendingResults: (
+      callback: (data: { platform: string; results: Record<string, unknown>[] }) => void
+    ) => {
+      ipcRenderer.on('social:trendingResults', (_, data) => {
+        console.log('[Preload] social:trendingResults received', data.results?.length ?? 0, 'items');
+        callback(data);
+      });
+    },
+    onProfileResults: (
+      callback: (data: { platform: string; username: string; results: Record<string, unknown>[] }) => void
+    ) => {
+      ipcRenderer.on('social:profileResults', (_, data) => {
+        console.log('[Preload] social:profileResults received', data.results?.length ?? 0, 'posts');
+        callback(data);
+      });
+    },
+    onRepurposeCompleted: (
+      callback: (data: { drafts: Record<string, unknown>[]; sourceId: string }) => void
+    ) => {
+      ipcRenderer.on('social:repurposeCompleted', (_, data) => {
+        console.log('[Preload] social:repurposeCompleted received', data.drafts?.length ?? 0, 'drafts');
         callback(data);
       });
     },
@@ -811,6 +913,19 @@ declare global {
           predictionId?: string;
           error?: string;
         }>;
+        getCalendarPosts: (
+          startDate: string,
+          endDate: string
+        ) => Promise<Array<Record<string, unknown>>>;
+        getCalendarSummary: (
+          startDate: string,
+          endDate: string
+        ) => Promise<Array<{ date: string; count: number; platforms: string[] }>>;
+        reschedulePost: (
+          id: string,
+          scheduledAt: string
+        ) => Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }>;
+        deletePost: (id: string) => Promise<{ success: boolean; error?: string }>;
         getImageStatus: (predictionId: string) => Promise<{
           success: boolean;
           predictionId?: string;
@@ -831,6 +946,43 @@ declare global {
         ) => void;
         onImageFailed: (
           callback: (data: { predictionId: string; error: string; prompt: string }) => void
+        ) => void;
+        onSearchStarted: (
+          callback: (data: { platform: string; query: string }) => void
+        ) => void;
+        onProfileStarted: (
+          callback: (data: { platform: string; username: string }) => void
+        ) => void;
+        onRepurposeStarted: (
+          callback: (data: { platforms: string[]; source_content_id?: string; source_url?: string }) => void
+        ) => void;
+        onRepurposeProgress: (
+          callback: (data: { stage: string }) => void
+        ) => void;
+        onSearchResultsPushed: (
+          callback: (data: {
+            query: string;
+            platform: string;
+            results: Record<string, unknown>[];
+          }) => void
+        ) => void;
+        onSearchLimitReached: (
+          callback: (data: { used: number; limit: number; sessionId: string }) => void
+        ) => void;
+        onPostChanged: (
+          callback: (data: { platform: string; postId: string; scheduled_at?: string; content?: string }) => void
+        ) => void;
+        onContentSaved: (
+          callback: (data: { contentType: string; id: string; platform: string }) => void
+        ) => void;
+        onTrendingResults: (
+          callback: (data: { platform: string; results: Record<string, unknown>[] }) => void
+        ) => void;
+        onProfileResults: (
+          callback: (data: { platform: string; username: string; results: Record<string, unknown>[] }) => void
+        ) => void;
+        onRepurposeCompleted: (
+          callback: (data: { drafts: Record<string, unknown>[]; sourceId: string }) => void
         ) => void;
       };
     };

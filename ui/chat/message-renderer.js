@@ -47,6 +47,14 @@ function addMessage(role, content, animate = true, attachments = [], timestamp =
       if (link) {
         e.preventDefault();
         const href = link.getAttribute('href');
+        // Handle internal neon:// navigation links (e.g. neon://social/discover)
+        if (href && href.startsWith('neon://')) {
+          const parts = href.replace('neon://', '').split('/');
+          if (parts[0] === 'social' && typeof navigateToSocialTab === 'function') {
+            navigateToSocialTab(parts[1] || 'discover', parts[2] || null);
+          }
+          return;
+        }
         if (href && (href.startsWith('http://') || href.startsWith('https://'))) {
           window.pocketAgent.app.openExternal(href);
         }
@@ -238,6 +246,8 @@ function formatContent(text) {
     // Sanitize to prevent XSS from untrusted message sources (Telegram, iOS, agent responses)
     html = DOMPurify.sanitize(html, {
       ADD_ATTR: ['data-path', 'target'],
+      ADD_URI_SAFE_ATTR: ['href'],
+      ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|neon):)/i,
     });
     return html;
   }
@@ -806,6 +816,65 @@ function replaceImagePlaceholderWithError(predictionId, data) {
   scrollToBottom();
 }
 
+// Pipeline placeholder tracking
+// eslint-disable-next-line no-unused-vars
+const pipelinePlaceholders = new Map();
+
+const pipelinePlatformColors = {
+  x: 'rgba(29, 155, 240, 0.5)',
+  twitter: 'rgba(29, 155, 240, 0.5)',
+  instagram: 'rgba(225, 48, 108, 0.5)',
+  tiktok: 'rgba(0, 242, 234, 0.5)',
+  linkedin: 'rgba(10, 102, 194, 0.5)',
+  youtube: 'rgba(255, 0, 0, 0.5)',
+};
+
+// eslint-disable-next-line no-unused-vars
+function addPipelinePlaceholder(id, type, label, platform) {
+  const div = document.createElement('div');
+  div.className = 'message assistant pipeline-placeholder pipeline-' + (type || 'scraping');
+  div.dataset.sessionId = currentSessionId;
+  div.dataset.pipelineId = id;
+
+  if (platform && pipelinePlatformColors[platform.toLowerCase()]) {
+    div.style.borderLeftColor = pipelinePlatformColors[platform.toLowerCase()];
+  }
+
+  const shimmer = document.createElement('div');
+  shimmer.className = 'pipeline-placeholder-shimmer';
+  div.appendChild(shimmer);
+
+  const labelEl = document.createElement('div');
+  labelEl.className = 'pipeline-placeholder-label';
+  labelEl.textContent = label || 'Processing...';
+  div.appendChild(labelEl);
+
+  const statusIndicator = messagesDiv.querySelector('.status-indicator');
+  if (statusIndicator) {
+    messagesDiv.insertBefore(div, statusIndicator);
+  } else {
+    messagesDiv.appendChild(div);
+  }
+  pipelinePlaceholders.set(id, div);
+  scrollToBottom();
+}
+
+// eslint-disable-next-line no-unused-vars
+function updatePipelinePlaceholder(id, label) {
+  const placeholder = pipelinePlaceholders.get(id);
+  if (!placeholder) return;
+  const labelEl = placeholder.querySelector('.pipeline-placeholder-label');
+  if (labelEl) labelEl.textContent = label;
+}
+
+// eslint-disable-next-line no-unused-vars
+function removePipelinePlaceholder(id) {
+  const placeholder = pipelinePlaceholders.get(id);
+  if (!placeholder) return;
+  pipelinePlaceholders.delete(id);
+  placeholder.remove();
+}
+
 // Build hover action bar for generated image bubbles
 function buildImageActionBar(imageUrl) {
   const bar = document.createElement('div');
@@ -860,4 +929,128 @@ let searchDebounceTimer = null;
 
 // Workflow state
 let activeWorkflow = null;
+
+// ── Repurpose Comparison Block ──────────────────────────────────────
+
+function renderRepurposeComparison(data) {
+  var container = document.createElement('div');
+  container.className = 'message assistant repurpose-comparison';
+
+  var platformColors = { twitter: '#1da1f2', x: '#1da1f2', tiktok: '#fe2c55', instagram: '#e1306c', linkedin: '#0a66c2', youtube: '#ff0000', facebook: '#1877f2' };
+
+  // ── Header
+  var header = document.createElement('div');
+  header.className = 'repurpose-comparison-header';
+  header.innerHTML = '<span class="repurpose-comparison-icon">&#x1F504;</span> Repurpose Comparison' +
+    '<span class="repurpose-comparison-platforms">' +
+    (data.platforms || []).map(function(p) {
+      return '<span class="repurpose-platform-pill" style="background:' + (platformColors[p] || 'var(--accent)') + '">' + p.toUpperCase() + '</span>';
+    }).join('') + '</span>';
+  container.appendChild(header);
+
+  // ── Side-by-side layout
+  var layout = document.createElement('div');
+  layout.className = 'repurpose-comparison-layout';
+
+  // LEFT: Original source
+  var leftPanel = document.createElement('div');
+  leftPanel.className = 'repurpose-panel repurpose-panel-source';
+
+  var leftTitle = document.createElement('div');
+  leftTitle.className = 'repurpose-panel-title';
+  leftTitle.innerHTML = 'Original' + (data.source_platform ? ' <span class="repurpose-platform-pill" style="background:' + (platformColors[data.source_platform] || '#666') + '">' + data.source_platform.toUpperCase() + '</span>' : '');
+  leftPanel.appendChild(leftTitle);
+
+  // Source title
+  if (data.source_title) {
+    var srcTitle = document.createElement('div');
+    srcTitle.className = 'repurpose-source-title';
+    srcTitle.textContent = data.source_title;
+    leftPanel.appendChild(srcTitle);
+  }
+
+  // Source body/caption
+  if (data.source_body) {
+    var srcBody = document.createElement('div');
+    srcBody.className = 'repurpose-source-body';
+    srcBody.textContent = data.source_body;
+    leftPanel.appendChild(srcBody);
+  }
+
+  // Transcript section
+  if (data.has_transcript && data.source_transcript) {
+    var transcriptLabel = document.createElement('div');
+    transcriptLabel.className = 'repurpose-transcript-label';
+    transcriptLabel.textContent = 'Transcript';
+    leftPanel.appendChild(transcriptLabel);
+
+    var transcriptBody = document.createElement('div');
+    transcriptBody.className = 'repurpose-transcript-body';
+    transcriptBody.textContent = data.source_transcript;
+    leftPanel.appendChild(transcriptBody);
+  }
+
+  // Stats
+  if (data.source_stats) {
+    var statsEl = document.createElement('div');
+    statsEl.className = 'repurpose-source-stats';
+    var s = data.source_stats;
+    var parts = [];
+    if (s.views) parts.push(formatCompactNumber(s.views) + ' views');
+    if (s.likes) parts.push(formatCompactNumber(s.likes) + ' likes');
+    if (s.comments) parts.push(formatCompactNumber(s.comments) + ' comments');
+    if (s.shares) parts.push(formatCompactNumber(s.shares) + ' shares');
+    statsEl.textContent = parts.join('  ·  ');
+    leftPanel.appendChild(statsEl);
+  }
+
+  // Source media thumbnail
+  if (data.source_media_urls && data.source_media_urls.length) {
+    var thumb = document.createElement('div');
+    thumb.className = 'repurpose-source-media';
+    thumb.innerHTML = '<img src="' + escapeHtml(data.source_media_urls[0]) + '" alt="source media">';
+    leftPanel.appendChild(thumb);
+  }
+
+  layout.appendChild(leftPanel);
+
+  // RIGHT: Per-platform drafts (placeholder — agent fills these in via message content)
+  var rightPanel = document.createElement('div');
+  rightPanel.className = 'repurpose-panel repurpose-panel-drafts';
+
+  var rightTitle = document.createElement('div');
+  rightTitle.className = 'repurpose-panel-title';
+  rightTitle.textContent = 'Repurposed Drafts';
+  rightPanel.appendChild(rightTitle);
+
+  var draftHint = document.createElement('div');
+  draftHint.className = 'repurpose-drafts-hint';
+  draftHint.innerHTML = 'The agent will present per-platform drafts below for your review. ' +
+    'Approve to send them to the <a href="#" onclick="if(typeof navigateToSocialTab===\'function\')navigateToSocialTab(\'create\');return false;">Social Panel</a>.';
+  rightPanel.appendChild(draftHint);
+
+  // Per-platform slots that the agent's text response will fill
+  (data.platforms || []).forEach(function(p) {
+    var slot = document.createElement('div');
+    slot.className = 'repurpose-draft-slot';
+    slot.setAttribute('data-platform', p);
+    slot.innerHTML =
+      '<div class="repurpose-draft-slot-header">' +
+        '<span class="repurpose-platform-pill" style="background:' + (platformColors[p] || '#666') + '">' + p.toUpperCase() + '</span>' +
+        '<span class="repurpose-draft-status">Awaiting draft...</span>' +
+      '</div>' +
+      '<div class="repurpose-draft-slot-body"></div>';
+    rightPanel.appendChild(slot);
+  });
+
+  layout.appendChild(rightPanel);
+  container.appendChild(layout);
+
+  // Insert into messages container
+  var messagesEl = document.getElementById('messages');
+  if (messagesEl) {
+    messagesEl.appendChild(container);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+}
 

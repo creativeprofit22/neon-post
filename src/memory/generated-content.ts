@@ -11,7 +11,8 @@ export type GeneratedContentType =
   | 'image_prompt'
   | 'image'
   | 'carousel'
-  | 'story';
+  | 'story'
+  | 'repurpose';
 
 export interface GeneratedContent {
   id: string;
@@ -62,7 +63,7 @@ export const GENERATED_CONTENT_SCHEMA = `
     social_post_id TEXT REFERENCES social_posts(id) ON DELETE SET NULL,
     brand_config_id TEXT REFERENCES brand_config(id) ON DELETE SET NULL,
     content_type TEXT NOT NULL
-      CHECK(content_type IN ('caption', 'hook', 'thread', 'script', 'image_prompt', 'image', 'carousel', 'story')),
+      CHECK(content_type IN ('caption', 'hook', 'thread', 'script', 'image_prompt', 'image', 'carousel', 'story', 'repurpose')),
     platform TEXT,
     prompt_used TEXT,
     output TEXT NOT NULL,

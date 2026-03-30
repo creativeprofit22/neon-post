@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import Database from 'better-sqlite3';
+import type { ViralTier } from '../social/scoring/viral-score';
 
 // ============ Types ============
 
@@ -17,6 +18,11 @@ export interface DiscoveredContent {
   comments: number;
   shares: number;
   views: number;
+  viral_score: number | null;
+  viral_tier: string | null;
+  external_id: string | null;
+  query_hash: string | null;
+  cache_expires_at: string | null;
   discovered_at: string;
   tags: string | null;
   metadata: string | null;
@@ -37,6 +43,9 @@ export interface CreateDiscoveredContentInput {
   comments?: number;
   shares?: number;
   views?: number;
+  external_id?: string | null;
+  query_hash?: string | null;
+  cache_expires_at?: string | null;
   tags?: string | null;
   metadata?: string | null;
 }
@@ -95,7 +104,34 @@ export const DISCOVERED_CONTENT_SCHEMA = `
 // ============ CRUD Class ============
 
 export class DiscoveredContentStore {
-  constructor(private db: Database.Database) {}
+  constructor(private db: Database.Database) {
+    this.migrate();
+  }
+
+  private migrate(): void {
+    const migrations = [
+      'ALTER TABLE discovered_content ADD COLUMN viral_score REAL DEFAULT NULL',
+      'ALTER TABLE discovered_content ADD COLUMN viral_tier TEXT DEFAULT NULL',
+      'ALTER TABLE discovered_content ADD COLUMN external_id TEXT DEFAULT NULL',
+      'ALTER TABLE discovered_content ADD COLUMN query_hash TEXT DEFAULT NULL',
+      'ALTER TABLE discovered_content ADD COLUMN cache_expires_at TEXT DEFAULT NULL',
+    ];
+    for (const sql of migrations) {
+      try {
+        this.db.exec(sql);
+      } catch {
+        // Column already exists — ignore
+      }
+    }
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_discovered_content_viral_score
+        ON discovered_content(viral_score);
+      CREATE INDEX IF NOT EXISTS idx_discovered_content_external_id
+        ON discovered_content(platform, external_id);
+      CREATE INDEX IF NOT EXISTS idx_discovered_content_query_hash
+        ON discovered_content(query_hash, cache_expires_at);
+    `);
+  }
 
   create(input: CreateDiscoveredContentInput): DiscoveredContent {
     const id = crypto.randomUUID();
@@ -103,8 +139,9 @@ export class DiscoveredContentStore {
       .prepare(
         `INSERT INTO discovered_content
            (id, social_account_id, platform, source_url, source_author, content_type,
-            title, body, media_urls, likes, comments, shares, views, tags, metadata)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            title, body, media_urls, likes, comments, shares, views,
+            external_id, query_hash, cache_expires_at, tags, metadata)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         id,
@@ -120,6 +157,9 @@ export class DiscoveredContentStore {
         input.comments ?? 0,
         input.shares ?? 0,
         input.views ?? 0,
+        input.external_id ?? null,
+        input.query_hash ?? null,
+        input.cache_expires_at ?? null,
         input.tags ?? null,
         input.metadata ?? null
       );
@@ -254,5 +294,59 @@ export class DiscoveredContentStore {
     return this.db
       .prepare('SELECT * FROM discovered_content ORDER BY discovered_at DESC LIMIT ?')
       .all(limit) as DiscoveredContent[];
+  }
+
+  getTopByViralScore(limit: number = 20): DiscoveredContent[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM discovered_content
+         WHERE viral_score IS NOT NULL
+         ORDER BY viral_score DESC
+         LIMIT ?`
+      )
+      .all(limit) as DiscoveredContent[];
+  }
+
+  updateViralScore(id: string, score: number, tier: ViralTier): boolean {
+    const result = this.db
+      .prepare(
+        `UPDATE discovered_content
+         SET viral_score = ?, viral_tier = ?, updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ'))
+         WHERE id = ?`
+      )
+      .run(score, tier, id);
+    return result.changes > 0;
+  }
+
+  // ============ Cache queries ============
+
+  findCached(queryHash: string, limit: number, offset: number = 0): DiscoveredContent[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM discovered_content
+         WHERE query_hash = ? AND cache_expires_at > strftime('%Y-%m-%dT%H:%M:%fZ')
+         ORDER BY discovered_at DESC
+         LIMIT ? OFFSET ?`
+      )
+      .all(queryHash, limit, offset) as DiscoveredContent[];
+  }
+
+  findByExternalId(platform: string, externalId: string): DiscoveredContent | null {
+    const row = this.db
+      .prepare(
+        'SELECT * FROM discovered_content WHERE platform = ? AND external_id = ?'
+      )
+      .get(platform, externalId) as DiscoveredContent | undefined;
+    return row ?? null;
+  }
+
+  countCached(queryHash: string): number {
+    const row = this.db
+      .prepare(
+        `SELECT COUNT(*) as cnt FROM discovered_content
+         WHERE query_hash = ? AND cache_expires_at > strftime('%Y-%m-%dT%H:%M:%fZ')`
+      )
+      .get(queryHash) as { cnt: number };
+    return row.cnt;
   }
 }
