@@ -13,6 +13,7 @@ import { SettingsManager } from '../../../settings';
 import { transcribeAudio, isTranscriptionAvailable } from '../../../utils/transcribe';
 import { MessageCallback } from '../types';
 import { withTyping } from '../utils/typing';
+import { proxyFetch } from '../../../utils/proxy-fetch';
 
 export interface MediaHandlerDeps {
   onMessageCallback: MessageCallback | null;
@@ -89,7 +90,7 @@ export async function handlePhotoMessage(ctx: Context, deps: MediaHandlerDeps): 
       const botToken = SettingsManager.get('telegram.botToken');
       const fileUrl = `https://api.telegram.org/file/bot${botToken}/${file.file_path}`;
 
-      const response = await fetch(fileUrl);
+      const response = await proxyFetch(fileUrl);
       if (!response.ok) {
         throw new Error(`Failed to download photo: ${response.statusText}`);
       }
@@ -207,7 +208,7 @@ export async function handleVoiceMessage(ctx: Context, deps: MediaHandlerDeps): 
       const botToken = SettingsManager.get('telegram.botToken');
       const fileUrl = `https://api.telegram.org/file/bot${botToken}/${file.file_path}`;
 
-      const response = await fetch(fileUrl);
+      const response = await proxyFetch(fileUrl);
       if (!response.ok) {
         throw new Error(`Failed to download voice: ${response.statusText}`);
       }
@@ -334,7 +335,7 @@ export async function handleAudioMessage(ctx: Context, deps: MediaHandlerDeps): 
       const botToken = SettingsManager.get('telegram.botToken');
       const fileUrl = `https://api.telegram.org/file/bot${botToken}/${file.file_path}`;
 
-      const response = await fetch(fileUrl);
+      const response = await proxyFetch(fileUrl);
       if (!response.ok) {
         throw new Error(`Failed to download audio: ${response.statusText}`);
       }

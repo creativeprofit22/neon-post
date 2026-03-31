@@ -8,6 +8,7 @@ import { AgentManager } from '../../../agent';
 import { MessageCallback, LocationData, GeocodingResult, LocationQuickAction } from '../types';
 import { withTyping } from '../utils/typing';
 import { InlineKeyboardBuilder } from '../keyboards/inline';
+import { proxyFetch } from '../../../utils/proxy-fetch';
 
 export interface LocationHandlerDeps {
   onMessageCallback: MessageCallback | null;
@@ -21,7 +22,7 @@ async function reverseGeocode(lat: number, lon: number): Promise<GeocodingResult
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
 
-    const response = await fetch(url, {
+    const response = await proxyFetch(url, {
       headers: {
         'User-Agent': 'NeonPost/1.0 (personal assistant)',
       },

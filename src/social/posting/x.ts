@@ -13,6 +13,7 @@ import path from 'path';
 
 import type { XPostOptions, PlatformCredentials, PostResult } from './types';
 import { Platform } from './types';
+import { proxyFetch } from '../../utils/proxy-fetch';
 
 const X_API_BASE = 'https://api.x.com/2';
 const X_UPLOAD_BASE = 'https://upload.x.com/1.1';
@@ -115,7 +116,7 @@ export async function postToX(
       accessTokenSecret,
     });
 
-    const response = await fetch(url, {
+    const response = await proxyFetch(url, {
       method: 'POST',
       headers: {
         ...headers,
@@ -201,7 +202,7 @@ async function uploadMedia(filePath: string, creds: OAuth1Creds): Promise<string
   };
 
   const initHeaders = buildOAuth1Headers('POST', initUrl, creds, initParams);
-  const initResponse = await fetch(initUrl, {
+  const initResponse = await proxyFetch(initUrl, {
     method: 'POST',
     headers: {
       ...initHeaders,
@@ -229,7 +230,7 @@ async function uploadMedia(filePath: string, creds: OAuth1Creds): Promise<string
     segment_index: '0',
   });
 
-  const appendResponse = await fetch(appendUrl, {
+  const appendResponse = await proxyFetch(appendUrl, {
     method: 'POST',
     headers: {
       ...appendHeaders,
@@ -250,7 +251,7 @@ async function uploadMedia(filePath: string, creds: OAuth1Creds): Promise<string
   };
 
   const finalizeHeaders = buildOAuth1Headers('POST', initUrl, creds, finalizeParams);
-  const finalizeResponse = await fetch(initUrl, {
+  const finalizeResponse = await proxyFetch(initUrl, {
     method: 'POST',
     headers: {
       ...finalizeHeaders,
@@ -286,7 +287,7 @@ async function pollMediaProcessing(
     const statusUrl = `${X_UPLOAD_BASE}/media/upload.json?command=STATUS&media_id=${mediaId}`;
     const headers = buildOAuth1Headers('GET', statusUrl, creds);
 
-    const response = await fetch(statusUrl, { headers });
+    const response = await proxyFetch(statusUrl, { headers });
     const data = (await response.json()) as XMediaStatusResponse;
 
     if (!data.processing_info) return; // Done

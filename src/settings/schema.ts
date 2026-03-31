@@ -292,6 +292,38 @@ export const SETTINGS_SCHEMA: SettingDefinition[] = [
     type: 'boolean',
   },
 
+  // Proxy settings
+  {
+    key: 'proxy.url',
+    defaultValue: '',
+    encrypted: false,
+    category: 'network',
+    label: 'HTTP Proxy URL',
+    description: 'Route all outbound requests through this proxy (e.g. http://proxy:8080). Also reads http_proxy/https_proxy env vars as fallback.',
+    type: 'string',
+  },
+
+  // MCP settings
+  {
+    key: 'mcp.customServers',
+    defaultValue: '',
+    encrypted: false,
+    category: 'mcp',
+    label: 'Custom MCP Servers',
+    description: 'JSON object mapping server names to {command, args, env?} configs',
+    type: 'textarea',
+  },
+
+  // Social settings
+  {
+    key: 'social.engagementSweepMinutes',
+    defaultValue: '15',
+    encrypted: false,
+    category: 'social',
+    label: 'Engagement Sweep Interval (min)',
+    description: 'How often to check for new comments on published posts',
+    type: 'number',
+  },
   // Scheduler settings
   {
     key: 'scheduler.enabled',

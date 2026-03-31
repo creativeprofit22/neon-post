@@ -18,6 +18,7 @@
 
 import type { InstagramPostOptions, PlatformCredentials, PostResult } from './types';
 import { Platform } from './types';
+import { proxyFetch } from '../../utils/proxy-fetch';
 
 const GRAPH_API_BASE = 'https://graph.facebook.com/v21.0';
 
@@ -129,7 +130,7 @@ async function publishSingleMedia(
   }
 
   // Step 1: Create media container
-  const containerResponse = await fetch(`${GRAPH_API_BASE}/${igUserId}/media`, {
+  const containerResponse = await proxyFetch(`${GRAPH_API_BASE}/${igUserId}/media`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
@@ -181,7 +182,7 @@ async function publishCarousel(
       params.image_url = url;
     }
 
-    const response = await fetch(`${GRAPH_API_BASE}/${igUserId}/media`, {
+    const response = await proxyFetch(`${GRAPH_API_BASE}/${igUserId}/media`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -214,7 +215,7 @@ async function publishCarousel(
     ...(options.locationId ? { location_id: options.locationId } : {}),
   };
 
-  const carouselResponse = await fetch(`${GRAPH_API_BASE}/${igUserId}/media`, {
+  const carouselResponse = await proxyFetch(`${GRAPH_API_BASE}/${igUserId}/media`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(carouselParams),
@@ -242,7 +243,7 @@ async function publishContainer(
   igUserId: string,
   containerId: string
 ): Promise<PostResult> {
-  const publishResponse = await fetch(`${GRAPH_API_BASE}/${igUserId}/media_publish`, {
+  const publishResponse = await proxyFetch(`${GRAPH_API_BASE}/${igUserId}/media_publish`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -279,7 +280,7 @@ async function waitForProcessing(
   intervalMs: number = 5000
 ): Promise<void> {
   for (let i = 0; i < maxAttempts; i++) {
-    const response = await fetch(
+    const response = await proxyFetch(
       `${GRAPH_API_BASE}/${containerId}?fields=status_code&access_token=${accessToken}`
     );
     const data = (await response.json()) as IGStatusResponse;

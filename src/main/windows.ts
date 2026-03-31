@@ -107,7 +107,7 @@ export function createWindow(options: CreateWindowOptions): BrowserWindow {
   }
 
   // 2. Build window options with optional saved bounds
-  let windowOptions: Electron.BrowserWindowConstructorOptions = {
+  const windowOptions: Electron.BrowserWindowConstructorOptions = {
     width,
     height,
     title,
@@ -116,6 +116,7 @@ export function createWindow(options: CreateWindowOptions): BrowserWindow {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
     show: false,
     ...extraOptions,

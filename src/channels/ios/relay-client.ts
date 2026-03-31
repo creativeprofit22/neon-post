@@ -48,6 +48,7 @@ import {
 } from './types';
 import { loadWorkflowCommands } from '../../config/commands-loader';
 import { SettingsManager } from '../../settings';
+import { proxyFetch } from '../../utils/proxy-fetch';
 import { convertMediaToDataUris } from './utils';
 
 const PAIRING_CODE_LENGTH = 6;
@@ -308,7 +309,7 @@ export class iOSRelayClient {
     }));
 
     try {
-      const resp = await fetch('https://exp.host/--/api/v2/push/send', {
+      const resp = await proxyFetch('https://exp.host/--/api/v2/push/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(messages),

@@ -2,6 +2,7 @@ import { ipcMain, dialog, app } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
+import { proxyFetch } from '../../utils/proxy-fetch';
 import { SettingsManager } from '../../settings';
 import { searchContent } from '../../social/scraping/index';
 import { KieClient } from '../../image';
@@ -129,7 +130,7 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
       const trimmed = (apiKey || '').trim() || SettingsManager.get('apify.apiKey') || '';
       if (!trimmed) return { valid: false, error: 'API key is empty' };
       // Apify supports both Bearer token and ?token= query param — use query param as it's more reliable
-      const response = await fetch(
+      const response = await proxyFetch(
         `https://api.apify.com/v2/users/me?token=${encodeURIComponent(trimmed)}`
       );
       console.log(`[SocialIPC] Apify validation response: ${response.status}`);
@@ -150,7 +151,7 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
     try {
       const resolvedKey = (apiKey || '').trim() || SettingsManager.get('rapidapi.apiKey') || '';
       if (!resolvedKey) return { valid: false, error: 'API key is empty' };
-      const response = await fetch(
+      const response = await proxyFetch(
         'https://tiktok-scraper7.p.rapidapi.com/user/info?unique_id=tiktok',
         {
           headers: {
@@ -181,7 +182,7 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
       // Use the recordInfo endpoint with a dummy taskId — a valid key returns a
       // structured JSON response (code !== 200 but well-formed), whereas an
       // invalid key returns 401/403.
-      const response = await fetch(
+      const response = await proxyFetch(
         `https://api.kie.ai/api/v1/jobs/recordInfo?taskId=validation-check`,
         {
           method: 'GET',
@@ -209,7 +210,7 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
       if (!trimmed) return { valid: false, error: 'API key is empty' };
 
       // Validate via REST API — lightweight auth check (no external deps needed)
-      const res = await fetch('https://api.assemblyai.com/v2/transcript?limit=1', {
+      const res = await proxyFetch('https://api.assemblyai.com/v2/transcript?limit=1', {
         headers: { authorization: trimmed },
       });
       if (res.ok) return { valid: true };
@@ -529,6 +530,9 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
             }
           }
 
+          // Load active brand config so repurposed content follows brand guidelines
+          const brand = memory.brandConfig.getActive();
+
           prompt = repurposePrompt({
             sourceContent: source.body || source.title || '',
             sourcePlatform: source.platform,
@@ -542,6 +546,16 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
             targetPlatforms: targets,
             platform: targets[0],
             topic: source.title || source.body?.substring(0, 100) || 'content',
+            ...(brand && {
+              brandVoice: brand.voice ?? undefined,
+              brandTone: brand.tone ?? undefined,
+              targetAudience: brand.target_audience ?? undefined,
+              themes: brand.themes ? brand.themes.split(',').map((t) => t.trim()) : undefined,
+              hashtags: brand.hashtags ? brand.hashtags.split(',').map((h) => h.trim()) : undefined,
+              dos: brand.dos ?? undefined,
+              donts: brand.donts ?? undefined,
+              examplePosts: brand.example_posts ?? undefined,
+            }),
           });
         }
 
@@ -600,7 +614,8 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
         if (!apiKey) return { success: false, error: 'Kie.ai API key not configured' };
 
         const client = new KieClient(apiKey);
-        const model: ImageModelId = input.model ?? 'nano-banana-2';
+        const { resolveModelId } = await import('../../image');
+        const model: ImageModelId = resolveModelId(input.model ?? 'nano-banana-2');
         const { predictionId } = await client.generate({
           prompt: input.prompt,
           model,
@@ -658,7 +673,7 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
       if (canceled || !filePath) return { success: false, error: 'Cancelled' };
 
       if (mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) {
-        const res = await fetch(mediaUrl);
+        const res = await proxyFetch(mediaUrl);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const buf = Buffer.from(await res.arrayBuffer());
         fs.writeFileSync(filePath, buf);

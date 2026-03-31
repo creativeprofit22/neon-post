@@ -45,6 +45,9 @@ process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
   process.exit(1);
 });
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection:', reason);
+});
 
 // IS_WINDOWS and HOME_DIR moved to src/main/ipc/misc-ipc.ts
 
@@ -408,6 +411,7 @@ function showSplashScreen(): void {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
       preload: path.join(__dirname, 'splash-preload.js'),
     },
   });
@@ -613,7 +617,7 @@ async function initializeAgent(): Promise<void> {
     memory.initializeEmbeddings(openaiKey);
     console.log('[Main] Embeddings enabled with OpenAI');
   } else {
-    console.log('[Main] Embeddings disabled (no OpenAI API key)');
+    console.warn('[Main] Embeddings disabled — no OpenAI API key configured. Semantic fact search unavailable.');
   }
 
   // Initialize image job tracker (Kie.ai background polling)
@@ -791,8 +795,21 @@ async function initializeAgent(): Promise<void> {
   });
 
   // Build tools config from settings
+  // Parse user-defined MCP servers from settings (JSON object: name → {command, args, env?})
+  let customMcpServers: Record<string, { command: string; args: string[]; env?: Record<string, string> }> = {};
+  const customMcpRaw = SettingsManager.get('mcp.customServers');
+  if (customMcpRaw) {
+    try {
+      const parsed = JSON.parse(customMcpRaw);
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        customMcpServers = parsed;
+      }
+    } catch {
+      console.warn('[Main] Invalid mcp.customServers JSON, ignoring');
+    }
+  }
   const toolsConfig = {
-    mcpServers: {},
+    mcpServers: customMcpServers,
     computerUse: {
       enabled: false,
       dockerized: true,
@@ -831,7 +848,9 @@ async function initializeAgent(): Promise<void> {
     } else if (hasGlmKey) {
       model = 'glm-4.7';
     }
-    console.log(`[Main] Model/key mismatch: ${oldModel} has no key, falling back to ${model}`);
+    console.warn(
+      `[Main] Model/key mismatch: ${oldModel} has no API key, falling back to ${model}`
+    );
     SettingsManager.set('agent.model', model);
   }
 

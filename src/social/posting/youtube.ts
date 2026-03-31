@@ -12,6 +12,7 @@ import path from 'path';
 
 import type { YouTubePostOptions, PlatformCredentials, PostResult } from './types';
 import { Platform } from './types';
+import { proxyFetch } from '../../utils/proxy-fetch';
 
 const YOUTUBE_UPLOAD_URL = 'https://www.googleapis.com/upload/youtube/v3/videos';
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
@@ -84,7 +85,7 @@ export async function postToYouTube(
     };
 
     // Step 1: Initiate resumable upload
-    const initResponse = await fetch(
+    const initResponse = await proxyFetch(
       `${YOUTUBE_UPLOAD_URL}?uploadType=resumable&part=snippet,status`,
       {
         method: 'POST',
@@ -118,7 +119,7 @@ export async function postToYouTube(
 
     // Step 2: Upload the video file
     const videoBuffer = fs.readFileSync(resolvedPath);
-    const uploadResponse = await fetch(uploadUrl, {
+    const uploadResponse = await proxyFetch(uploadUrl, {
       method: 'PUT',
       headers: {
         'Content-Type': getMimeType(resolvedPath),
@@ -179,7 +180,7 @@ async function uploadThumbnail(
   }
 
   const thumbBuffer = fs.readFileSync(resolved);
-  const response = await fetch(`${YOUTUBE_API_BASE}/thumbnails/set?videoId=${videoId}`, {
+  const response = await proxyFetch(`${YOUTUBE_API_BASE}/thumbnails/set?videoId=${videoId}`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -202,7 +203,7 @@ async function addToPlaylist(
   videoId: string,
   playlistId: string
 ): Promise<void> {
-  const response = await fetch(`${YOUTUBE_API_BASE}/playlistItems?part=snippet`, {
+  const response = await proxyFetch(`${YOUTUBE_API_BASE}/playlistItems?part=snippet`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,

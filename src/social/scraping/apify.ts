@@ -6,6 +6,7 @@
  */
 
 import type { ContentResult } from './pocket-cli';
+import { proxyFetch } from '../../utils/proxy-fetch';
 
 const LOG_PREFIX = '[apify]';
 const APIFY_BASE = 'https://api.apify.com/v2';
@@ -48,7 +49,7 @@ async function apifyFetch<T>(url: string, apiKey: string, options?: RequestInit)
   // Use query-param auth (?token=) — more reliable than Bearer header with Apify
   const separator = url.includes('?') ? '&' : '?';
   const authedUrl = `${url}${separator}token=${encodeURIComponent(apiKey)}`;
-  const response = await fetch(authedUrl, {
+  const response = await proxyFetch(authedUrl, {
     ...options,
     headers: {
       'Content-Type': 'application/json',

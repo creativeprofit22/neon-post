@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { proxyFetch } from '../../utils/proxy-fetch';
 import { loadWorkflowCommands, loadWorkflowCommandsFromDir } from '../../config/commands-loader';
 import { isMacOS, getPermissionsStatus, openPermissionSettings } from '../../permissions';
 import type { PermissionType } from '../../permissions';
@@ -93,7 +94,7 @@ export function registerMiscIPC(deps: IPCDependencies): void {
         // Remote URL — download to media dir first
         if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
 
-        const res = await fetch(src);
+        const res = await proxyFetch(src);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const buf = Buffer.from(await res.arrayBuffer());
 

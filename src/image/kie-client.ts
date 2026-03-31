@@ -1,3 +1,5 @@
+import { proxyFetch } from '../utils/proxy-fetch';
+
 const API_BASE = 'https://api.kie.ai/api/v1';
 const FILE_UPLOAD_BASE = 'https://kieai.redpandaai.co';
 
@@ -179,7 +181,7 @@ export class KieClient {
   async generate(request: ImageGenerationRequest): Promise<{ predictionId: string }> {
     const input = buildTaskInput(request);
 
-    const response = await fetch(`${API_BASE}/jobs/createTask`, {
+    const response = await proxyFetch(`${API_BASE}/jobs/createTask`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -204,7 +206,7 @@ export class KieClient {
 
   /** Poll the status of a previously created task. */
   async getStatus(predictionId: string): Promise<ImageGenerationResult> {
-    const response = await fetch(
+    const response = await proxyFetch(
       `${API_BASE}/jobs/recordInfo?taskId=${encodeURIComponent(predictionId)}`,
       {
         method: 'GET',
@@ -284,7 +286,7 @@ export class KieClient {
     formData.append('uploadPath', uploadPath);
     formData.append('fileName', fileName);
 
-    const response = await fetch(`${FILE_UPLOAD_BASE}/api/file-stream-upload`, {
+    const response = await proxyFetch(`${FILE_UPLOAD_BASE}/api/file-stream-upload`, {
       method: 'POST',
       body: formData,
     });

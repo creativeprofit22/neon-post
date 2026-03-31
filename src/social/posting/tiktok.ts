@@ -12,6 +12,7 @@ import path from 'path';
 
 import type { TikTokPostOptions, PlatformCredentials, PostResult } from './types';
 import { Platform } from './types';
+import { proxyFetch } from '../../utils/proxy-fetch';
 
 const TIKTOK_API_BASE = 'https://open.tiktokapis.com/v2';
 
@@ -94,7 +95,7 @@ export async function postToTikTok(
       },
     };
 
-    const initResponse = await fetch(`${TIKTOK_API_BASE}/post/publish/inbox/video/init/`, {
+    const initResponse = await proxyFetch(`${TIKTOK_API_BASE}/post/publish/inbox/video/init/`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -117,7 +118,7 @@ export async function postToTikTok(
 
     // Step 2: Upload the video file
     const videoBuffer = fs.readFileSync(resolvedPath);
-    const uploadResponse = await fetch(upload_url, {
+    const uploadResponse = await proxyFetch(upload_url, {
       method: 'PUT',
       headers: {
         'Content-Type': 'video/mp4',
@@ -166,7 +167,7 @@ async function pollPublishStatus(
   for (let i = 0; i < maxAttempts; i++) {
     await sleep(intervalMs);
 
-    const statusResponse = await fetch(`${TIKTOK_API_BASE}/post/publish/status/fetch/`, {
+    const statusResponse = await proxyFetch(`${TIKTOK_API_BASE}/post/publish/status/fetch/`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,

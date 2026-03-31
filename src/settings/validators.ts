@@ -2,6 +2,8 @@
  * API Key Validators - Test API keys by making lightweight requests
  */
 
+import { proxyFetch } from '../utils/proxy-fetch';
+
 export interface ValidationResult {
   valid: boolean;
   error?: string;
@@ -37,7 +39,7 @@ async function validateApiKey(config: ApiKeyValidationConfig): Promise<Validatio
       fetchOptions.body = JSON.stringify(config.body);
     }
 
-    const response = await fetch(config.url, fetchOptions);
+    const response = await proxyFetch(config.url, fetchOptions);
 
     if (config.isSuccess) {
       const data = (await response.json()) as Record<string, unknown>;
@@ -102,7 +104,7 @@ export async function validateOpenAIKey(apiKey: string): Promise<ValidationResul
  */
 export async function validateTelegramToken(token: string): Promise<TelegramValidationResult> {
   try {
-    const response = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+    const response = await proxyFetch(`https://api.telegram.org/bot${token}/getMe`);
     const data = (await response.json()) as Record<string, unknown>;
 
     if (data.ok) {

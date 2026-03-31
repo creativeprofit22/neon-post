@@ -8,6 +8,7 @@
 import crypto from 'crypto';
 import { shell } from 'electron';
 import { SettingsManager } from '../settings';
+import { proxyFetch } from '../utils/proxy-fetch';
 
 // OAuth Configuration (same as Claude Code)
 const OAUTH_CONFIG = {
@@ -113,7 +114,7 @@ class ClaudeOAuthManager {
     maxRetries: number = 5
   ): Promise<Response> {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      const response = await fetch(url, options);
+      const response = await proxyFetch(url, options);
 
       console.log(
         `[OAuth] Token endpoint response: status=${response.status} (attempt ${attempt + 1}/${maxRetries + 1})`
@@ -266,6 +267,9 @@ class ClaudeOAuthManager {
         return true;
       } catch (error) {
         console.error('[OAuth] Token refresh failed:', error);
+        // Clear the stale token so it can't be used by other code paths
+        SettingsManager.set('auth.oauthToken', '');
+        SettingsManager.set('auth.tokenExpiresAt', '0');
         return false;
       } finally {
         this.refreshPromise = null;

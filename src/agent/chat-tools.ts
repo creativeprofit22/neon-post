@@ -11,6 +11,7 @@ import type { AgentTool, ToolContext } from '@kenkaiiii/gg-agent';
 import type { ServerToolDefinition } from '@kenkaiiii/gg-ai';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { proxyFetch } from '../utils/proxy-fetch';
 import { getCustomTools, ToolsConfig } from '../tools';
 import { wrapToolHandler } from '../tools/diagnostics';
 import { getProviderForModel } from './chat-providers';
@@ -142,7 +143,7 @@ function buildWebFetchTool(): AgentTool {
       const maxLength = max_length || 10000;
 
       try {
-        const response = await fetch(url, {
+        const response = await proxyFetch(url, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (compatible; NeonPost/1.0)',
             Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',

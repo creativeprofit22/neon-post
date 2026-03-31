@@ -10,6 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { proxyFetch } from '../../utils/proxy-fetch';
 import { SettingsManager } from '../../settings';
 
 import {
@@ -339,7 +340,7 @@ export async function downloadVideo(url: string, outputDir: string): Promise<str
   // Fallback: direct HTTP download (works for direct video URLs from Apify results)
   try {
     console.log(`${LOG_PREFIX} Trying direct HTTP download: ${url}`);
-    const response = await fetch(url, {
+    const response = await proxyFetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
       redirect: 'follow',
     });

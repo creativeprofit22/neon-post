@@ -162,8 +162,6 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.4.0",
     "@types/ws": "^8.18.1",
-    "@typescript-eslint/eslint-plugin": "^8.57.0",
-    "@typescript-eslint/parser": "^8.57.0",
     "@vitest/coverage-v8": "^4.0.18",
     "@vitest/ui": "^4.0.18",
     "electron": "^40.8.5",
@@ -171,6 +169,7 @@
     "eslint": "^10.0.3",
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.58.0",
     "vitest": "^4.0.18"
   }
 }

@@ -12,6 +12,7 @@ import { readFileSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import type { TranscriptionResult } from '../video/types.js';
 import { SettingsManager } from '../../settings/index.js';
+import { proxyFetch } from '../../utils/proxy-fetch';
 
 const LOG_PREFIX = '[Transcription]';
 const AAI_BASE = 'https://api.assemblyai.com/v2';
@@ -124,7 +125,7 @@ interface AAITranscript {
 }
 
 async function aaiFetch<T>(path: string, apiKey: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${AAI_BASE}${path}`, {
+  const res = await proxyFetch(`${AAI_BASE}${path}`, {
     ...options,
     headers: {
       authorization: apiKey,
@@ -147,7 +148,7 @@ async function uploadFile(filePath: string, apiKey: string): Promise<string> {
   // Read the entire file into a buffer — works reliably in Electron
   const fileBuffer = readFileSync(filePath);
 
-  const res = await fetch(`${AAI_BASE}/upload`, {
+  const res = await proxyFetch(`${AAI_BASE}/upload`, {
     method: 'POST',
     headers: {
       authorization: apiKey,

@@ -17,6 +17,7 @@ import path from 'path';
 
 import type { LinkedInPostOptions, PlatformCredentials, PostResult } from './types';
 import { Platform } from './types';
+import { proxyFetch } from '../../utils/proxy-fetch';
 
 const LINKEDIN_API_BASE = 'https://api.linkedin.com/v2';
 const LINKEDIN_REST_BASE = 'https://api.linkedin.com/rest';
@@ -157,7 +158,7 @@ async function postWithMedia(
       },
     };
 
-    const registerResponse = await fetch(`${LINKEDIN_API_BASE}/assets?action=registerUpload`, {
+    const registerResponse = await proxyFetch(`${LINKEDIN_API_BASE}/assets?action=registerUpload`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -184,7 +185,7 @@ async function postWithMedia(
 
     // Upload the file
     const fileBuffer = fs.readFileSync(resolved);
-    const uploadResponse = await fetch(uploadInfo.uploadUrl, {
+    const uploadResponse = await proxyFetch(uploadInfo.uploadUrl, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -282,7 +283,7 @@ async function createUgcPost(
   accessToken: string,
   body: Record<string, unknown>
 ): Promise<PostResult> {
-  const response = await fetch(`${LINKEDIN_API_BASE}/ugcPosts`, {
+  const response = await proxyFetch(`${LINKEDIN_API_BASE}/ugcPosts`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -322,7 +323,7 @@ async function createUgcPost(
 async function getProfileUrn(accessToken: string): Promise<string | null> {
   try {
     // Try the newer userinfo endpoint first
-    const response = await fetch(`${LINKEDIN_REST_BASE}/userinfo`, {
+    const response = await proxyFetch(`${LINKEDIN_REST_BASE}/userinfo`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'LinkedIn-Version': '202401',
@@ -337,7 +338,7 @@ async function getProfileUrn(accessToken: string): Promise<string | null> {
     }
 
     // Fallback to v2 /me endpoint
-    const meResponse = await fetch(`${LINKEDIN_API_BASE}/me`, {
+    const meResponse = await proxyFetch(`${LINKEDIN_API_BASE}/me`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },

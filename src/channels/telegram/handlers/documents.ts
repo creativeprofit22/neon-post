@@ -12,6 +12,7 @@ import { scheduleFileCleanup } from './media';
 import { SettingsManager } from '../../../settings';
 import { MessageCallback } from '../types';
 import { withTyping } from '../utils/typing';
+import { proxyFetch } from '../../../utils/proxy-fetch';
 
 export interface DocumentHandlerDeps {
   onMessageCallback: MessageCallback | null;
@@ -231,7 +232,7 @@ export async function handleDocumentMessage(
       const botToken = SettingsManager.get('telegram.botToken');
       const fileUrl = `https://api.telegram.org/file/bot${botToken}/${file.file_path}`;
 
-      const response = await fetch(fileUrl);
+      const response = await proxyFetch(fileUrl);
       if (!response.ok) {
         throw new Error(`Failed to download document: ${response.statusText}`);
       }

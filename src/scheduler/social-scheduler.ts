@@ -64,6 +64,9 @@ export async function runPostScheduler(memory: MemoryManager): Promise<number> {
       // Parse media_urls if present
       const mediaFiles = post.media_urls ? parseJsonArray(post.media_urls) : undefined;
 
+      // Parse metadata JSON to extract privacy, tags, and platform-specific options
+      const meta = parseMetadata(post.metadata);
+
       // Cast required because PlatformPostOptions is a discriminated union keyed
       // on literal Platform values; at runtime the platform string is validated
       // inside postContent's switch statement.
@@ -72,6 +75,7 @@ export async function runPostScheduler(memory: MemoryManager): Promise<number> {
         text: post.content,
         mediaFiles,
         credentials,
+        ...meta,
       } as PlatformPostOptions);
 
       if (result.success) {
@@ -297,6 +301,24 @@ function getRecentPostedPosts(memory: MemoryManager): SocialPost[] {
   return memory.socialPosts
     .getByStatus('posted')
     .filter((p) => (p.posted_at ?? p.created_at) >= cutoffIso);
+}
+
+/**
+ * Parse post metadata JSON and extract fields that postContent() accepts:
+ * privacy, tags, and any platform-specific options (e.g. disableComments,
+ * title, postType, quoteTweetId, authorUrn, etc.).
+ *
+ * Returns a partial options object to spread into the postContent() call.
+ */
+function parseMetadata(json: string | null): Record<string, unknown> {
+  if (!json) return {};
+  try {
+    const parsed: unknown = JSON.parse(json);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+    return parsed as Record<string, unknown>;
+  } catch {
+    return {};
+  }
 }
 
 /**

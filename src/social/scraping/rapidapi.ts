@@ -6,6 +6,7 @@
  */
 
 import type { ContentResult } from './pocket-cli';
+import { proxyFetch } from '../../utils/proxy-fetch';
 
 const LOG_PREFIX = '[rapidapi]';
 const RAPIDAPI_HOST = 'tiktok-scraper7.p.rapidapi.com';
@@ -153,7 +154,7 @@ async function rapidApiFetch<T>(
     }
   }
 
-  const res = await fetch(url.toString(), {
+  const res = await proxyFetch(url.toString(), {
     method: 'GET',
     headers: {
       'X-RapidAPI-Key': apiKey,

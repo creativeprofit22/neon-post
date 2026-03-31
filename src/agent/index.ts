@@ -18,6 +18,7 @@ import { setStatusEmitter } from './safety';
 import { type AgentModeId, isValidModeId, getModeConfig } from './agent-modes';
 import { PersistentSDKSession, TurnResult } from './persistent-session';
 import { ChatEngine } from './chat-engine';
+import { proxyFetch } from '../utils/proxy-fetch';
 import { PROVIDER_CONFIGS, getProviderForModel } from './providers';
 import { processStatusFromMessage as _processStatusFromMessage } from './status-processing';
 import type { StatusProcessingState } from './status-processing';
@@ -329,7 +330,7 @@ type TaskCompletedHookCallback = (input: {
 }>;
 
 type UserPromptSubmitHookCallback = (
-  input: any,
+  input: unknown,
   toolUseID: string | undefined,
   options: { signal: AbortSignal }
 ) => Promise<{
@@ -1622,7 +1623,7 @@ class AgentManagerClass extends EventEmitter {
           const filePath = path.join(mediaDir, filename);
 
           // Fire-and-forget download; image will be available for Telegram sync
-          fetch(b.source.url)
+          proxyFetch(b.source.url)
             .then((res) =>
               res.ok ? res.arrayBuffer() : Promise.reject(new Error(`HTTP ${res.status}`))
             )

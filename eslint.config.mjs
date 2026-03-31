@@ -1,13 +1,12 @@
 import eslint from "@eslint/js";
-import tseslint from "@typescript-eslint/eslint-plugin";
-import tsparser from "@typescript-eslint/parser";
+import tseslint from "typescript-eslint";
 
-export default [
+export default tseslint.config(
   eslint.configs.recommended,
   {
     files: ["src/**/*.ts"],
+    extends: tseslint.configs.recommended,
     languageOptions: {
-      parser: tsparser,
       parserOptions: {
         project: "./tsconfig.json",
       },
@@ -37,11 +36,7 @@ export default [
         NodeList: "readonly",
       },
     },
-    plugins: {
-      "@typescript-eslint": tseslint,
-    },
     rules: {
-      ...tseslint.configs.recommended.rules,
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-require-imports": "warn",
@@ -51,8 +46,8 @@ export default [
   },
   {
     files: ["tests/**/*.ts"],
+    extends: tseslint.configs.recommended,
     languageOptions: {
-      parser: tsparser,
       parserOptions: {
         project: null, // Tests don't use project references
       },
@@ -87,11 +82,7 @@ export default [
         test: "readonly",
       },
     },
-    plugins: {
-      "@typescript-eslint": tseslint,
-    },
     rules: {
-      ...tseslint.configs.recommended.rules,
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
       "@typescript-eslint/no-explicit-any": "off", // Allow any in tests for mocking
       "@typescript-eslint/no-require-imports": "off",
@@ -101,4 +92,4 @@ export default [
   {
     ignores: ["dist/**", "node_modules/**", "ui/**"],
   },
-];
+);

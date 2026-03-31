@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import { Notification, app } from 'electron';
 import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { proxyFetch } from '../utils/proxy-fetch';
 import { KieClient } from './kie-client';
 import type { MemoryManager } from '../memory';
 
@@ -229,7 +230,7 @@ export class ImageJobTracker extends EventEmitter {
       const mediaDir = join(app.getPath('documents'), 'Neon-post', 'media');
       if (!existsSync(mediaDir)) mkdirSync(mediaDir, { recursive: true });
 
-      const res = await fetch(remoteUrl);
+      const res = await proxyFetch(remoteUrl);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const buf = Buffer.from(await res.arrayBuffer());
 

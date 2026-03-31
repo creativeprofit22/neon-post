@@ -50,6 +50,7 @@ import {
 import { loadWorkflowCommands } from '../../config/commands-loader';
 import { SettingsManager } from '../../settings';
 import { convertMediaToDataUris } from './utils';
+import { proxyFetch } from '../../utils/proxy-fetch';
 
 const DEFAULT_PORT = 7888;
 const PAIRING_CODE_LENGTH = 6;
@@ -317,7 +318,7 @@ export class iOSWebSocketServer {
     }));
 
     try {
-      const resp = await fetch('https://exp.host/--/api/v2/push/send', {
+      const resp = await proxyFetch('https://exp.host/--/api/v2/push/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(messages),

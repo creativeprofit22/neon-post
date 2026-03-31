@@ -1089,7 +1089,7 @@
     }
 
     function escapeAttr(text) {
-      return text.replace(/'/g, "\\'").replace(/"/g, '\\"');
+      return text.replace(/&/g, '&amp;').replace(/'/g, '&#x27;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     document.addEventListener('visibilitychange', () => {
