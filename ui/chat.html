@@ -1043,7 +1043,14 @@
             </select>
           </div>
           <div id="soc-discover-distribution" class="soc-distribution-bar"></div>
-          <div id="soc-discover-results"></div>
+          <div id="soc-discover-results">
+            <div class="soc-empty-state">
+              <div class="soc-empty-state__icon">&#x1F50D;</div>
+              <div class="soc-empty-state__title">Discover Content</div>
+              <div class="soc-empty-state__hint">Search TikTok, Instagram, YouTube for trending posts and creators</div>
+              <div class="soc-empty-state__examples">Try: "fitness trends" or "@creatorname"</div>
+            </div>
+          </div>
         </div>
 
         <!-- Saved View (new) -->
@@ -1201,7 +1208,13 @@
               <textarea id="soc-create-prompt" rows="3" placeholder="Describe what you want to create..."></textarea>
             </div>
             <button class="soc-btn soc-btn-primary" id="soc-create-generate-btn">Generate</button>
-            <div class="soc-generated-output" id="soc-create-output">Generated content will appear here</div>
+            <div class="soc-generated-output" id="soc-create-output">
+              <div class="soc-empty-state">
+                <div class="soc-empty-state__icon">&#x2728;</div>
+                <div class="soc-empty-state__title">Generate Content</div>
+                <div class="soc-empty-state__hint">Pick a content type and platform, describe your topic, then click Generate</div>
+              </div>
+            </div>
           </div>
 
           <!-- Repurpose Panel -->
@@ -1280,7 +1293,13 @@
             </div>
             <button class="soc-btn soc-btn-primary" id="soc-image-gen-btn">&#x1F3A8; Generate Image</button>
             <div class="soc-generated-output soc-image-output-area" id="soc-image-output">
-              <div class="soc-image-placeholder">Generated image will appear here</div>
+              <div class="soc-image-placeholder">
+                <div class="soc-empty-state">
+                  <div class="soc-empty-state__icon">&#x1F3A8;</div>
+                  <div class="soc-empty-state__title">AI Image Generation</div>
+                  <div class="soc-empty-state__hint">Describe the image you want and click Generate. Takes ~30-60 seconds.</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1441,6 +1460,11 @@
 
         <!-- Platform mockup strip -->
         <div class="soc-preview-strip" id="soc-preview-strip">
+          <div class="soc-empty-state soc-empty-state--wide">
+            <div class="soc-empty-state__icon">&#x1F441;</div>
+            <div class="soc-empty-state__title">Preview Posts</div>
+            <div class="soc-empty-state__hint">Select a draft above or paste content to see how it looks on each platform</div>
+          </div>
           <div class="soc-preview-mockup" data-platform="instagram">
             <div class="soc-preview-label">Instagram</div>
             <div class="soc-mockup soc-mockup-ig" id="soc-mockup-ig"></div>
