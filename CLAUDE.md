@@ -56,5 +56,3 @@ npm run typecheck && npm run lint
 ```
 
 Fix ALL errors/warnings before continuing.
-
-**Phase:** Flow Audit Fixes — Chunk 0/13

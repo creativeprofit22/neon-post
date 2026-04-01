@@ -2522,6 +2522,9 @@ function _socRenderTrendCard(trend) {
       '<div class="soc-trend-card__header">' +
         '<span class="soc-trend-status ' + statusClass + '">' + _socEscapeHtml(statusLabel) + '</span>' +
         '<span class="soc-trend-score">Score: ' + score + '</span>' +
+        '<button class="soc-trend-create" onclick="event.stopPropagation(); socPanelActions.createFromTrend(this)" title="Create content from this trend">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14M5 12h14"/></svg>' +
+        '</button>' +
         '<button class="soc-trend-dismiss" onclick="event.stopPropagation(); socPanelActions.dismissTrend(\'' + (trend.id || '') + '\')" title="Dismiss trend">' +
           '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 6L6 18M6 6l12 12"/></svg>' +
         '</button>' +
@@ -4511,6 +4514,51 @@ window.socPanelActions = {
         _socShowToast('Trend dismissed', 'success');
       })
       .catch(function () { _socShowToast('Failed to dismiss trend', 'error'); });
+  },
+
+  createFromTrend(btn) {
+    const card = btn.closest('.soc-trend-card');
+    if (!card) return;
+
+    const topicEl = card.querySelector('.soc-trend-card__topic');
+    const topic = topicEl ? topicEl.textContent.trim() : '';
+    const platformEl = card.querySelector('.soc-trend-platform');
+    const platform = platformEl ? platformEl.textContent.trim() : '';
+    const keywordSpans = card.querySelectorAll('.soc-trend-keyword');
+    var keywords = [];
+    keywordSpans.forEach(function (sp) { keywords.push(sp.textContent.trim()); });
+
+    const root = document.getElementById('social-view');
+    if (!root) return;
+
+    // Switch to Create tab
+    const createTabBtn = root.querySelector('.soc-tab-btn[data-tab="create"]');
+    if (createTabBtn) createTabBtn.click();
+
+    // Switch to Generate sub-tab
+    const generateSubTab = root.querySelector('.soc-sub-tab[data-panel="generate"]');
+    if (generateSubTab) generateSubTab.click();
+
+    // Pre-fill prompt
+    const promptEl = root.querySelector('#soc-create-prompt');
+    if (promptEl) {
+      var promptText = 'Create a ' + platform + ' post about: ' + topic;
+      if (keywords.length) promptText += '. Keywords: ' + keywords.join(', ');
+      promptEl.value = promptText;
+      promptEl.focus();
+    }
+
+    // Set platform dropdown
+    const platformSelect = root.querySelector('#soc-create-platform');
+    if (platformSelect) {
+      var val = platform.toLowerCase();
+      for (var i = 0; i < platformSelect.options.length; i++) {
+        if (platformSelect.options[i].value.toLowerCase() === val) {
+          platformSelect.value = platformSelect.options[i].value;
+          break;
+        }
+      }
+    }
   },
 
   openSavedUrl(url) {
