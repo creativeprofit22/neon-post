@@ -1015,6 +1015,7 @@
           <button class="soc-discover-sub-tab active" data-discover-view="search">🔍 Search</button>
           <button class="soc-discover-sub-tab" data-discover-view="saved">💾 Saved</button>
           <button class="soc-discover-sub-tab" data-discover-view="trends">📈 Trends</button>
+          <button class="soc-discover-sub-tab" data-discover-view="gallery">🖼 Gallery</button>
         </div>
 
         <!-- Search View (existing) -->
@@ -1074,6 +1075,39 @@
         <!-- Trends View -->
         <div class="soc-discover-view" id="soc-discover-view-trends">
           <div id="soc-trends-results"></div>
+        </div>
+
+        <!-- Gallery View -->
+        <div class="soc-discover-view" id="soc-discover-view-gallery">
+          <div class="soc-gallery-stats-row" id="soc-gallery-stats"></div>
+          <div class="soc-gallery-filter-bar">
+            <input type="text" id="soc-gallery-search" placeholder="Search prompts..." />
+            <select id="soc-gallery-type-filter">
+              <option value="">All types</option>
+              <option value="image">Image</option>
+              <option value="caption">Caption</option>
+              <option value="hook">Hook</option>
+              <option value="thread">Thread</option>
+              <option value="script">Script</option>
+              <option value="image_prompt">Image Prompt</option>
+              <option value="carousel">Carousel</option>
+              <option value="story">Story</option>
+            </select>
+            <button id="soc-gallery-fav-toggle" class="soc-btn soc-btn-sm soc-gallery-fav-btn" title="Favorites only">&#9733;</button>
+            <select id="soc-gallery-sort">
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+              <option value="top_rated">Top Rated</option>
+            </select>
+            <button id="soc-gallery-select-toggle" class="soc-btn soc-btn-sm soc-gallery-select-btn" title="Select mode">Select</button>
+          </div>
+          <div id="soc-gallery-select-toolbar" class="soc-gallery-select-toolbar">
+            <span id="soc-gallery-select-count">0 selected</span>
+            <button id="soc-gallery-select-all" class="soc-btn soc-btn-sm">Select All</button>
+            <button id="soc-gallery-deselect-all" class="soc-btn soc-btn-sm">Deselect All</button>
+            <button id="soc-gallery-delete-selected" class="soc-btn soc-btn-sm soc-btn-danger" disabled>Delete Selected</button>
+          </div>
+          <div id="soc-gallery-grid"></div>
         </div>
       </div>
     </div>
@@ -1361,40 +1395,6 @@
       </div>
     </div>
 
-    <!-- Gallery Tab (hidden — moves in later chunks) -->
-    <div class="soc-tab-content" id="soc-tab-gallery" style="display:none"
-      <div class="soc-tab-body">
-        <div class="soc-gallery-stats-row" id="soc-gallery-stats"></div>
-        <div class="soc-gallery-filter-bar">
-          <input type="text" id="soc-gallery-search" placeholder="Search prompts..." />
-          <select id="soc-gallery-type-filter">
-            <option value="">All types</option>
-            <option value="image">Image</option>
-            <option value="caption">Caption</option>
-            <option value="hook">Hook</option>
-            <option value="thread">Thread</option>
-            <option value="script">Script</option>
-            <option value="image_prompt">Image Prompt</option>
-            <option value="carousel">Carousel</option>
-            <option value="story">Story</option>
-          </select>
-          <button id="soc-gallery-fav-toggle" class="soc-btn soc-btn-sm soc-gallery-fav-btn" title="Favorites only">&#9733;</button>
-          <select id="soc-gallery-sort">
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-            <option value="top_rated">Top Rated</option>
-          </select>
-          <button id="soc-gallery-select-toggle" class="soc-btn soc-btn-sm soc-gallery-select-btn" title="Select mode">Select</button>
-        </div>
-        <div id="soc-gallery-select-toolbar" class="soc-gallery-select-toolbar">
-          <span id="soc-gallery-select-count">0 selected</span>
-          <button id="soc-gallery-select-all" class="soc-btn soc-btn-sm">Select All</button>
-          <button id="soc-gallery-deselect-all" class="soc-btn soc-btn-sm">Deselect All</button>
-          <button id="soc-gallery-delete-selected" class="soc-btn soc-btn-sm soc-btn-danger" disabled>Delete Selected</button>
-        </div>
-        <div id="soc-gallery-grid"></div>
-      </div>
-    </div>
 
     <!-- Preview Tab -->
     <div class="soc-tab-content" id="soc-tab-preview">

@@ -92,12 +92,12 @@ function navigateToSocialTab(tab, subTab) {
     if (subBtn) subBtn.classList.add('active');
     var subEl = root.querySelector('#soc-discover-view-' + subTab);
     if (subEl) subEl.classList.add('active');
+    if (subTab === 'gallery') _socLoadGallery();
   }
 
   // Refresh the tab data
   if (resolvedTab === 'content-browse') _socLoadDiscovered();
   if (resolvedTab === 'calendar') showCalendarPanel();
-  if (resolvedTab === 'gallery') _socLoadGallery();
   if (resolvedTab === 'posts') _socLoadPosts();
   if (resolvedTab === 'create' && tab === 'drafts') _socLoadDrafts();
 }
@@ -962,6 +962,7 @@ function _socInit() {
 
       if (target === 'saved') _socLoadSavedContent();
       if (target === 'trends') _socLoadTrends();
+      if (target === 'gallery') _socLoadGallery();
     });
   });
 
@@ -1779,7 +1780,6 @@ function _socRefreshActiveTab() {
   if (tab === 'content-browse') _socLoadDiscovered();
   if (tab === 'posts')    _socLoadPosts();
   if (tab === 'calendar') _socCalendarRenderCurrentView();
-  if (tab === 'gallery')  _socLoadGallery();
   if (tab === 'drafts')   _socLoadDrafts();
 }
 
