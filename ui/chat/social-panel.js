@@ -1945,6 +1945,9 @@ function _socInit() {
 
   // Initial data load for the first visible tab
   _socLoadDiscovered();
+
+  // ── Copilot bar ──
+  _socInitCopilot();
 }
 
 // ─── Platform field toggle ─────────────────────────────────────────────────
@@ -5216,4 +5219,98 @@ function _socInitPreviewTab(preselectSourceId) {
   // Initial render
   _socRenderAllPreviews();
   _socPreviewLoadSources(preselectSourceId);
+}
+
+// ─── Copilot Bar ───────────────────────────────────────────────────────
+// eslint-disable-next-line no-unused-vars
+function _socInitCopilot() {
+  var inputEl = document.getElementById('soc-copilot-input');
+  var sendBtn = document.getElementById('soc-copilot-send');
+  var responseEl = document.getElementById('soc-copilot-response');
+  var actionsContainer = document.querySelector('.soc-copilot-actions');
+  if (!inputEl || !sendBtn || !responseEl) return;
+
+  function _socCopilotGetContext() {
+    var root = document.getElementById('social-view');
+    if (!root) return '';
+    var activeTab = root.querySelector('.soc-tab-btn.active');
+    var tabName = activeTab ? activeTab.dataset.tab : 'unknown';
+    var parts = ['tab: ' + tabName];
+
+    // If on Create tab, try to get selected draft info
+    if (tabName === 'create') {
+      var editingCard = root.querySelector('.soc-draft-card.editing');
+      if (editingCard) {
+        var draftId = editingCard.dataset.draftId || '';
+        var platform = editingCard.dataset.platform || '';
+        parts.push('editing draft #' + draftId + ' (' + platform + ')');
+        var bodyEl = editingCard.querySelector('.soc-draft-body');
+        if (bodyEl && bodyEl.textContent) {
+          var preview = bodyEl.textContent.trim().slice(0, 200);
+          parts.push('draft text: ' + preview);
+        }
+      }
+    }
+    return parts.join(', ');
+  }
+
+  function _socCopilotSend(message) {
+    if (!message) return;
+    var context = _socCopilotGetContext();
+    var prefixed = '[Social Panel Context: ' + context + ']\n\n' + message;
+
+    // Show loading state
+    responseEl.textContent = 'Thinking...';
+    responseEl.classList.add('visible');
+    sendBtn.disabled = true;
+
+    window.pocketAgent.agent.send(prefixed, currentSessionId).then(function (result) {
+      var text = '';
+      if (result && typeof result === 'object') {
+        text = result.text || result.content || result.message || JSON.stringify(result);
+      } else if (typeof result === 'string') {
+        text = result;
+      }
+      responseEl.textContent = text || '(no response)';
+      responseEl.classList.add('visible');
+      responseEl.scrollTop = responseEl.scrollHeight;
+    }).catch(function (err) {
+      responseEl.textContent = 'Error: ' + (err.message || err);
+      responseEl.classList.add('visible');
+    }).finally(function () {
+      sendBtn.disabled = false;
+    });
+  }
+
+  // Send on click
+  sendBtn.addEventListener('click', function () {
+    var msg = inputEl.value.trim();
+    if (!msg) return;
+    inputEl.value = '';
+    _socCopilotSend(msg);
+  });
+
+  // Send on Enter
+  inputEl.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendBtn.click();
+    }
+  });
+
+  // Quick action buttons
+  if (actionsContainer) {
+    actionsContainer.addEventListener('click', function (e) {
+      var btn = e.target.closest('.soc-copilot-action-btn');
+      if (!btn) return;
+      var action = btn.dataset.action;
+      var commands = {
+        trending: 'Find trending topics and hashtags for my niche right now.',
+        rewrite: 'Rewrite the current draft to be punchier and more engaging.',
+        schedule: 'Schedule all my pending drafts at optimal times.'
+      };
+      var msg = commands[action];
+      if (msg) _socCopilotSend(msg);
+    });
+  }
 }
