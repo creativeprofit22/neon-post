@@ -1311,7 +1311,10 @@
                 <label><input type="checkbox" value="linkedin"> LinkedIn</label>
               </div>
             </div>
-            <button class="soc-btn soc-btn-primary" id="soc-drafts-repurpose-gen-btn">Generate Drafts</button>
+            <div class="soc-repurpose-ctx__actions">
+              <button class="soc-btn soc-btn-primary" id="soc-drafts-repurpose-gen-btn">Generate Drafts</button>
+              <button class="soc-btn soc-btn-outline" id="soc-drafts-repurpose-preview-all-btn" title="Compare all platform mockups side by side">Preview All</button>
+            </div>
           </div>
         </div>
 
@@ -1432,6 +1435,9 @@
             <input type="text" id="soc-preview-image-url" class="soc-input soc-input-sm" placeholder="Image URL (optional)">
           </div>
         </div>
+
+        <!-- Comparison header (shown when viewing a repurposed set) -->
+        <div class="soc-preview-comparison-header" id="soc-preview-comparison-header" style="display:none"></div>
 
         <!-- Platform mockup strip -->
         <div class="soc-preview-strip" id="soc-preview-strip">

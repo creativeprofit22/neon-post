@@ -1399,6 +1399,27 @@ function _socInit() {
     });
   }
 
+  // ── Drafts tab: "Preview All" — navigate to Preview tab with source pre-selected ──
+  const previewAllBtn = root.querySelector('#soc-drafts-repurpose-preview-all-btn');
+  if (previewAllBtn) {
+    previewAllBtn.addEventListener('click', () => {
+      const ctxEl = root.querySelector('#soc-drafts-repurpose-ctx');
+      const sourceId = ctxEl ? ctxEl.getAttribute('data-source-id') : null;
+      if (!sourceId) { _socShowToast('No source content selected', 'error'); return; }
+
+      // Switch to Preview tab
+      root.querySelectorAll('.soc-tab-btn').forEach(b => b.classList.remove('active'));
+      root.querySelectorAll('.soc-tab-content').forEach(c => c.classList.remove('active'));
+      var previewBtn = root.querySelector('.soc-tab-btn[data-tab="preview"]');
+      var previewTab = root.querySelector('#soc-tab-preview');
+      if (previewBtn) previewBtn.classList.add('active');
+      if (previewTab) previewTab.classList.add('active');
+
+      // Initialize preview tab with source pre-selected
+      _socInitPreviewTab(sourceId);
+    });
+  }
+
   // ── Image generate (Kie.ai) ──
   const imageGenBtn = root.querySelector('#soc-image-gen-btn');
   if (imageGenBtn) {
@@ -4964,10 +4985,67 @@ function _socRenderLIMockup(el, data) {
     '</div>';
 }
 
-// Master render — updates all 5 mockups from current input fields
-function _socRenderAllPreviews() {
+// Platform key to mockup suffix mapping
+var _socPlatformMockupMap = {
+  instagram: 'ig', tiktok: 'tt', twitter: 'tw', x: 'tw', facebook: 'fb', linkedin: 'li'
+};
+
+// Master render — updates all 5 mockups from current input fields or repurposed set
+function _socRenderAllPreviews(setPosts) {
   var root = document.getElementById('social-view');
   if (!root) return;
+
+  var strip = root.querySelector('#soc-preview-strip');
+  var header = root.querySelector('#soc-preview-comparison-header');
+  var allMockups = root.querySelectorAll('.soc-preview-mockup');
+
+  // If rendering a repurposed set, show only relevant platforms with per-platform content
+  if (setPosts && setPosts.length) {
+    var activePlatforms = new Set();
+    var sourceTitle = (setPosts[0].content || '').slice(0, 60) || 'Untitled';
+
+    // Show comparison header
+    if (header) {
+      header.textContent = 'Comparing ' + setPosts.length + ' platform' + (setPosts.length > 1 ? 's' : '') + ' for: ' + sourceTitle;
+      header.style.display = 'block';
+    }
+
+    // Hide all mockups first, then show + render relevant ones
+    allMockups.forEach(function(m) { m.style.display = 'none'; });
+
+    setPosts.forEach(function(post) {
+      var suffix = _socPlatformMockupMap[post.platform] || post.platform;
+      activePlatforms.add(suffix);
+      var mockupEl = root.querySelector('#soc-mockup-' + suffix);
+      var wrapperEl = root.querySelector('.soc-preview-mockup[data-platform="' + (post.platform === 'x' ? 'twitter' : post.platform) + '"]');
+      if (wrapperEl) wrapperEl.style.display = '';
+
+      var data = {
+        caption: post.content || '',
+        username: post.author || 'youraccount',
+        imageUrl: null,
+        likes: 1234, comments: 89, shares: 45
+      };
+      // Try to extract image from post metadata
+      if (post.media_urls) {
+        try {
+          var urls = JSON.parse(post.media_urls);
+          if (Array.isArray(urls) && urls.length) data.imageUrl = urls[0];
+        } catch(e) { data.imageUrl = post.media_urls; }
+      }
+
+      if (mockupEl && suffix === 'ig') _socRenderIGMockup(mockupEl, data);
+      if (mockupEl && suffix === 'tt') _socRenderTTMockup(mockupEl, data);
+      if (mockupEl && suffix === 'tw') _socRenderTWMockup(mockupEl, data);
+      if (mockupEl && suffix === 'fb') _socRenderFBMockup(mockupEl, data);
+      if (mockupEl && suffix === 'li') _socRenderLIMockup(mockupEl, data);
+    });
+    return;
+  }
+
+  // Default: show all mockups with shared input fields
+  allMockups.forEach(function(m) { m.style.display = ''; });
+  if (header) header.style.display = 'none';
 
   var caption = (root.querySelector('#soc-preview-caption') || {}).value || '';
   var username = (root.querySelector('#soc-preview-username') || {}).value || 'youraccount';
@@ -4988,12 +5066,11 @@ function _socRenderAllPreviews() {
   if (liEl) _socRenderLIMockup(liEl, data);
 }
 
-// Load posts into the source selector dropdown
-function _socPreviewLoadSources() {
+// Load posts into the source selector dropdown, grouped by source_content_id for repurposed sets
+function _socPreviewLoadSources(preselectSourceId) {
   var select = document.querySelector('#soc-preview-source-select');
   if (!select) return;
   var social = _socAPI();
-  var settings = _socSettings();
 
   // Load from scheduled/draft posts
   Promise.all([
@@ -5004,10 +5081,41 @@ function _socPreviewLoadSources() {
     var discovered = results[1] || [];
     var html = '<option value="">-- Select a draft or scheduled post --</option>';
 
+    // Group posts by source_content_id to identify repurposed sets
+    var grouped = {};
+    var ungrouped = [];
     posts.forEach(function(p) {
-      var label = '[' + (p.platform || '?').toUpperCase() + '] ' + (p.content || '').slice(0, 60);
-      html += '<option value="post:' + p.id + '" data-type="post">' + _socEscHtml(label) + '</option>';
+      if (p.source_content_id) {
+        if (!grouped[p.source_content_id]) grouped[p.source_content_id] = [];
+        grouped[p.source_content_id].push(p);
+      } else {
+        ungrouped.push(p);
+      }
     });
+
+    // Repurposed sets (multiple platforms from same source)
+    var sourceIds = Object.keys(grouped);
+    if (sourceIds.length) {
+      html += '<optgroup label="Repurposed Sets">';
+      sourceIds.forEach(function(srcId) {
+        var set = grouped[srcId];
+        var platforms = set.map(function(p) { return (p.platform || '?').toUpperCase(); }).join(', ');
+        var preview = (set[0].content || '').slice(0, 50);
+        var label = '[' + platforms + '] ' + preview;
+        html += '<option value="set:' + srcId + '" data-type="set">' + _socEscHtml(label) + '</option>';
+      });
+      html += '</optgroup>';
+    }
+
+    // Individual posts (not part of a repurposed set)
+    if (ungrouped.length) {
+      html += '<optgroup label="Individual Posts">';
+      ungrouped.forEach(function(p) {
+        var label = '[' + (p.platform || '?').toUpperCase() + '] ' + (p.content || '').slice(0, 60);
+        html += '<option value="post:' + p.id + '" data-type="post">' + _socEscHtml(label) + '</option>';
+      });
+      html += '</optgroup>';
+    }
 
     if (discovered.length) {
       html += '<optgroup label="Saved Content">';
@@ -5019,11 +5127,24 @@ function _socPreviewLoadSources() {
     }
 
     select.innerHTML = html;
+
+    // Pre-select source if navigating from "Preview All"
+    if (preselectSourceId) {
+      var optVal = 'set:' + preselectSourceId;
+      var opt = select.querySelector('option[value="' + optVal + '"]');
+      if (opt) {
+        select.value = optVal;
+        select.dispatchEvent(new Event('change'));
+      }
+    }
+
+    // Store posts for later lookups
+    select._socPostsCache = posts;
   }).catch(function() {});
 }
 
 // Wire up preview tab interactivity
-function _socInitPreviewTab() {
+function _socInitPreviewTab(preselectSourceId) {
   var root = document.getElementById('social-view');
   if (!root) return;
 
@@ -5036,7 +5157,7 @@ function _socInitPreviewTab() {
   var debounceTimer;
   function onInput() {
     clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(_socRenderAllPreviews, 150);
+    debounceTimer = setTimeout(function() { _socRenderAllPreviews(); }, 150);
   }
 
   if (captionEl) captionEl.addEventListener('input', onInput);
@@ -5047,13 +5168,25 @@ function _socInitPreviewTab() {
   if (selectEl) {
     selectEl.addEventListener('change', function() {
       var val = selectEl.value;
-      if (!val) return;
+      if (!val) {
+        _socRenderAllPreviews();
+        return;
+      }
       var social = _socAPI();
       var parts = val.split(':');
       var type = parts[0];
       var id = parts.slice(1).join(':');
 
-      if (type === 'post' && social && social.getPosts) {
+      if (type === 'set' && social && social.getPosts) {
+        // Load all posts for this repurposed set
+        social.getPosts(100).then(function(posts) {
+          var setPosts = posts.filter(function(p) { return p.source_content_id === id; });
+          if (!setPosts.length) return;
+          // Fill caption with first post's content for reference
+          if (captionEl) captionEl.value = setPosts[0].content || '';
+          _socRenderAllPreviews(setPosts);
+        });
+      } else if (type === 'post' && social && social.getPosts) {
         social.getPosts(100).then(function(posts) {
           var p = posts.find(function(x) { return x.id === id; });
           if (!p) return;
@@ -5082,5 +5215,5 @@ function _socInitPreviewTab() {
 
   // Initial render
   _socRenderAllPreviews();
-  _socPreviewLoadSources();
+  _socPreviewLoadSources(preselectSourceId);
 }
