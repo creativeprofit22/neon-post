@@ -1272,6 +1272,17 @@ function _socInit() {
       const el = root.querySelector('#soc-discover-view-' + target);
       if (el) el.classList.add('active');
 
+      // OW2: Reset gallery select mode when switching away from gallery
+      if (target !== 'gallery') {
+        _socSelectMode = false;
+        _socSelectedIds.clear();
+        var toolbar = root.querySelector('#soc-gallery-select-toolbar');
+        if (toolbar) toolbar.style.display = 'none';
+        var toggleBtn = root.querySelector('#soc-gallery-select-toggle');
+        if (toggleBtn) toggleBtn.classList.remove('active');
+        root.querySelectorAll('.soc-gallery-item.selected').forEach(function(el) { el.classList.remove('selected'); });
+      }
+
       if (target === 'search' && _socDiscoverCache && Date.now() - _socDiscoverCacheTime > 300000) {
         _socDiscoverCache = null;
         _socLoadDiscovered();
@@ -4661,6 +4672,11 @@ window.socPanelActions = {
     if (ctxEl) {
       ctxEl.style.display = 'none';
       ctxEl.removeAttribute('data-source-id');
+    }
+    // OW3: Clear pre-filled platform checkboxes
+    var platContainer = document.querySelector('#soc-drafts-repurpose-platforms');
+    if (platContainer) {
+      platContainer.querySelectorAll('input[type="checkbox"]').forEach(function(cb) { cb.checked = false; });
     }
   },
 
