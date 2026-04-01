@@ -1614,6 +1614,55 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 18l6-6-6-6"/></svg>
       </button>
     </div>
+    <!-- Schedule Modal (opened via Schedule button on draft cards) -->
+    <div class="soc-modal-overlay soc-schedule-modal" id="soc-schedule-modal" style="display:none">
+      <div class="soc-modal-panel" style="width:420px">
+        <div class="soc-modal-header">
+          <span class="soc-section-title">Schedule Post</span>
+          <button class="soc-modal-close" id="soc-schedule-modal-close">&times;</button>
+        </div>
+        <div class="soc-schedule-modal__platform" id="soc-schedule-modal-platform"></div>
+
+        <!-- 3-way toggle -->
+        <div class="soc-schedule-toggle" id="soc-schedule-toggle">
+          <button class="soc-schedule-toggle__option" data-mode="now">
+            <span class="soc-schedule-toggle__icon">&#9889;</span>
+            <span class="soc-schedule-toggle__label">Publish Now</span>
+          </button>
+          <button class="soc-schedule-toggle__option active" data-mode="schedule">
+            <span class="soc-schedule-toggle__icon">&#128197;</span>
+            <span class="soc-schedule-toggle__label">Schedule</span>
+          </button>
+          <button class="soc-schedule-toggle__option" data-mode="queue">
+            <span class="soc-schedule-toggle__icon">&#128336;</span>
+            <span class="soc-schedule-toggle__label">Add to Queue</span>
+          </button>
+        </div>
+
+        <!-- Schedule-specific: presets + pickers -->
+        <div class="soc-schedule-details" id="soc-schedule-details">
+          <div class="soc-schedule-presets-label">Quick picks:</div>
+          <div class="soc-schedule-presets" id="soc-schedule-presets">
+            <button class="soc-schedule-preset-btn" data-preset="tomorrow9">Tomorrow 9 AM</button>
+            <button class="soc-schedule-preset-btn" data-preset="tomorrow6">Tomorrow 6 PM</button>
+            <button class="soc-schedule-preset-btn" data-preset="nextmonday">Next Monday</button>
+          </div>
+          <div class="soc-schedule-pickers">
+            <div class="soc-form-group">
+              <label>Date</label>
+              <input type="date" id="soc-schedule-date">
+            </div>
+            <div class="soc-form-group">
+              <label>Time</label>
+              <input type="time" id="soc-schedule-time">
+            </div>
+          </div>
+        </div>
+
+        <button class="soc-btn soc-btn-primary soc-schedule-confirm-btn" id="soc-schedule-confirm">Schedule Post &rarr;</button>
+      </div>
+    </div>
+
   </div><!-- #social-view -->
 
   </div><!-- .main-content -->

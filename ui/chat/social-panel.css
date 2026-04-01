@@ -3895,6 +3895,104 @@
   color: var(--text-primary, #e0e0e0);
 }
 
+/* ── Schedule Modal ── */
+
+#social-view .soc-schedule-modal .soc-modal-panel {
+  width: 420px;
+}
+
+.soc-schedule-modal__platform {
+  font-size: 13px;
+  color: var(--text-secondary, #999);
+  margin-bottom: 16px;
+}
+
+.soc-schedule-toggle {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.soc-schedule-toggle__option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 8px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border, #333);
+  background: transparent;
+  color: var(--text-secondary, #999);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.soc-schedule-toggle__option:hover {
+  border-color: var(--text-muted, #666);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.soc-schedule-toggle__option.active {
+  border-color: var(--accent, #4ade80);
+  background: rgba(74, 222, 128, 0.05);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.soc-schedule-toggle__icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.soc-schedule-toggle__label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.soc-schedule-presets-label {
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+  margin-bottom: 8px;
+}
+
+.soc-schedule-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.soc-schedule-preset-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  border-radius: var(--radius-sm, 4px);
+  border: 1px solid var(--border, #333);
+  background: transparent;
+  color: var(--text-secondary, #999);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.soc-schedule-preset-btn:hover {
+  border-color: var(--accent, #4ade80);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.soc-schedule-pickers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.soc-schedule-confirm-btn {
+  width: 100%;
+  margin-top: 16px;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
 /* ── Media Attachment Strip ── */
 
 #social-view .soc-media-strip-row {

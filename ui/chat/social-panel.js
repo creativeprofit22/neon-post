@@ -18,6 +18,8 @@ let _socSelectMode = false;         // gallery multi-select mode
 let _socCalendarInitialized = false; // calendar lazy-init flag
 let _socDiscoverTypeFilter = '';     // content type filter for Discover Search
 const _socSelectedIds = new Set();  // currently selected gallery item IDs
+let _socScheduleModalDraftId = null; // draft id for schedule modal
+let _socScheduleModalMode = 'schedule'; // current toggle mode: 'now' | 'schedule' | 'queue'
 
 // ─── Receive pushed search results (callable from init.js before panel is opened) ──
 
@@ -186,6 +188,193 @@ function _socShowScheduleSuccessToast(scheduledDate) {
 function _socRefreshAfterSchedule() {
   if (_socCalendarInitialized) _socCalendarRender();
   _socLoadPosts();
+}
+
+// ─── Schedule Modal ─────────────────────────────────────────────────────────
+
+function _socOpenScheduleModal(draftId) {
+  var modal = document.getElementById('soc-schedule-modal');
+  if (!modal) return;
+
+  // Find draft to show platform label
+  var draft = _socDraftsCache && _socDraftsCache.find(function (d) { return d.id === draftId; });
+  var platformLabel = document.getElementById('soc-schedule-modal-platform');
+  if (platformLabel && draft) {
+    platformLabel.textContent = _socPlatformIcon(draft.platform) + ' ' + (draft.platform || 'Unknown').charAt(0).toUpperCase() + (draft.platform || '').slice(1) + ' draft';
+  }
+
+  // Reset toggle to Schedule
+  _socScheduleModalMode = 'schedule';
+  var toggleBtns = modal.querySelectorAll('.soc-schedule-toggle__option');
+  toggleBtns.forEach(function (b) { b.classList.toggle('active', b.dataset.mode === 'schedule'); });
+
+  // Show schedule details, reset pickers
+  var details = document.getElementById('soc-schedule-details');
+  if (details) details.style.display = '';
+  var dateInput = document.getElementById('soc-schedule-date');
+  var timeInput = document.getElementById('soc-schedule-time');
+  if (dateInput) dateInput.value = '';
+  if (timeInput) timeInput.value = '';
+
+  // Update confirm button text
+  _socUpdateScheduleConfirmBtn();
+
+  modal.style.display = '';
+}
+
+function _socCloseScheduleModal() {
+  var modal = document.getElementById('soc-schedule-modal');
+  if (modal) modal.style.display = 'none';
+  _socScheduleModalDraftId = null;
+}
+
+function _socUpdateScheduleConfirmBtn() {
+  var btn = document.getElementById('soc-schedule-confirm');
+  if (!btn) return;
+  if (_socScheduleModalMode === 'now') {
+    btn.textContent = 'Publish Now \u2192';
+  } else if (_socScheduleModalMode === 'queue') {
+    btn.textContent = 'Add to Queue \u2192';
+  } else {
+    btn.textContent = 'Schedule Post \u2192';
+  }
+}
+
+function _socApplySchedulePreset(preset) {
+  var now = new Date();
+  var target = new Date(now);
+
+  if (preset === 'tomorrow9') {
+    target.setDate(target.getDate() + 1);
+    target.setHours(9, 0, 0, 0);
+  } else if (preset === 'tomorrow6') {
+    target.setDate(target.getDate() + 1);
+    target.setHours(18, 0, 0, 0);
+  } else if (preset === 'nextmonday') {
+    var day = target.getDay();
+    var daysUntilMonday = day === 0 ? 1 : (8 - day);
+    target.setDate(target.getDate() + daysUntilMonday);
+    target.setHours(9, 0, 0, 0);
+  }
+
+  var dateInput = document.getElementById('soc-schedule-date');
+  var timeInput = document.getElementById('soc-schedule-time');
+  if (dateInput) {
+    var y = target.getFullYear();
+    var m = String(target.getMonth() + 1).padStart(2, '0');
+    var d = String(target.getDate()).padStart(2, '0');
+    dateInput.value = y + '-' + m + '-' + d;
+  }
+  if (timeInput) {
+    var hh = String(target.getHours()).padStart(2, '0');
+    var mm = String(target.getMinutes()).padStart(2, '0');
+    timeInput.value = hh + ':' + mm;
+  }
+}
+
+function _socScheduleModalConfirm() {
+  var social = _socAPI();
+  if (!social || !_socScheduleModalDraftId) return;
+
+  var draftId = _socScheduleModalDraftId;
+  var draft = _socDraftsCache && _socDraftsCache.find(function (d) { return d.id === draftId; });
+  if (!draft) { _socShowToast('Draft not found', 'error'); return; }
+
+  if (_socScheduleModalMode === 'now') {
+    // Publish immediately
+    social.updatePost(draftId, {
+      content: draft.content,
+      status: 'published',
+    }).then(function (result) {
+      if (result.success) {
+        _socCloseScheduleModal();
+        _socShowToast('Post published!', 'success');
+        _socRefreshAfterSchedule();
+        _socLoadDrafts();
+      } else {
+        _socShowToast(result.error || 'Publish failed', 'error');
+      }
+    }).catch(function () { _socShowToast('Publish error', 'error'); });
+    return;
+  }
+
+  if (_socScheduleModalMode === 'queue') {
+    // Add to queue (scheduled status, no specific time — backend handles queue)
+    social.updatePost(draftId, {
+      content: draft.content,
+      status: 'queued',
+    }).then(function (result) {
+      if (result.success) {
+        _socCloseScheduleModal();
+        _socShowToast('Added to queue!', 'success');
+        _socRefreshAfterSchedule();
+        _socLoadDrafts();
+      } else {
+        _socShowToast(result.error || 'Queue failed', 'error');
+      }
+    }).catch(function () { _socShowToast('Queue error', 'error'); });
+    return;
+  }
+
+  // Schedule mode — need date + time
+  var dateInput = document.getElementById('soc-schedule-date');
+  var timeInput = document.getElementById('soc-schedule-time');
+  if (!dateInput || !dateInput.value || !timeInput || !timeInput.value) {
+    _socShowToast('Pick a date and time', 'error');
+    return;
+  }
+
+  var scheduleDate = new Date(dateInput.value + 'T' + timeInput.value);
+  social.updatePost(draftId, {
+    content: draft.content,
+    status: 'scheduled',
+    scheduled_at: scheduleDate.toISOString(),
+  }).then(function (result) {
+    if (result.success) {
+      _socCloseScheduleModal();
+      _socShowScheduleSuccessToast(scheduleDate);
+      _socRefreshAfterSchedule();
+      _socLoadDrafts();
+    } else {
+      _socShowToast(result.error || 'Schedule failed', 'error');
+    }
+  }).catch(function () { _socShowToast('Schedule error', 'error'); });
+}
+
+function _socInitScheduleModal() {
+  var modal = document.getElementById('soc-schedule-modal');
+  if (!modal) return;
+
+  // Close button
+  var closeBtn = document.getElementById('soc-schedule-modal-close');
+  if (closeBtn) closeBtn.addEventListener('click', _socCloseScheduleModal);
+
+  // Click overlay to close
+  modal.addEventListener('click', function (e) {
+    if (e.target === modal) _socCloseScheduleModal();
+  });
+
+  // Toggle buttons
+  var toggleBtns = modal.querySelectorAll('.soc-schedule-toggle__option');
+  toggleBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      _socScheduleModalMode = btn.dataset.mode;
+      toggleBtns.forEach(function (b) { b.classList.toggle('active', b === btn); });
+      var details = document.getElementById('soc-schedule-details');
+      if (details) details.style.display = _socScheduleModalMode === 'schedule' ? '' : 'none';
+      _socUpdateScheduleConfirmBtn();
+    });
+  });
+
+  // Preset buttons
+  var presetBtns = modal.querySelectorAll('.soc-schedule-preset-btn');
+  presetBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () { _socApplySchedulePreset(btn.dataset.preset); });
+  });
+
+  // Confirm button
+  var confirmBtn = document.getElementById('soc-schedule-confirm');
+  if (confirmBtn) confirmBtn.addEventListener('click', _socScheduleModalConfirm);
 }
 
 function _socShowRepurposePreview(root, item) {
@@ -914,6 +1103,9 @@ function _socInit() {
       if (e.key === 'Escape' && modalOverlay.style.display !== 'none') _socCloseAccountsModal();
     });
   }
+
+  // ── Schedule modal ──
+  _socInitScheduleModal();
 
   // ── Create sub-tabs (inside scratch panel) ──
   root.querySelectorAll('#soc-create-scratch-panel .soc-sub-tab').forEach(btn => {
@@ -4287,35 +4479,17 @@ window.socPanelActions = {
 
   // ── Draft actions ──
 
-  draftSchedule(id, btn) {
-    var card = btn.closest('.soc-draft-card');
-    var scheduleEl = card && card.querySelector('.soc-draft-card__schedule');
-    if (scheduleEl) scheduleEl.style.display = 'flex';
+  draftSchedule(id) {
+    _socScheduleModalDraftId = id;
+    _socScheduleModalMode = 'schedule';
+    _socOpenScheduleModal(id);
   },
 
-  draftConfirmSchedule(id, btn) {
-    var card = btn.closest('.soc-draft-card');
-    var ta = card && card.querySelector('.soc-drafts-tab-textarea');
-    var dtInput = card && card.querySelector('.soc-draft-card__datetime');
-    if (!ta || !dtInput || !dtInput.value) { _socShowToast('Pick a date/time', 'error'); return; }
-
-    var social = _socAPI();
-    if (!social) return;
-
-    var scheduleDate = new Date(dtInput.value);
-    social.updatePost(id, {
-      content: ta.value,
-      status: 'scheduled',
-      scheduled_at: scheduleDate.toISOString(),
-    }).then(function (result) {
-      if (result.success) {
-        _socShowScheduleSuccessToast(scheduleDate);
-        _socRefreshAfterSchedule();
-        _socLoadDrafts();
-      } else {
-        _socShowToast(result.error || 'Schedule failed', 'error');
-      }
-    }).catch(function () { _socShowToast('Schedule error', 'error'); });
+  draftConfirmSchedule(id) {
+    // Legacy inline confirm — redirect to modal
+    _socScheduleModalDraftId = id;
+    _socScheduleModalMode = 'schedule';
+    _socOpenScheduleModal(id);
   },
 
   draftCopy(id) {
