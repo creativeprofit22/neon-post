@@ -1507,7 +1507,13 @@ function _socInit() {
                   '<span class="soc-image-model-tag">' + _socEscapeHtml(model) + ' · ' + _socEscapeHtml(aspectRatio) + '</span>' +
                 '</div>';
             }
-            _socShowToast('Image generated!', 'success');
+            _socGalleryCache = null;
+            var galleryTab = root.querySelector('.soc-discover-sub-tab[data-discover-view="gallery"].active');
+            if (!galleryTab) {
+              _socShowToast('Image ready — check Gallery tab', 'success');
+            } else {
+              _socShowToast('Image generated!', 'success');
+            }
           } else {
             if (outputEl) {
               outputEl.innerHTML = '<div class="soc-image-placeholder">' + _socEscapeHtml(result.error || 'Generation failed') + '</div>';
