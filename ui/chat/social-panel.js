@@ -4225,6 +4225,9 @@ function _socApplyGalleryFilters() {
         '<div class="soc-gallery-item-footer">' +
           '<span>' + _socMakePlatformBadge(item.platform || item.content_type) + ' · ' + _socTimeAgo(item.created_at) + '</span>' +
           '<div class="soc-gallery-item-actions">' +
+            (isImage ? '<button class="soc-icon-btn" onclick="socPanelActions.copyImageUrl(\'' + _socEscapeHtml(imageUrl) + '\')" title="Copy URL">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>' +
+            '</button>' : '') +
             (isImage ? '<button class="soc-icon-btn" onclick="socPanelActions.downloadImage(\'' + item.id + '\')" title="Download">' +
               '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 3v13m0 0l-4-4m4 4l4-4M4 21h16"/></svg>' +
             '</button>' : '') +
@@ -4410,8 +4413,13 @@ function _socLightboxShowItem(item) {
   }
 
   if (lbMeta) {
+    const copyUrlBtn = imageUrl
+      ? '<button class="soc-icon-btn" onclick="socPanelActions.copyImageUrl(\'' + _socEscapeHtml(imageUrl) + '\')" title="Copy URL" style="margin-left:auto">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>' +
+        '</button>'
+      : '';
     const downloadBtn = imageUrl
-      ? '<button class="soc-icon-btn" onclick="socPanelActions.downloadImage(\'' + item.id + '\')" title="Download" style="margin-left:auto">' +
+      ? '<button class="soc-icon-btn" onclick="socPanelActions.downloadImage(\'' + item.id + '\')" title="Download">' +
         '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 3v13m0 0l-4-4m4 4l4-4M4 21h16"/></svg>' +
         '</button>'
       : '';
@@ -4419,7 +4427,7 @@ function _socLightboxShowItem(item) {
       '<span>' + _socMakePlatformBadge(item.platform || item.content_type) + '</span>' +
       (item.prompt_used ? '<span style="opacity:0.7;font-style:italic">' + _socEscapeHtml(item.prompt_used) + '</span>' : '') +
       '<span>' + _socTimeAgo(item.created_at) + '</span>' +
-      downloadBtn;
+      copyUrlBtn + downloadBtn;
   }
 }
 
@@ -4432,6 +4440,13 @@ function _socLightboxNavigate(dir) {
 // ─── Global Actions (callable from inline onclick) ─────────────────────────
 
 window.socPanelActions = {
+  copyImageUrl(url) {
+    if (!url) return;
+    navigator.clipboard.writeText(url)
+      .then(function() { _socShowToast('Image URL copied!', 'success'); })
+      .catch(function() { _socShowToast('Copy failed', 'error'); });
+  },
+
   saveDiscovered(id) {
     const social = _socAPI();
     if (!social) { _socShowToast('Social API unavailable', 'error'); return; }
