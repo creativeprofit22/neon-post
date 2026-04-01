@@ -6,6 +6,7 @@ let _socInitialized = false;
 let _socNotyf = null;
 let _socEditingAccountId = null;  // null = adding, string = editing
 let _socDiscoverCache = null;     // cached discover/search results for tab persistence
+let _socDiscoverCacheTime = 0;    // timestamp when _socDiscoverCache was last set
 let _socDiscoverSearchCache = null; // cached raw search results (ContentResult[]) keyed by index
 let _socSavedCache = null;          // cached saved/bookmarked content from DB
 let _socTrendsCache = null;          // cached trends for Discover → Trends sub-tab
@@ -20,6 +21,7 @@ let _socDiscoverTypeFilter = '';     // content type filter for Discover Search
 const _socSelectedIds = new Set();  // currently selected gallery item IDs
 let _socScheduleModalDraftId = null; // draft id for schedule modal
 let _socScheduleModalMode = 'schedule'; // current toggle mode: 'now' | 'schedule' | 'queue'
+let _socDraftsFilterValue = '';          // persisted drafts filter value across tab switches
 
 // ─── Receive agent-generated content (callable from init.js onRepurposeCompleted) ──
 
@@ -1197,7 +1199,11 @@ function _socInit() {
       if (target === 'content-browse') { _socLoadDiscovered(); _socMaybeAutoDetectTrends(); }
       if (target === 'calendar') showCalendarPanel();
       if (target === 'preview')  _socInitPreviewTab();
-      if (target === 'create')   _socLoadDrafts();
+      if (target === 'create') {
+        var filterEl = root.querySelector('#soc-drafts-filter');
+        if (filterEl) filterEl.value = _socDraftsFilterValue;
+        _socLoadDrafts();
+      }
     });
   });
 
@@ -1266,6 +1272,10 @@ function _socInit() {
       const el = root.querySelector('#soc-discover-view-' + target);
       if (el) el.classList.add('active');
 
+      if (target === 'search' && _socDiscoverCache && Date.now() - _socDiscoverCacheTime > 300000) {
+        _socDiscoverCache = null;
+        _socLoadDiscovered();
+      }
       if (target === 'saved') _socLoadSavedContent();
       if (target === 'trends') _socLoadTrends();
       if (target === 'gallery') _socLoadGallery();
@@ -1315,7 +1325,7 @@ function _socInit() {
 
   // ── Drafts filter ──
   var draftsFilter = root.querySelector('#soc-drafts-filter');
-  if (draftsFilter) draftsFilter.addEventListener('change', function () { _socLoadDrafts(); });
+  if (draftsFilter) draftsFilter.addEventListener('change', function () { _socDraftsFilterValue = draftsFilter.value; _socLoadDrafts(); });
 
   // ── Discover search ──
   const discoverSearch    = root.querySelector('#soc-discover-search');
@@ -2139,7 +2149,7 @@ function _socRefreshActiveTab() {
 
 // eslint-disable-next-line no-unused-vars
 function _socRefreshCalendar() {
-  _socCalendarRenderCurrentView();
+  if (_socCalendarInitialized) _socCalendarRenderCurrentView();
 }
 
 // eslint-disable-next-line no-unused-vars
@@ -2150,7 +2160,9 @@ function _socRefreshPosts() {
 // eslint-disable-next-line no-unused-vars
 function _socRefreshDiscoverSaved() {
   _socSavedCache = null;
-  _socLoadSavedContent();
+  var root = document.getElementById('social-view');
+  var savedBtn = root && root.querySelector('.soc-discover-sub-tab[data-discover-view="saved"].active');
+  if (savedBtn) _socLoadSavedContent();
 }
 
 // ─── Discover Tab ──────────────────────────────────────────────────────────
@@ -2204,6 +2216,7 @@ function _socDiscoverSearch(query, platform) {
       }
       // Cache search results so they persist across tab switches
       _socDiscoverCache = items;
+      _socDiscoverCacheTime = Date.now();
       // Store raw search items for the Save button mapping
       _socDiscoverSearchCache = {};
       if (items && items.length) {
@@ -2473,10 +2486,11 @@ function _socLoadTrends() {
   const results = root && root.querySelector('#soc-trends-results');
   if (!results) return;
 
-  if (_socTrendsCache) {
+  if (_socTrendsCache && Date.now() - _socTrendsLastDetect <= 300000) {
     _socRenderTrends(_socTrendsCache);
     return;
   }
+  _socTrendsCache = null;
 
   results.innerHTML = '<div class="soc-card-grid">' + _socSkeletonCards(4) + '</div>';
   if (!social) { results.innerHTML = '<div class="soc-empty"><p>Social API unavailable</p></div>'; return; }
@@ -4756,6 +4770,9 @@ window.socPanelActions = {
     social.deleteGenerated(id)
       .then(result => {
         if (result.success) {
+          if (_socGalleryCache) {
+            _socGalleryCache = _socGalleryCache.filter(function(i) { return i.id !== id; });
+          }
           const el = document.querySelector('#social-view .soc-gallery-item[data-id="' + id + '"]');
           if (el) el.remove();
           _socShowToast('Deleted', 'success');

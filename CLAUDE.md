@@ -56,3 +56,14 @@ npm run typecheck && npm run lint
 ```
 
 Fix ALL errors/warnings before continuing.
+
+## Key Commands
+
+```bash
+npm run build          # Compile TypeScript
+npm run dev            # Build + launch Electron
+npm run test           # Run Vitest tests
+npm run lint:fix       # Auto-fix lint issues
+npm run format         # Prettier format
+npm run dist:win       # Package Windows installer
+```
