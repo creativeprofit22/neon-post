@@ -158,18 +158,48 @@ function toggleSocialPanel() {
 // ─── Toast ─────────────────────────────────────────────────────────────────
 
 function _socShowToast(message, type) {
-  if (!_socNotyf) {
-    _socNotyf = new Notyf({
-      duration: 3000,
-      position: { x: 'right', y: 'bottom' },
-      dismissible: true,
-      types: [
-        { type: 'success', background: '#4ade80' },
-        { type: 'error',   background: '#f87171' },
-      ],
-    });
+  var validType = (type === 'error' || type === 'info') ? type : 'success';
+  var icons = { success: '\u2713', error: '\u2717', info: '\u2139' };
+  var duration = validType === 'error' ? 5000 : 3000;
+
+  // Ensure container exists
+  var container = document.querySelector('.soc-toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'soc-toast-container';
+    document.body.appendChild(container);
   }
-  _socNotyf[type === 'error' ? 'error' : 'success'](message);
+
+  var toast = document.createElement('div');
+  toast.className = 'soc-toast soc-toast--' + validType;
+  toast.innerHTML =
+    '<span class="soc-toast__icon">' + icons[validType] + '</span>' +
+    '<span class="soc-toast__msg">' + _socEscapeHtml(message) + '</span>' +
+    '<button class="soc-toast__dismiss">&times;</button>' +
+    '<div class="soc-toast__timer" style="width:100%"></div>';
+
+  var timerEl = toast.querySelector('.soc-toast__timer');
+  var dismissBtn = toast.querySelector('.soc-toast__dismiss');
+
+  function removeToast() {
+    if (toast._removed) return;
+    toast._removed = true;
+    clearTimeout(toast._timeout);
+    toast.classList.add('soc-toast--exiting');
+    setTimeout(function () { if (toast.parentNode) toast.remove(); }, 200);
+  }
+
+  dismissBtn.addEventListener('click', removeToast);
+
+  container.appendChild(toast);
+
+  // Start timer bar animation
+  requestAnimationFrame(function () {
+    timerEl.style.transitionDuration = duration + 'ms';
+    timerEl.style.width = '0%';
+  });
+
+  toast._timeout = setTimeout(removeToast, duration);
 }
 
 function _socShowScheduleSuccessToast(scheduledDate) {
@@ -177,6 +207,7 @@ function _socShowScheduleSuccessToast(scheduledDate) {
   var toast = document.createElement('div');
   toast.className = 'soc-schedule-toast';
   toast.innerHTML =
+    '<span class="soc-success-check">\u2713</span>' +
     '<span>Scheduled for ' + _socEscapeHtml(dateLabel) + '</span>' +
     '<a href="#" class="soc-schedule-toast__link">View in Calendar</a>' +
     '<button class="soc-schedule-toast__close">&times;</button>';
@@ -874,10 +905,10 @@ function _socConfirmScheduleDraft(btn, platform, sourceId) {
       _socRefreshAfterSchedule();
       var scheduleEl = card.querySelector('.soc-draft-card__schedule');
       if (scheduleEl) scheduleEl.style.display = 'none';
-      // Update card to show scheduled state
+      // Update card to show scheduled state with checkmark animation
       var actionsEl = card.querySelector('.soc-draft-card__actions');
       if (actionsEl) {
-        actionsEl.innerHTML = '<span class="soc-draft-card__scheduled-badge">Scheduled &#10003;</span>';
+        actionsEl.innerHTML = '<span class="soc-success-check">\u2713</span> <span class="soc-draft-card__scheduled-badge">Scheduled</span>';
       }
       ta.disabled = true;
     } else {
@@ -898,6 +929,7 @@ function _socRegenerateDraft(btn, platform, sourceId) {
   btn.disabled = true;
   ta.value = '';
   ta.placeholder = 'Regenerating…';
+  card.classList.add('soc-draft-card--generating');
 
   social.generateContent({
     content_type: 'repurpose',
@@ -922,6 +954,7 @@ function _socRegenerateDraft(btn, platform, sourceId) {
   }).finally(function () {
     btn.disabled = false;
     ta.placeholder = '';
+    card.classList.remove('soc-draft-card--generating');
   });
 }
 
@@ -1245,7 +1278,10 @@ function _socInit() {
       const prompt      = ((root.querySelector('#soc-create-prompt')      || {}).value || '').trim();
 
       if (!prompt) { _socShowToast('Enter a prompt or topic', 'error'); return; }
-      if (genOutput) genOutput.textContent = 'Generating…';
+      if (genOutput) {
+        genOutput.textContent = 'Generating…';
+        genOutput.classList.add('soc-draft-card--generating');
+      }
       genBtn.disabled = true;
 
       social.generateContent({ content_type: contentType, platform: platform || null, prompt_used: prompt })
@@ -1263,7 +1299,10 @@ function _socInit() {
           if (genOutput) genOutput.textContent = 'Error generating content';
           _socShowToast('Generation error', 'error');
         })
-        .finally(() => { genBtn.disabled = false; });
+        .finally(() => {
+          genBtn.disabled = false;
+          if (genOutput) genOutput.classList.remove('soc-draft-card--generating');
+        });
     });
   }
 
@@ -1322,10 +1361,10 @@ function _socInit() {
       checks.forEach(function (cb) { targetPlatforms.push(cb.value); });
       if (targetPlatforms.length === 0) { _socShowToast('Select at least one target platform', 'error'); return; }
 
-      // Show skeleton loading
+      // Show skeleton loading with shimmer
       if (draftsEl) {
         draftsEl.innerHTML = targetPlatforms.map(function (p) {
-          return '<div class="soc-draft-card soc-draft-card--loading">' +
+          return '<div class="soc-draft-card soc-draft-card--loading soc-draft-card--generating">' +
             '<div class="soc-draft-card__header"><span class="soc-draft-card__platform">' + _socEscapeHtml(p.toUpperCase()) + '</span></div>' +
             '<div class="soc-skeleton" style="height:60px;border-radius:4px"></div>' +
           '</div>';
@@ -2984,7 +3023,7 @@ function _socRenderMediaThumbnails(mediaItems, draftId) {
     mediaItems.map(function (item, idx) {
       var isVideo = item.type === 'video';
       var label = isVideo ? '\uD83C\uDFAC' : '';
-      return '<div class="soc-media-thumb" title="' + _socEscapeHtml(item.name) + '">' +
+      return '<div class="soc-media-thumb soc-media-thumb--entering" title="' + _socEscapeHtml(item.name) + '">' +
         (isVideo
           ? '<div class="soc-media-thumb__video-icon">' + label + '</div>'
           : '<img src="file://' + _socEscapeHtml(item.path.replace(/\\/g, '/')) + '" alt="' + _socEscapeHtml(item.name) + '" />') +
@@ -3032,17 +3071,41 @@ function _socPickMediaForDraft(draftId) {
 
   social.pickMediaFiles().then(function (result) {
     if (!result.success || !result.files || !result.files.length) return;
-    _socShowToast('Attaching media...', 'success');
+
+    // Show progress bar in the draft card
+    var card = document.querySelector('.soc-draft-card[data-draft-id="' + draftId + '"]');
+    var progressBar = null;
+    if (card) {
+      var body = card.querySelector('.soc-draft-card__body');
+      if (body) {
+        progressBar = document.createElement('div');
+        progressBar.className = 'soc-progress-bar';
+        progressBar.innerHTML = '<div class="soc-progress-fill" style="width:20%"></div>';
+        body.insertBefore(progressBar, body.firstChild);
+      }
+    }
+
+    // Simulate progress steps
+    var fill = progressBar && progressBar.querySelector('.soc-progress-fill');
+    if (fill) setTimeout(function () { fill.style.width = '60%'; }, 300);
+
     social.attachMedia(draftId, result.files)
       .then(function (res) {
-        if (res.success) {
-          _socShowToast('Media attached!', 'success');
-          _socLoadDrafts();
-        } else {
-          _socShowToast(res.error || 'Attach failed', 'error');
-        }
+        if (fill) fill.style.width = '100%';
+        setTimeout(function () {
+          if (progressBar && progressBar.parentNode) progressBar.remove();
+          if (res.success) {
+            _socShowToast('Media attached!', 'success');
+            _socLoadDrafts();
+          } else {
+            _socShowToast(res.error || 'Attach failed', 'error');
+          }
+        }, 300);
       })
-      .catch(function () { _socShowToast('Media attach error', 'error'); });
+      .catch(function () {
+        if (progressBar && progressBar.parentNode) progressBar.remove();
+        _socShowToast('Media attach error', 'error');
+      });
   });
 }
 
@@ -3077,17 +3140,44 @@ function _socPickVideoForDraft(draftId) {
 
   social.pickVideoFile().then(function (result) {
     if (!result.success) return;
-    _socShowToast('Uploading video...', 'success');
+
+    // Show progress bar in the draft card
+    var card = document.querySelector('.soc-draft-card[data-draft-id="' + draftId + '"]');
+    var progressBar = null;
+    if (card) {
+      var body = card.querySelector('.soc-draft-card__body');
+      if (body) {
+        progressBar = document.createElement('div');
+        progressBar.className = 'soc-progress-bar';
+        progressBar.innerHTML = '<div class="soc-progress-fill" style="width:10%"></div>';
+        body.insertBefore(progressBar, body.firstChild);
+      }
+    }
+
+    // Simulate upload progress steps
+    var fill = progressBar && progressBar.querySelector('.soc-progress-fill');
+    if (fill) {
+      setTimeout(function () { fill.style.width = '40%'; }, 500);
+      setTimeout(function () { fill.style.width = '70%'; }, 1200);
+    }
+
     social.uploadVideo(draftId, result.filePath)
       .then(function (res) {
-        if (res.success) {
-          _socShowToast('Video attached!', 'success');
-          _socLoadDrafts();
-        } else {
-          _socShowToast(res.error || 'Upload failed', 'error');
-        }
+        if (fill) fill.style.width = '100%';
+        setTimeout(function () {
+          if (progressBar && progressBar.parentNode) progressBar.remove();
+          if (res.success) {
+            _socShowToast('Video attached!', 'success');
+            _socLoadDrafts();
+          } else {
+            _socShowToast(res.error || 'Upload failed', 'error');
+          }
+        }, 300);
       })
-      .catch(function () { _socShowToast('Video upload error', 'error'); });
+      .catch(function () {
+        if (progressBar && progressBar.parentNode) progressBar.remove();
+        _socShowToast('Video upload error', 'error');
+      });
   });
 }
 
