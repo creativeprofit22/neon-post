@@ -4526,6 +4526,16 @@
   transition: width linear;
 }
 
+.soc-toast__action {
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  margin-left: 8px;
+  font-weight: 600;
+  opacity: 0.9;
+}
+.soc-toast__action:hover { opacity: 1; }
+
 .soc-toast--exiting {
   animation: socToastSlideOut 0.2s ease-in forwards;
 }

@@ -210,6 +210,56 @@ function _socShowToast(message, type) {
   toast._timeout = setTimeout(removeToast, duration);
 }
 
+function _socShowActionToast(message, type, actionLabel, actionFn) {
+  var validType = (type === 'error' || type === 'info') ? type : 'success';
+  var icons = { success: '\u2713', error: '\u2717', info: '\u2139' };
+  var duration = validType === 'error' ? 5000 : 3000;
+
+  var container = document.querySelector('.soc-toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'soc-toast-container';
+    document.body.appendChild(container);
+  }
+
+  var toast = document.createElement('div');
+  toast.className = 'soc-toast soc-toast--' + validType;
+  toast.innerHTML =
+    '<span class="soc-toast__icon">' + icons[validType] + '</span>' +
+    '<span class="soc-toast__msg">' + _socEscapeHtml(message) + '</span>' +
+    '<a class="soc-toast__action" href="#">' + _socEscapeHtml(actionLabel) + '</a>' +
+    '<button class="soc-toast__dismiss">&times;</button>' +
+    '<div class="soc-toast__timer" style="width:100%"></div>';
+
+  var timerEl = toast.querySelector('.soc-toast__timer');
+  var dismissBtn = toast.querySelector('.soc-toast__dismiss');
+  var actionLink = toast.querySelector('.soc-toast__action');
+
+  function removeToast() {
+    if (toast._removed) return;
+    toast._removed = true;
+    clearTimeout(toast._timeout);
+    toast.classList.add('soc-toast--exiting');
+    setTimeout(function () { if (toast.parentNode) toast.remove(); }, 200);
+  }
+
+  dismissBtn.addEventListener('click', removeToast);
+  actionLink.addEventListener('click', function (e) {
+    e.preventDefault();
+    removeToast();
+    if (actionFn) actionFn();
+  });
+
+  container.appendChild(toast);
+
+  requestAnimationFrame(function () {
+    timerEl.style.transitionDuration = duration + 'ms';
+    timerEl.style.width = '0%';
+  });
+
+  toast._timeout = setTimeout(removeToast, duration);
+}
+
 function _socShowScheduleSuccessToast(scheduledDate) {
   var dateLabel = scheduledDate instanceof Date ? scheduledDate.toLocaleString() : String(scheduledDate);
   var toast = document.createElement('div');
@@ -4409,7 +4459,17 @@ window.socPanelActions = {
       .then(result => {
         if (result.success) {
           _socSavedCache = null; // invalidate so Saved tab reloads from DB
-          _socShowToast('Content saved to library', 'success');
+          _socShowActionToast('Saved to library', 'success', 'View \u2192', function() {
+            var root = document.getElementById('social-view');
+            if (!root) return;
+            root.querySelectorAll('.soc-discover-sub-tab').forEach(function(t) { t.classList.remove('active'); });
+            root.querySelectorAll('.soc-discover-view').forEach(function(v) { v.classList.remove('active'); });
+            var savedBtn = root.querySelector('.soc-discover-sub-tab[data-discover-view="saved"]');
+            var savedView = root.querySelector('#soc-discover-view-saved');
+            if (savedBtn) savedBtn.classList.add('active');
+            if (savedView) savedView.classList.add('active');
+            _socLoadSaved();
+          });
         } else {
           _socShowToast(result.error || 'Failed to save content', 'error');
         }
