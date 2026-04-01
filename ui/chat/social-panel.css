@@ -734,6 +734,35 @@
   color-scheme: dark;
 }
 
+/* ─── Draft Card Inline Preview ─── */
+#social-view .soc-draft-card__preview {
+  border-top: 1px solid var(--border);
+  padding: 16px;
+  background: var(--bg-primary);
+  overflow: hidden;
+  animation: socDraftPreviewSlideDown 0.2s ease-out;
+}
+
+#social-view .soc-draft-card__preview .soc-mockup {
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+@keyframes socDraftPreviewSlideDown {
+  from {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  to {
+    max-height: 600px;
+    opacity: 1;
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+}
+
 /* ─── Drafts Tab ─────────────────────────────────────────────────── */
 #social-view .soc-drafts-list {
   display: flex;

@@ -2709,9 +2709,11 @@ function _socRenderDraftsList(drafts) {
         '<div class="soc-draft-card__actions">' +
           (content ? '<button class="soc-btn soc-btn-sm soc-btn-primary" onclick="socPanelActions.draftSchedule(\'' + draft.id + '\', this)">Schedule</button>' : '') +
           (content ? '<button class="soc-btn soc-btn-sm soc-btn-secondary" onclick="socPanelActions.draftCopy(\'' + draft.id + '\')">Copy</button>' : '') +
+          (content ? '<button class="soc-btn soc-btn-sm soc-btn-secondary soc-draft-preview-btn" data-draft-id="' + draft.id + '" data-platform="' + p + '">Preview \u25BC</button>' : '') +
           (videoPath && content ? '<button class="soc-btn soc-btn-sm soc-btn-accent soc-draft-refine-btn" data-draft-id="' + draft.id + '">Refine with Video</button>' : '') +
           '<button class="soc-btn soc-btn-sm soc-btn-danger" onclick="socPanelActions.draftDelete(\'' + draft.id + '\')">Delete</button>' +
         '</div>' +
+        '<div class="soc-draft-card__preview" data-draft-id="' + draft.id + '" style="display:none"></div>' +
         '<div class="soc-draft-card__schedule" style="display:none">' +
           '<input type="datetime-local" class="soc-draft-card__datetime">' +
           '<button class="soc-btn soc-btn-sm soc-btn-accent" onclick="socPanelActions.draftConfirmSchedule(\'' + draft.id + '\', this)">Confirm</button>' +
@@ -2774,6 +2776,76 @@ function _socRenderDraftsList(drafts) {
     btn.addEventListener('click', function () {
       var draftId = btn.dataset.draftId;
       _socGenerateFromVideo(draftId, btn);
+    });
+  });
+
+  // Attach preview toggle buttons
+  listEl.querySelectorAll('.soc-draft-preview-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var draftId = btn.dataset.draftId;
+      var platform = btn.dataset.platform;
+      var card = btn.closest('.soc-draft-card');
+      var previewEl = card && card.querySelector('.soc-draft-card__preview[data-draft-id="' + draftId + '"]');
+      if (!previewEl) return;
+
+      var isOpen = previewEl.style.display !== 'none';
+      if (isOpen) {
+        previewEl.style.display = 'none';
+        btn.textContent = 'Preview \u25BC';
+        return;
+      }
+
+      // Get current content from textarea
+      var ta = card.querySelector('.soc-draft-card__textarea');
+      var content = ta ? ta.value : '';
+      var mediaItems = [];
+      try {
+        var mediaJson = card.getAttribute('data-media-items');
+        if (mediaJson) mediaItems = JSON.parse(mediaJson);
+      } catch (_e) { /* ignore */ }
+
+      // Find first media image URL
+      var imageUrl = '';
+      var thumbs = card.querySelectorAll('.soc-media-thumb img');
+      if (thumbs.length > 0) imageUrl = thumbs[0].src || '';
+
+      var mockupData = {
+        username: 'youraccount',
+        caption: content,
+        imageUrl: imageUrl
+      };
+
+      // Build mockup HTML
+      var mockupClass = 'soc-mockup soc-mockup-' + (platform === 'twitter' ? 'tw' : platform === 'tiktok' ? 'tt' : platform === 'instagram' ? 'ig' : platform === 'facebook' ? 'fb' : platform === 'linkedin' ? 'li' : 'tw');
+      previewEl.innerHTML =
+        '<div style="display:flex;flex-direction:column;align-items:center">' +
+          '<div class="' + mockupClass + '" id="soc-draft-mockup-' + draftId + '"></div>' +
+          '<button class="soc-btn soc-btn-sm soc-btn-secondary soc-draft-open-full-preview" data-draft-id="' + draftId + '" style="margin-top:12px">Open Full Preview \u2192</button>' +
+        '</div>';
+
+      // Render mockup using existing renderer
+      var mockupEl = previewEl.querySelector('#soc-draft-mockup-' + draftId);
+      if (mockupEl) {
+        if (platform === 'instagram') _socRenderIGMockup(mockupEl, mockupData);
+        else if (platform === 'tiktok') _socRenderTTMockup(mockupEl, mockupData);
+        else if (platform === 'twitter') _socRenderTWMockup(mockupEl, mockupData);
+        else if (platform === 'facebook') _socRenderFBMockup(mockupEl, mockupData);
+        else if (platform === 'linkedin') _socRenderLIMockup(mockupEl, mockupData);
+      }
+
+      // Wire "Open Full Preview" to switch to preview tab
+      var fullBtn = previewEl.querySelector('.soc-draft-open-full-preview');
+      if (fullBtn) {
+        fullBtn.addEventListener('click', function () {
+          var root = document.getElementById('social-view');
+          if (!root) return;
+          var previewTabBtn = root.querySelector('.soc-tab-btn[data-tab="preview"]');
+          if (previewTabBtn) previewTabBtn.click();
+        });
+      }
+
+      previewEl.style.display = 'block';
+      btn.textContent = 'Preview \u25B2';
     });
   });
 }
