@@ -262,6 +262,8 @@ contextBridge.exposeInMainWorld('pocketAgent', {
     deleteDiscovered: (id: string) => ipcRenderer.invoke('social:deleteDiscovered', id),
     listPosts: (status?: string) => ipcRenderer.invoke('social:listPosts', status),
     createPost: (data: Record<string, unknown>) => ipcRenderer.invoke('social:createPost', data),
+    updatePost: (id: string, data: Record<string, unknown>) =>
+      ipcRenderer.invoke('social:updatePost', id, data),
     getGenerated: (limit?: number) => ipcRenderer.invoke('social:getGenerated', limit),
     deleteGenerated: (id: string) => ipcRenderer.invoke('social:deleteGenerated', id),
     bulkDeleteGenerated: (ids: string[]) => ipcRenderer.invoke('social:bulkDeleteGenerated', ids),
@@ -290,6 +292,17 @@ contextBridge.exposeInMainWorld('pocketAgent', {
     detectTrends: (limit?: number) => ipcRenderer.invoke('social:detectTrends', limit),
     getTrends: (status?: string) => ipcRenderer.invoke('social:getTrends', status),
     dismissTrend: (id: string) => ipcRenderer.invoke('social:dismissTrend', id),
+    getDrafts: (platform?: string) => ipcRenderer.invoke('social:getDrafts', platform),
+    updateDraft: (id: string, updates: Record<string, unknown>) =>
+      ipcRenderer.invoke('social:updateDraft', id, updates),
+    deleteDraft: (id: string) => ipcRenderer.invoke('social:deleteDraft', id),
+    pickVideoFile: () => ipcRenderer.invoke('social:pickVideoFile'),
+    uploadVideo: (draftId: string, filePath: string) =>
+      ipcRenderer.invoke('social:uploadVideo', { draft_id: draftId, file_path: filePath }),
+    coldUpload: (filePath: string, platform: string) =>
+      ipcRenderer.invoke('social:coldUpload', { file_path: filePath, platform }),
+    refineWithVideo: (draftId: string) =>
+      ipcRenderer.invoke('social:refineWithVideo', { draft_id: draftId }),
     onImageGenerating: (
       callback: (data: { predictionId: string; prompt: string; model: string }) => void
     ) => {
@@ -378,6 +391,22 @@ contextBridge.exposeInMainWorld('pocketAgent', {
         callback(data);
       });
     },
+    onPostPublished: (
+      callback: (data: { platform: string; postId: string; content: string }) => void
+    ) => {
+      ipcRenderer.on('social:post-published', (_, data) => {
+        console.log('[Preload] social:post-published received', data.postId, data.platform);
+        callback(data);
+      });
+    },
+    onScheduleCreated: (
+      callback: (data: { platform: string; postId: string; scheduled_at: string; content: string }) => void
+    ) => {
+      ipcRenderer.on('social:schedule-created', (_, data) => {
+        console.log('[Preload] social:schedule-created received', data.postId, data.platform);
+        callback(data);
+      });
+    },
     onContentSaved: (
       callback: (data: { contentType: string; id: string; platform: string }) => void
     ) => {
@@ -407,6 +436,30 @@ contextBridge.exposeInMainWorld('pocketAgent', {
     ) => {
       ipcRenderer.on('social:repurposeCompleted', (_, data) => {
         console.log('[Preload] social:repurposeCompleted received', data.drafts?.length ?? 0, 'drafts');
+        callback(data);
+      });
+    },
+    onVideoUploadStarted: (
+      callback: (data: { draftId: string; filePath: string }) => void
+    ) => {
+      ipcRenderer.on('social:videoUploadStarted', (_, data) => {
+        console.log('[Preload] video upload started:', data.draftId);
+        callback(data);
+      });
+    },
+    onVideoUploadCompleted: (
+      callback: (data: { draftId: string; videoPath?: string; platform?: string; error?: string }) => void
+    ) => {
+      ipcRenderer.on('social:videoUploadCompleted', (_, data) => {
+        console.log('[Preload] video upload completed:', data.draftId);
+        callback(data);
+      });
+    },
+    onVideoProcessing: (
+      callback: (data: { stage: string; platform: string; filePath: string; draftId?: string; error?: boolean }) => void
+    ) => {
+      ipcRenderer.on('social:videoProcessing', (_, data) => {
+        console.log('[Preload] video processing:', data.stage);
         callback(data);
       });
     },
@@ -889,6 +942,10 @@ declare global {
         createPost: (
           data: Record<string, unknown>
         ) => Promise<{ success: boolean; id?: string; error?: string }>;
+        updatePost: (
+          id: string,
+          data: Record<string, unknown>
+        ) => Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }>;
         getGenerated: (limit?: number) => Promise<Array<Record<string, unknown>>>;
         deleteGenerated: (id: string) => Promise<{ success: boolean; error?: string }>;
         bulkDeleteGenerated: (ids: string[]) => Promise<{ success: boolean; deleted?: number; error?: string }>;
@@ -901,6 +958,7 @@ declare global {
         generateContent: (data: Record<string, unknown>) => Promise<{
           success: boolean;
           data?: Record<string, unknown>;
+          draftIds?: Record<string, string>;
           error?: string;
         }>;
         validateApifyKey: (key: string) => Promise<{ valid: boolean; error?: string }>;
@@ -926,6 +984,26 @@ declare global {
           scheduledAt: string
         ) => Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }>;
         deletePost: (id: string) => Promise<{ success: boolean; error?: string }>;
+        getDrafts: (platform?: string) => Promise<Array<Record<string, unknown>>>;
+        updateDraft: (
+          id: string,
+          updates: Record<string, unknown>
+        ) => Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }>;
+        deleteDraft: (id: string) => Promise<{ success: boolean; error?: string }>;
+        uploadVideo: (
+          draftId: string,
+          filePath: string
+        ) => Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }>;
+        coldUpload: (
+          filePath: string,
+          platform: string
+        ) => Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }>;
+        refineWithVideo: (draftId: string) => Promise<{
+          success: boolean;
+          originalCopy?: string;
+          refinedCopy?: string;
+          error?: string;
+        }>;
         getImageStatus: (predictionId: string) => Promise<{
           success: boolean;
           predictionId?: string;
@@ -971,6 +1049,12 @@ declare global {
         ) => void;
         onPostChanged: (
           callback: (data: { platform: string; postId: string; scheduled_at?: string; content?: string }) => void
+        ) => void;
+        onPostPublished: (
+          callback: (data: { platform: string; postId: string; content: string }) => void
+        ) => void;
+        onScheduleCreated: (
+          callback: (data: { platform: string; postId: string; scheduled_at: string; content: string }) => void
         ) => void;
         onContentSaved: (
           callback: (data: { contentType: string; id: string; platform: string }) => void

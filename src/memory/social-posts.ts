@@ -17,6 +17,10 @@ export interface SocialPost {
   external_post_id: string | null;
   external_url: string | null;
   error: string | null;
+  video_path: string | null;
+  video_url: string | null;
+  transcript: string | null;
+  generated_content_id: string | null;
   likes: number;
   comments: number;
   shares: number;
@@ -36,6 +40,10 @@ export interface CreateSocialPostInput {
   scheduled_at?: string | null;
   metadata?: string | null;
   source_content_id?: string | null;
+  video_path?: string | null;
+  video_url?: string | null;
+  transcript?: string | null;
+  generated_content_id?: string | null;
 }
 
 export interface UpdateSocialPostInput {
@@ -54,6 +62,10 @@ export interface UpdateSocialPostInput {
   shares?: number;
   views?: number;
   metadata?: string | null;
+  video_path?: string | null;
+  video_url?: string | null;
+  transcript?: string | null;
+  generated_content_id?: string | null;
 }
 
 // ============ Schema ============
@@ -72,6 +84,10 @@ export const SOCIAL_POSTS_SCHEMA = `
     external_post_id TEXT,
     external_url TEXT,
     error TEXT,
+    video_path TEXT,
+    video_url TEXT,
+    transcript TEXT,
+    generated_content_id TEXT,
     likes INTEGER NOT NULL DEFAULT 0,
     comments INTEGER NOT NULL DEFAULT 0,
     shares INTEGER NOT NULL DEFAULT 0,
@@ -101,8 +117,8 @@ export class SocialPostsStore {
     this.db
       .prepare(
         `INSERT INTO social_posts
-           (id, social_account_id, platform, status, content, media_urls, scheduled_at, metadata, source_content_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           (id, social_account_id, platform, status, content, media_urls, scheduled_at, metadata, source_content_id, video_path, video_url, transcript, generated_content_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         id,
@@ -113,7 +129,11 @@ export class SocialPostsStore {
         input.media_urls ?? null,
         input.scheduled_at ?? null,
         input.metadata ?? null,
-        input.source_content_id ?? null
+        input.source_content_id ?? null,
+        input.video_path ?? null,
+        input.video_url ?? null,
+        input.transcript ?? null,
+        input.generated_content_id ?? null
       );
     return this.getById(id)!;
   }
@@ -194,6 +214,22 @@ export class SocialPostsStore {
     if (input.metadata !== undefined) {
       fields.push('metadata = ?');
       values.push(input.metadata);
+    }
+    if (input.video_path !== undefined) {
+      fields.push('video_path = ?');
+      values.push(input.video_path);
+    }
+    if (input.video_url !== undefined) {
+      fields.push('video_url = ?');
+      values.push(input.video_url);
+    }
+    if (input.transcript !== undefined) {
+      fields.push('transcript = ?');
+      values.push(input.transcript);
+    }
+    if (input.generated_content_id !== undefined) {
+      fields.push('generated_content_id = ?');
+      values.push(input.generated_content_id);
     }
 
     if (fields.length === 0) return this.getById(id);

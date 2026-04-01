@@ -994,23 +994,21 @@
     <div class="soc-header">
       <h1>Social</h1>
       <div class="soc-header-actions">
-        <button onclick="playNormalClick(); hideSocialPanel()">Back</button>
+        <button onclick="playNormalClick(); hideSocialPanel()">←</button>
+        <button class="soc-header-gear" onclick="playNormalClick(); navigateToSocialTab('accounts')">⚙</button>
       </div>
     </div>
 
     <!-- Tab Bar -->
     <div class="soc-tab-bar">
-      <button class="soc-tab-btn active" data-tab="discover">🔍 Discover</button>
+      <button class="soc-tab-btn active" data-tab="content-browse">🔍 Content</button>
       <button class="soc-tab-btn" data-tab="create">✨ Create</button>
-      <button class="soc-tab-btn" data-tab="posts">📝 Posts</button>
       <button class="soc-tab-btn" data-tab="calendar">📅 Calendar</button>
-      <button class="soc-tab-btn" data-tab="gallery">🖼 Gallery</button>
       <button class="soc-tab-btn" data-tab="preview">👁 Preview</button>
-      <button class="soc-tab-btn" data-tab="accounts">⚙ Accounts</button>
     </div>
 
     <!-- Discover Tab -->
-    <div class="soc-tab-content active" id="soc-tab-discover">
+    <div class="soc-tab-content active" id="soc-tab-content-browse">
       <div class="soc-tab-body">
         <!-- Discover Sub-Tabs: Search / Saved -->
         <div class="soc-discover-sub-tabs">
@@ -1204,8 +1202,92 @@
       </div>
     </div>
 
-    <!-- Posts Tab -->
-    <div class="soc-tab-content" id="soc-tab-posts">
+    <!-- Drafts Tab (hidden — merges into Create in later chunks) -->
+    <div class="soc-tab-content" id="soc-tab-drafts" style="display:none"
+      <div class="soc-tab-body">
+        <!-- Repurpose Context (shown when repurposing from Discover/Saved) -->
+        <div id="soc-drafts-repurpose-ctx" class="soc-drafts-repurpose-ctx" style="display:none">
+          <div class="soc-drafts-repurpose-ctx__header" onclick="socPanelActions.toggleRepurposeCtx()">
+            <span class="soc-section-title">Repurposing from:</span>
+            <span id="soc-drafts-repurpose-ctx-title" class="soc-hint" style="flex:1;margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+            <button class="soc-btn-icon" onclick="event.stopPropagation();socPanelActions.dismissRepurposeCtx()" title="Dismiss">&times;</button>
+            <svg class="soc-drafts-repurpose-ctx__chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"/></svg>
+          </div>
+          <div class="soc-drafts-repurpose-ctx__body">
+            <div class="soc-drafts-repurpose-ctx__preview">
+              <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+                <span class="soc-drafts-repurpose-ctx__platform" id="soc-drafts-repurpose-platform"></span>
+                <span class="soc-drafts-repurpose-ctx__stats" id="soc-drafts-repurpose-stats"></span>
+              </div>
+              <div class="soc-drafts-repurpose-ctx__body-text" id="soc-drafts-repurpose-body"></div>
+            </div>
+            <div class="soc-form-group" style="margin-top:10px">
+              <label>Target Platforms</label>
+              <div class="soc-checkbox-group" id="soc-drafts-repurpose-platforms">
+                <label><input type="checkbox" value="tiktok"> TikTok</label>
+                <label><input type="checkbox" value="youtube"> YouTube</label>
+                <label><input type="checkbox" value="instagram"> Instagram</label>
+                <label><input type="checkbox" value="x"> X / Twitter</label>
+                <label><input type="checkbox" value="linkedin"> LinkedIn</label>
+              </div>
+            </div>
+            <button class="soc-btn soc-btn-primary" id="soc-drafts-repurpose-gen-btn">Generate Drafts</button>
+          </div>
+        </div>
+        <!-- Create from Video Section -->
+        <div class="soc-create-from-video">
+          <div class="soc-create-from-video__dropzone" id="soc-video-dropzone">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            <span class="soc-create-from-video__label">Choose a video to auto-generate a post</span>
+            <div class="soc-create-from-video__controls">
+              <select id="soc-cold-upload-platform">
+                <option value="tiktok">TikTok</option>
+                <option value="youtube">YouTube</option>
+                <option value="instagram">Instagram</option>
+                <option value="x">X</option>
+                <option value="linkedin">LinkedIn</option>
+              </select>
+              <button class="soc-btn soc-btn-primary" id="soc-cold-upload-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Upload Video
+              </button>
+            </div>
+            <span id="soc-cold-upload-filename" class="soc-hint"></span>
+          </div>
+          <div id="soc-cold-upload-progress" class="soc-create-from-video__steps" style="display:none">
+            <div class="soc-step" id="soc-step-upload">
+              <span class="soc-step__icon">1</span>
+              <span class="soc-step__text">Upload</span>
+            </div>
+            <div class="soc-step" id="soc-step-transcribe">
+              <span class="soc-step__icon">2</span>
+              <span class="soc-step__text">Transcribe</span>
+            </div>
+            <div class="soc-step" id="soc-step-generate">
+              <span class="soc-step__icon">3</span>
+              <span class="soc-step__text">Generate</span>
+            </div>
+          </div>
+        </div>
+        <!-- Drafts Filter -->
+        <div class="soc-flex-between soc-mb-12" style="margin-top:16px">
+          <span class="soc-section-title">Drafts</span>
+          <select id="soc-drafts-filter">
+            <option value="">All Platforms</option>
+            <option value="tiktok">TikTok</option>
+            <option value="youtube">YouTube</option>
+            <option value="instagram">Instagram</option>
+            <option value="x">X</option>
+            <option value="linkedin">LinkedIn</option>
+          </select>
+        </div>
+        <!-- Draft Cards -->
+        <div id="soc-drafts-list" class="soc-drafts-list"></div>
+      </div>
+    </div>
+
+    <!-- Posts Tab (hidden — moves in later chunks) -->
+    <div class="soc-tab-content" id="soc-tab-posts" style="display:none"
       <div class="soc-tab-body">
         <div class="soc-composer">
           <textarea id="soc-post-content" placeholder="Write your post content..."></textarea>
@@ -1279,8 +1361,8 @@
       </div>
     </div>
 
-    <!-- Gallery Tab -->
-    <div class="soc-tab-content" id="soc-tab-gallery">
+    <!-- Gallery Tab (hidden — moves in later chunks) -->
+    <div class="soc-tab-content" id="soc-tab-gallery" style="display:none"
       <div class="soc-tab-body">
         <div class="soc-gallery-stats-row" id="soc-gallery-stats"></div>
         <div class="soc-gallery-filter-bar">
@@ -1360,8 +1442,8 @@
       </div>
     </div>
 
-    <!-- Accounts Tab -->
-    <div class="soc-tab-content" id="soc-tab-accounts">
+    <!-- Accounts Tab (hidden — accessed via gear icon) -->
+    <div class="soc-tab-content" id="soc-tab-accounts" style="display:none"
       <div class="soc-tab-body">
         <!-- Connected Accounts -->
         <span class="soc-section-title">Connected Accounts</span>

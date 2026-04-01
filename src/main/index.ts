@@ -720,6 +720,7 @@ async function initializeAgent(): Promise<void> {
     const win = getWindow(WIN.CHAT);
     if (win) {
       win.webContents.send('social:postChanged', data);
+      win.webContents.send('social:schedule-created', data);
     }
   });
 
@@ -728,6 +729,7 @@ async function initializeAgent(): Promise<void> {
     const win = getWindow(WIN.CHAT);
     if (win) {
       win.webContents.send('social:postChanged', data);
+      win.webContents.send('social:post-published', data);
     }
   });
 
@@ -782,6 +784,31 @@ async function initializeAgent(): Promise<void> {
     const win = getWindow(WIN.CHAT);
     if (win) {
       win.webContents.send('social:repurposeCompleted', data);
+    }
+  });
+
+  // Forward video pipeline events to the UI
+  socialToolEvents.on('video:uploadStarted', (data) => {
+    console.log(`[Main] video:uploadStarted — draft ${data.draftId}`);
+    const win = getWindow(WIN.CHAT);
+    if (win) {
+      win.webContents.send('social:videoUploadStarted', data);
+    }
+  });
+
+  socialToolEvents.on('video:uploadCompleted', (data) => {
+    console.log(`[Main] video:uploadCompleted — draft ${data.draftId}`);
+    const win = getWindow(WIN.CHAT);
+    if (win) {
+      win.webContents.send('social:videoUploadCompleted', data);
+    }
+  });
+
+  socialToolEvents.on('video:processing', (data) => {
+    console.log(`[Main] video:processing — ${data.stage}`);
+    const win = getWindow(WIN.CHAT);
+    if (win) {
+      win.webContents.send('social:videoProcessing', data);
     }
   });
 

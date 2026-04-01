@@ -38,7 +38,7 @@ function _socReceivePushedResults(data) {
   var root = document.getElementById('social-view');
   if (root && root.classList.contains('active')) {
     var activeBtn = root.querySelector('.soc-tab-btn.active');
-    if (activeBtn && activeBtn.dataset.tab === 'discover') {
+    if (activeBtn && activeBtn.dataset.tab === 'content-browse') {
       _socRenderDiscoverResults(data.results);
     }
   }
@@ -51,22 +51,35 @@ function _socReceivePushedResults(data) {
  * Called from chat message links with neon:// protocol.
  */
 function navigateToSocialTab(tab, subTab) {
+  // Backward-compat mapping for renamed tabs
+  var tabMap = { 'discover': 'content-browse', 'drafts': 'create' };
+  var resolvedTab = tabMap[tab] || tab;
+
   showSocialPanel();
   var root = document.getElementById('social-view');
   if (!root) return;
 
-  // Activate the top-level tab
-  var tabBtn = root.querySelector('.soc-tab-btn[data-tab="' + tab + '"]');
-  if (tabBtn) {
+  // For hidden tabs (posts, gallery, accounts), show them directly without tab bar highlight
+  var hiddenTabs = ['posts', 'gallery', 'accounts'];
+  if (hiddenTabs.indexOf(resolvedTab) !== -1) {
     root.querySelectorAll('.soc-tab-btn').forEach(function (b) { b.classList.remove('active'); });
     root.querySelectorAll('.soc-tab-content').forEach(function (c) { c.classList.remove('active'); });
-    tabBtn.classList.add('active');
-    var el = root.querySelector('#soc-tab-' + tab);
-    if (el) el.classList.add('active');
+    var hiddenEl = root.querySelector('#soc-tab-' + resolvedTab);
+    if (hiddenEl) { hiddenEl.style.display = ''; hiddenEl.classList.add('active'); }
+  } else {
+    // Activate the top-level tab
+    var tabBtn = root.querySelector('.soc-tab-btn[data-tab="' + resolvedTab + '"]');
+    if (tabBtn) {
+      root.querySelectorAll('.soc-tab-btn').forEach(function (b) { b.classList.remove('active'); });
+      root.querySelectorAll('.soc-tab-content').forEach(function (c) { c.classList.remove('active'); });
+      tabBtn.classList.add('active');
+      var el = root.querySelector('#soc-tab-' + resolvedTab);
+      if (el) el.classList.add('active');
+    }
   }
 
-  // Activate sub-tab if specified (e.g. "search" or "saved" within Discover)
-  if (subTab && tab === 'discover') {
+  // Activate sub-tab if specified (e.g. "search" or "saved" within Content)
+  if (subTab && (tab === 'discover' || resolvedTab === 'content-browse')) {
     root.querySelectorAll('.soc-discover-sub-tab').forEach(function (b) { b.classList.remove('active'); });
     root.querySelectorAll('.soc-discover-view').forEach(function (v) { v.classList.remove('active'); });
     var subBtn = root.querySelector('.soc-discover-sub-tab[data-discover-view="' + subTab + '"]');
@@ -76,10 +89,12 @@ function navigateToSocialTab(tab, subTab) {
   }
 
   // Refresh the tab data
-  if (tab === 'discover') _socLoadDiscovered();
-  if (tab === 'calendar') showCalendarPanel();
-  if (tab === 'gallery') _socLoadGallery();
-  if (tab === 'posts') _socLoadPosts();
+  if (resolvedTab === 'content-browse') _socLoadDiscovered();
+  if (resolvedTab === 'calendar') showCalendarPanel();
+  if (resolvedTab === 'gallery') _socLoadGallery();
+  if (resolvedTab === 'posts') _socLoadPosts();
+  if (resolvedTab === 'create' && tab === 'drafts') _socLoadDrafts();
+  if (resolvedTab === 'accounts') { _socLoadAccounts(); _socLoadBrand(); }
 }
 
 // ─── Show / Hide / Toggle ──────────────────────────────────────────────────
@@ -144,6 +159,30 @@ function _socShowToast(message, type) {
   _socNotyf[type === 'error' ? 'error' : 'success'](message);
 }
 
+function _socShowScheduleSuccessToast(scheduledDate) {
+  var dateLabel = scheduledDate instanceof Date ? scheduledDate.toLocaleString() : String(scheduledDate);
+  var toast = document.createElement('div');
+  toast.className = 'soc-schedule-toast';
+  toast.innerHTML =
+    '<span>Scheduled for ' + _socEscapeHtml(dateLabel) + '</span>' +
+    '<a href="#" class="soc-schedule-toast__link">View in Calendar</a>' +
+    '<button class="soc-schedule-toast__close">&times;</button>';
+  toast.querySelector('.soc-schedule-toast__link').addEventListener('click', function (e) {
+    e.preventDefault();
+    toast.remove();
+    navigateToSocialTab('calendar');
+    if (_socCalendarInitialized) _socCalendarRender();
+  });
+  toast.querySelector('.soc-schedule-toast__close').addEventListener('click', function () { toast.remove(); });
+  document.body.appendChild(toast);
+  setTimeout(function () { if (toast.parentNode) toast.remove(); }, 6000);
+}
+
+function _socRefreshAfterSchedule() {
+  if (_socCalendarInitialized) _socCalendarRender();
+  _socLoadPosts();
+}
+
 function _socShowRepurposePreview(root, item) {
   var previewEl = root.querySelector('#soc-repurpose-preview');
   if (!previewEl) return;
@@ -192,6 +231,56 @@ function _socShowRepurposePreview(root, item) {
     bodyEl.style.display = text ? '' : 'none';
   }
   previewEl.style.display = 'block';
+}
+
+// ─── Drafts Repurpose Context ─────────────────────────────────────────────
+
+function _socShowDraftsRepurposeCtx(item) {
+  var root = document.getElementById('social-view');
+  if (!root) return;
+
+  var ctxEl = root.querySelector('#soc-drafts-repurpose-ctx');
+  if (!ctxEl) return;
+
+  // Store source id
+  ctxEl.setAttribute('data-source-id', item.id);
+  ctxEl.classList.remove('collapsed');
+  ctxEl.style.display = '';
+
+  // Title in header
+  var titleEl = root.querySelector('#soc-drafts-repurpose-ctx-title');
+  if (titleEl) titleEl.textContent = item.title || item.source_url || '(Untitled)';
+
+  // Platform badge
+  var platEl = root.querySelector('#soc-drafts-repurpose-platform');
+  if (platEl) {
+    platEl.textContent = (item.platform || 'unknown').toUpperCase();
+    platEl.className = 'soc-drafts-repurpose-ctx__platform platform--' + (item.platform || 'unknown');
+  }
+
+  // Stats
+  var statsEl = root.querySelector('#soc-drafts-repurpose-stats');
+  if (statsEl) {
+    var parts = [];
+    if (item.views) parts.push(_socFormatNumber(item.views) + ' views');
+    if (item.likes) parts.push(_socFormatNumber(item.likes) + ' likes');
+    if (item.shares) parts.push(_socFormatNumber(item.shares) + ' shares');
+    if (item.comments) parts.push(_socFormatNumber(item.comments) + ' comments');
+    statsEl.textContent = parts.length ? parts.join(' · ') : '';
+  }
+
+  // Body preview
+  var bodyEl = root.querySelector('#soc-drafts-repurpose-body');
+  if (bodyEl) {
+    var text = item.transcript || item.body || '';
+    bodyEl.textContent = text.substring(0, 300) + (text.length > 300 ? '…' : '');
+    bodyEl.style.display = text ? '' : 'none';
+  }
+
+  // Reset checkboxes
+  root.querySelectorAll('#soc-drafts-repurpose-platforms input[type="checkbox"]').forEach(function (cb) {
+    cb.checked = false;
+  });
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -353,11 +442,48 @@ function _socRenderContentCard(item, opts) {
         ' Repurpose' +
       '</button>';
   }
+  if (opts.showCreatePost) {
+    actionsHtml +=
+      '<button class="soc-btn soc-btn-sm soc-btn-accent" onclick="event.stopPropagation(); socPanelActions.createFromSaved(\'' + item.id + '\')" title="Create a post from this content">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m-7-7h14"/></svg>' +
+        ' Create Post' +
+      '</button>';
+  }
+  if (opts.showViewDrafts) {
+    actionsHtml +=
+      '<button class="soc-btn soc-btn-sm soc-btn-secondary" onclick="event.stopPropagation(); socPanelActions.viewDraftsForSource(\'' + item.id + '\')" title="View drafts from this content">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><polyline fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" points="14 2 14 8 20 8"/></svg>' +
+        ' View Drafts' +
+      '</button>';
+  }
   if (opts.showDelete) {
     actionsHtml +=
       '<button class="soc-icon-btn danger" onclick="event.stopPropagation(); socPanelActions.deleteSaved(\'' + item.id + '\')" title="Remove">' +
         '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" d="m19.5 5.5l-.62 10.025c-.158 2.561-.237 3.842-.88 4.763a4 4 0 0 1-1.2 1.128c-.957.584-2.24.584-4.806.584c-2.57 0-3.855 0-4.814-.585a4 4 0 0 1-1.2-1.13c-.642-.922-.72-2.205-.874-4.77L4.5 5.5M3 5.5h18m-4.944 0l-.683-1.408c-.453-.936-.68-1.403-1.071-1.695a2 2 0 0 0-.275-.172C13.594 2 13.074 2 12.035 2c-1.066 0-1.599 0-2.04.234a2 2 0 0 0-.278.18c-.395.303-.616.788-1.058 1.757L8.053 5.5"/></svg>' +
       '</button>';
+  }
+
+  // Inline create-post form (hidden by default)
+  var inlineFormHtml = '';
+  if (opts.showCreatePost) {
+    inlineFormHtml =
+      '<div class="soc-card-create-form" id="soc-card-create-' + (item.id || '') + '" style="display:none" onclick="event.stopPropagation()">' +
+        '<div class="soc-card-create-form__platforms">' +
+          '<label><input type="checkbox" value="tiktok"> TikTok</label>' +
+          '<label><input type="checkbox" value="instagram"> Instagram</label>' +
+          '<label><input type="checkbox" value="x"> X</label>' +
+          '<label><input type="checkbox" value="linkedin"> LinkedIn</label>' +
+          '<label><input type="checkbox" value="youtube"> YouTube</label>' +
+        '</div>' +
+        '<div class="soc-card-create-form__actions">' +
+          '<button class="soc-btn soc-btn-sm soc-btn-secondary soc-card-create-form__video-btn" onclick="socPanelActions.pickVideoForCreate(\'' + (item.id || '') + '\')">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>' +
+            ' Choose Video' +
+          '</button>' +
+          '<span class="soc-card-create-form__video-name"></span>' +
+          '<button class="soc-btn soc-btn-sm soc-btn-accent soc-card-create-form__generate-btn" onclick="socPanelActions.generateFromSaved(\'' + (item.id || '') + '\', this)">Generate</button>' +
+        '</div>' +
+      '</div>';
   }
 
   return (
@@ -396,6 +522,7 @@ function _socRenderContentCard(item, opts) {
           : '') +
         actionsHtml +
       '</div>' +
+      inlineFormHtml +
     '</div>'
   );
 }
@@ -419,7 +546,7 @@ function _socSkeletonCards(count) {
 
 var _socPlatformCharLimits = { x: 280, tiktok: 2200, instagram: 2200, linkedin: 3000, youtube: 5000 };
 
-function _socRenderRepurposeDrafts(root, data, platforms, sourceId) {
+function _socRenderRepurposeDrafts(root, data, platforms, sourceId, draftIds) {
   var draftsEl = root.querySelector('#soc-repurpose-drafts');
   if (!draftsEl) return;
 
@@ -451,8 +578,9 @@ function _socRenderRepurposeDrafts(root, data, platforms, sourceId) {
     var charLimit = _socPlatformCharLimits[p] || 5000;
     var charCount = copy.length;
 
+    var draftId = (draftIds && draftIds[p]) || '';
     html +=
-      '<div class="soc-draft-card" data-platform="' + p + '">' +
+      '<div class="soc-draft-card" data-platform="' + p + '" data-draft-id="' + draftId + '">' +
         '<div class="soc-draft-card__header" onclick="_socToggleDraftCard(this)">' +
           '<span class="soc-draft-card__platform platform--' + p + '">' + _socEscapeHtml(p.toUpperCase()) + '</span>' +
           '<span class="soc-draft-card__char-count ' + (charCount > charLimit ? 'over' : '') + '">' + charCount + '/' + charLimit + '</span>' +
@@ -521,16 +649,30 @@ function _socConfirmScheduleDraft(btn, platform, sourceId) {
   if (!social) return;
 
   var scheduleDate = new Date(dtInput.value);
-  var postData = {
-    platform: platform,
-    content: ta.value,
-    status: 'scheduled',
-    scheduled_at: scheduleDate.toISOString(),
-    source_content_id: (sourceId && sourceId !== 'undefined' && sourceId !== 'null') ? sourceId : null,
-  };
-  social.createPost(postData).then(function (result) {
+  var draftId = card && card.dataset.draftId;
+
+  // If we have a persistent draft, update it instead of creating a new post
+  var promise;
+  if (draftId) {
+    promise = social.updatePost(draftId, {
+      content: ta.value,
+      status: 'scheduled',
+      scheduled_at: scheduleDate.toISOString(),
+    });
+  } else {
+    promise = social.createPost({
+      platform: platform,
+      content: ta.value,
+      status: 'scheduled',
+      scheduled_at: scheduleDate.toISOString(),
+      source_content_id: (sourceId && sourceId !== 'undefined' && sourceId !== 'null') ? sourceId : null,
+    });
+  }
+
+  promise.then(function (result) {
     if (result.success) {
-      _socShowToast('Scheduled for ' + platform.toUpperCase() + ' at ' + scheduleDate.toLocaleString(), 'success');
+      _socShowScheduleSuccessToast(scheduleDate);
+      _socRefreshAfterSchedule();
       var scheduleEl = card.querySelector('.soc-draft-card__schedule');
       if (scheduleEl) scheduleEl.style.display = 'none';
       // Update card to show scheduled state
@@ -716,7 +858,7 @@ function _socBatchRepurpose() {
         draftsEl.appendChild(wrapper);
         var tempRoot = document.createElement('div');
         tempRoot.innerHTML = '<div id="soc-repurpose-drafts"></div>';
-        _socRenderRepurposeDrafts(tempRoot, result.data, targetPlatforms, id);
+        _socRenderRepurposeDrafts(tempRoot, result.data, targetPlatforms, id, result.draftIds);
         var rendered = tempRoot.querySelector('#soc-repurpose-drafts');
         if (rendered) wrapper.innerHTML += rendered.innerHTML;
       }
@@ -748,12 +890,9 @@ function _socInit() {
       if (el) el.classList.add('active');
 
       // Lazy-load each tab's data
-      if (target === 'discover') { _socLoadDiscovered(); _socMaybeAutoDetectTrends(); }
-      if (target === 'posts')    _socLoadPosts();
+      if (target === 'content-browse') { _socLoadDiscovered(); _socMaybeAutoDetectTrends(); }
       if (target === 'calendar') showCalendarPanel();
-      if (target === 'gallery')  _socLoadGallery();
       if (target === 'preview')  _socInitPreviewTab();
-      if (target === 'accounts') { _socLoadAccounts(); _socLoadBrand(); }
     });
   });
 
@@ -848,6 +987,13 @@ function _socInit() {
   if (savedBatchDeselect) savedBatchDeselect.addEventListener('click', _socDeselectAllSaved);
   const savedBatchRepurpose = root.querySelector('#soc-saved-batch-repurpose');
   if (savedBatchRepurpose) savedBatchRepurpose.addEventListener('click', _socBatchRepurpose);
+
+  // ── Drafts filter ──
+  var draftsFilter = root.querySelector('#soc-drafts-filter');
+  if (draftsFilter) draftsFilter.addEventListener('change', function () { _socLoadDrafts(); });
+
+  // ── Cold upload ──
+  _socInitColdUpload();
 
   // ── Discover search ──
   const discoverSearch    = root.querySelector('#soc-discover-search');
@@ -977,7 +1123,7 @@ function _socInit() {
       })
         .then(result => {
           if (result.success && result.data) {
-            _socRenderRepurposeDrafts(root, result.data, targetPlatforms, sourceEl.value);
+            _socRenderRepurposeDrafts(root, result.data, targetPlatforms, sourceEl.value, result.draftIds);
             _socShowToast('Drafts generated!', 'success');
           } else {
             if (draftsEl) draftsEl.innerHTML = '<div class="soc-empty"><p>' + _socEscapeHtml(result.error || 'Generation failed') + '</p></div>';
@@ -990,6 +1136,49 @@ function _socInit() {
           _socShowToast('Repurpose error', 'error');
         })
         .finally(() => { repurposeGenBtn.disabled = false; });
+    });
+  }
+
+  // ── Drafts tab: repurpose context generate ──
+  const draftsRepurposeGenBtn = root.querySelector('#soc-drafts-repurpose-gen-btn');
+  if (draftsRepurposeGenBtn) {
+    draftsRepurposeGenBtn.addEventListener('click', () => {
+      const social = _socAPI();
+      if (!social) return;
+      const ctxEl = root.querySelector('#soc-drafts-repurpose-ctx');
+      const sourceId = ctxEl ? ctxEl.getAttribute('data-source-id') : null;
+      if (!sourceId) { _socShowToast('No source content selected', 'error'); return; }
+
+      var checks = root.querySelectorAll('#soc-drafts-repurpose-platforms input[type="checkbox"]:checked');
+      var targetPlatforms = [];
+      checks.forEach(function (cb) { targetPlatforms.push(cb.value); });
+      if (targetPlatforms.length === 0) { _socShowToast('Select at least one target platform', 'error'); return; }
+
+      draftsRepurposeGenBtn.disabled = true;
+      draftsRepurposeGenBtn.textContent = 'Generating…';
+
+      social.generateContent({
+        content_type: 'repurpose',
+        source_content_id: sourceId,
+        target_platforms: targetPlatforms,
+      })
+        .then(result => {
+          if (result.success) {
+            _socShowToast('Drafts generated!', 'success');
+            // Reload drafts list to show the new drafts
+            _socLoadDrafts();
+          } else {
+            _socShowToast(result.error || 'Generation failed', 'error');
+          }
+        })
+        .catch(err => {
+          console.error('[Social] Drafts repurpose failed:', err);
+          _socShowToast('Repurpose error', 'error');
+        })
+        .finally(() => {
+          draftsRepurposeGenBtn.disabled = false;
+          draftsRepurposeGenBtn.textContent = 'Generate Drafts';
+        });
     });
   }
 
@@ -1569,10 +1758,11 @@ function _socRefreshActiveTab() {
   const activeBtn = root.querySelector('.soc-tab-btn.active');
   if (!activeBtn) return;
   const tab = activeBtn.dataset.tab;
-  if (tab === 'discover') _socLoadDiscovered();
+  if (tab === 'content-browse') _socLoadDiscovered();
   if (tab === 'posts')    _socLoadPosts();
   if (tab === 'calendar') _socCalendarRenderCurrentView();
   if (tab === 'gallery')  _socLoadGallery();
+  if (tab === 'drafts')   _socLoadDrafts();
   if (tab === 'accounts') { _socLoadAccounts(); _socLoadBrand(); }
 }
 
@@ -1838,33 +2028,54 @@ function _socRenderSavedResults() {
     return;
   }
 
-  let html = '<div class="soc-card-grid">';
-  sorted.forEach(function (item) {
-    html += _socRenderContentCard(item, { showDelete: true, showRepurpose: true });
-  });
-  html += '</div>';
-  results.innerHTML = html;
-
-  // Apply select mode state if active
-  if (_socSavedSelectMode) {
-    results.querySelectorAll('.soc-content-card').forEach(function (card) {
-      card.classList.add('soc-selectable');
-      if (_socSavedSelectedIds.has(card.dataset.id)) card.classList.add('soc-selected');
+  // Load drafts to check which saved items have existing drafts
+  var social = _socAPI();
+  var draftSourceIds = new Set();
+  var renderCards = function () {
+    var html2 = '<div class="soc-card-grid">';
+    sorted.forEach(function (item) {
+      html2 += _socRenderContentCard(item, {
+        showDelete: true,
+        showRepurpose: true,
+        showCreatePost: true,
+        showViewDrafts: draftSourceIds.has(item.id),
+      });
     });
-  }
+    html2 += '</div>';
+    results.innerHTML = html2;
 
-  // Attach click handler for select mode
-  results.addEventListener('click', function (e) {
-    if (!_socSavedSelectMode) return;
-    var card = e.target.closest('.soc-content-card[data-id]');
-    if (!card) return;
-    // Don't intercept button clicks
-    if (e.target.closest('button') || e.target.closest('a')) return;
-    e.preventDefault();
-    e.stopPropagation();
-    _socToggleSavedItem(card.dataset.id);
-  }, true);
+    // Apply select mode state if active
+    if (_socSavedSelectMode) {
+      results.querySelectorAll('.soc-content-card').forEach(function (card) {
+        card.classList.add('soc-selectable');
+        if (_socSavedSelectedIds.has(card.dataset.id)) card.classList.add('soc-selected');
+      });
+    }
+
+    // Attach click handler for select mode
+    results.addEventListener('click', function (e) {
+      if (!_socSavedSelectMode) return;
+      var card = e.target.closest('.soc-content-card[data-id]');
+      if (!card) return;
+      if (e.target.closest('button') || e.target.closest('a') || e.target.closest('.soc-card-create-form')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      _socToggleSavedItem(card.dataset.id);
+    }, true);
+  };
+
+  if (social) {
+    social.getDrafts().then(function (drafts) {
+      (drafts || []).forEach(function (d) {
+        if (d.source_content_id) draftSourceIds.add(d.source_content_id);
+      });
+      renderCards();
+    }).catch(function () { renderCards(); });
+  } else {
+    renderCards();
+  }
 }
+
 
 // ─── Trends (Discover → Trends sub-tab) ───────────────────────────────────
 
@@ -1971,6 +2182,351 @@ function _socRenderTrendCard(trend) {
     '</div>';
 
   return html;
+}
+
+// ─── Drafts Tab ───────────────────────────────────────────────────────────
+
+let _socDraftsCache = null;
+
+function _socLoadDrafts() {
+  var social = _socAPI();
+  var root = document.getElementById('social-view');
+  var listEl = root && root.querySelector('#soc-drafts-list');
+  if (!listEl) return;
+
+  if (!social) {
+    listEl.innerHTML = '<p class="hint" style="text-align:center;padding:24px">Social API unavailable</p>';
+    return;
+  }
+
+  var filterEl = root.querySelector('#soc-drafts-filter');
+  var platform = filterEl ? filterEl.value : undefined;
+  if (!platform) platform = undefined;
+
+  social.getDrafts(platform)
+    .then(function (drafts) {
+      _socDraftsCache = drafts;
+      _socRenderDraftsList(drafts);
+    })
+    .catch(function (err) {
+      console.error('[Social] Failed to load drafts:', err);
+      listEl.innerHTML = '<p class="hint" style="text-align:center;color:var(--error)">Failed to load drafts</p>';
+    });
+}
+
+function _socRenderDraftsList(drafts) {
+  var root = document.getElementById('social-view');
+  var listEl = root && root.querySelector('#soc-drafts-list');
+  if (!listEl) return;
+
+  if (!drafts || drafts.length === 0) {
+    listEl.innerHTML =
+      '<div class="soc-drafts-empty">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><polyline fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" points="14 2 14 8 20 8"/><line fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" x1="16" y1="13" x2="8" y2="13"/><line fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" x1="16" y1="17" x2="8" y2="17"/></svg>' +
+        '<p>No drafts yet</p>' +
+        '<p class="hint">Repurpose saved content or create from video to generate drafts</p>' +
+      '</div>';
+    return;
+  }
+
+  listEl.innerHTML = drafts.map(function (draft) {
+    var p = draft.platform || 'unknown';
+    var charLimit = _socPlatformCharLimits[p] || 5000;
+    var content = draft.content || '';
+    var charCount = content.length;
+    var videoPath = draft.video_path || '';
+    var videoName = videoPath ? videoPath.split(/[\\/]/).pop() : '';
+    var sourceUrl = draft.source_content_id ? '(from repurpose)' : '';
+    var createdAt = draft.created_at ? _socTimeAgo(draft.created_at) : '';
+
+    var metadata = {};
+    try { if (draft.metadata) metadata = JSON.parse(draft.metadata); } catch (_e) { /* ignore */ }
+    var hashtags = metadata.hashtags || [];
+    var hashtagStr = Array.isArray(hashtags) ? hashtags.map(function (h) { return h.startsWith('#') ? h : '#' + h; }).join(' ') : '';
+    var sourceTitle = metadata.source_title || '';
+
+    return '<div class="soc-draft-card" data-draft-id="' + draft.id + '" data-platform="' + p + '">' +
+      '<div class="soc-draft-card__header" onclick="_socToggleDraftCard(this)">' +
+        '<span class="soc-draft-card__platform platform--' + p + '">' + _socEscapeHtml(p.toUpperCase()) + '</span>' +
+        '<span style="flex:1;font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _socEscapeHtml(content.slice(0, 60)) + '</span>' +
+        '<span class="soc-draft-card__char-count ' + (charCount > charLimit ? 'over' : '') + '">' + charCount + '/' + charLimit + '</span>' +
+        '<svg class="soc-draft-card__chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"/></svg>' +
+      '</div>' +
+      '<div class="soc-draft-card__body">' +
+        '<textarea class="soc-draft-card__textarea soc-drafts-tab-textarea" data-draft-id="' + draft.id + '" data-platform="' + p + '" data-limit="' + charLimit + '">' + _socEscapeHtml(content) + '</textarea>' +
+        (hashtagStr ? '<div class="soc-draft-card__hashtags">' + _socEscapeHtml(hashtagStr) + '</div>' : '') +
+        // Video pill or upload button
+        (videoPath
+          ? '<div class="soc-draft-video-pill">' +
+              '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>' +
+              _socEscapeHtml(videoName) +
+            '</div>'
+          : '<button class="soc-btn soc-btn-sm soc-btn-secondary soc-draft-upload-video-btn" data-draft-id="' + draft.id + '" style="margin-top:8px">Upload Video</button>'
+        ) +
+        // Source & meta
+        '<div class="soc-draft-card-meta">' +
+          (sourceTitle
+            ? '<span class="soc-draft-source-link">from: ' + _socEscapeHtml(sourceTitle) + '</span>'
+            : (draft.source_content_id ? '<span class="soc-draft-source-link">from: repurposed content</span>' : '')) +
+          (createdAt ? '<span>' + createdAt + '</span>' : '') +
+        '</div>' +
+        // Actions
+        '<div class="soc-draft-card__actions">' +
+          '<button class="soc-btn soc-btn-sm soc-btn-primary" onclick="socPanelActions.draftSchedule(\'' + draft.id + '\', this)">Schedule</button>' +
+          '<button class="soc-btn soc-btn-sm soc-btn-secondary" onclick="socPanelActions.draftCopy(\'' + draft.id + '\')">Copy</button>' +
+          (videoPath && content ? '<button class="soc-btn soc-btn-sm soc-btn-accent soc-draft-refine-btn" data-draft-id="' + draft.id + '">Refine with Video</button>' : '') +
+          '<button class="soc-btn soc-btn-sm soc-btn-danger" onclick="socPanelActions.draftDelete(\'' + draft.id + '\')">Delete</button>' +
+        '</div>' +
+        '<div class="soc-draft-card__schedule" style="display:none">' +
+          '<input type="datetime-local" class="soc-draft-card__datetime">' +
+          '<button class="soc-btn soc-btn-sm soc-btn-accent" onclick="socPanelActions.draftConfirmSchedule(\'' + draft.id + '\', this)">Confirm</button>' +
+          '<button class="soc-btn soc-btn-sm soc-btn-secondary" onclick="this.parentElement.style.display=\'none\'">Cancel</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  // Attach inline edit (blur saves)
+  listEl.querySelectorAll('.soc-drafts-tab-textarea').forEach(function (ta) {
+    ta.addEventListener('input', function () {
+      var card = ta.closest('.soc-draft-card');
+      var countEl = card && card.querySelector('.soc-draft-card__char-count');
+      var limit = parseInt(ta.dataset.limit, 10) || 5000;
+      if (countEl) {
+        countEl.textContent = ta.value.length + '/' + limit;
+        countEl.classList.toggle('over', ta.value.length > limit);
+      }
+    });
+    ta.addEventListener('blur', function () {
+      var draftId = ta.dataset.draftId;
+      var social = _socAPI();
+      if (!social || !draftId) return;
+      social.updateDraft(draftId, { content: ta.value })
+        .then(function (res) {
+          if (!res.success) console.error('[Social] updateDraft failed:', res.error);
+        })
+        .catch(function (err) { console.error('[Social] updateDraft error:', err); });
+    });
+  });
+
+  // Attach video upload buttons
+  listEl.querySelectorAll('.soc-draft-upload-video-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var draftId = btn.dataset.draftId;
+      _socPickVideoForDraft(draftId);
+    });
+  });
+
+  // Attach refine-with-video buttons
+  listEl.querySelectorAll('.soc-draft-refine-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var draftId = btn.dataset.draftId;
+      _socRefineWithVideo(draftId, btn);
+    });
+  });
+}
+
+function _socRefineWithVideo(draftId, btn) {
+  var social = _socAPI();
+  if (!social) return;
+
+  var card = btn.closest('.soc-draft-card');
+  var ta = card && card.querySelector('.soc-draft-card__textarea');
+  var originalText = ta ? ta.value : '';
+
+  // Show loading state
+  btn.disabled = true;
+  btn.textContent = 'Refining...';
+
+  social.refineWithVideo(draftId)
+    .then(function (res) {
+      btn.disabled = false;
+      btn.textContent = 'Refine with Video';
+      if (!res.success) {
+        _socShowToast(res.error || 'Refine failed', 'error');
+        return;
+      }
+
+      if (!ta) return;
+
+      // Show refined copy and allow accept/undo
+      ta.value = res.refinedCopy;
+      ta.dispatchEvent(new Event('input'));
+
+      // Replace actions with accept/undo
+      var actionsEl = card.querySelector('.soc-draft-card__actions');
+      if (!actionsEl) return;
+      var origHtml = actionsEl.innerHTML;
+      actionsEl.innerHTML =
+        '<span style="font-size:12px;color:var(--text-secondary)">Refined copy — </span>' +
+        '<button class="soc-btn soc-btn-sm soc-btn-primary soc-refine-accept-btn">Accept</button>' +
+        '<button class="soc-btn soc-btn-sm soc-btn-secondary soc-refine-undo-btn">Undo</button>';
+
+      actionsEl.querySelector('.soc-refine-accept-btn').addEventListener('click', function () {
+        // Save the refined copy
+        social.updateDraft(draftId, { content: res.refinedCopy });
+        _socShowToast('Refined copy accepted', 'success');
+        actionsEl.innerHTML = origHtml;
+        // Re-attach refine button listener
+        var newRefineBtn = actionsEl.querySelector('.soc-draft-refine-btn');
+        if (newRefineBtn) {
+          newRefineBtn.addEventListener('click', function () { _socRefineWithVideo(draftId, newRefineBtn); });
+        }
+      });
+
+      actionsEl.querySelector('.soc-refine-undo-btn').addEventListener('click', function () {
+        // Restore original
+        ta.value = originalText;
+        ta.dispatchEvent(new Event('input'));
+        actionsEl.innerHTML = origHtml;
+        // Re-attach refine button listener
+        var newRefineBtn = actionsEl.querySelector('.soc-draft-refine-btn');
+        if (newRefineBtn) {
+          newRefineBtn.addEventListener('click', function () { _socRefineWithVideo(draftId, newRefineBtn); });
+        }
+      });
+    })
+    .catch(function () {
+      btn.disabled = false;
+      btn.textContent = 'Refine with Video';
+      _socShowToast('Refine error', 'error');
+    });
+}
+
+function _socPickVideoForDraft(draftId) {
+  var social = _socAPI();
+  if (!social) return;
+
+  social.pickVideoFile().then(function (result) {
+    if (!result.success) return;
+    _socShowToast('Uploading video...', 'success');
+    social.uploadVideo(draftId, result.filePath)
+      .then(function (res) {
+        if (res.success) {
+          _socShowToast('Video attached!', 'success');
+          _socLoadDrafts();
+        } else {
+          _socShowToast(res.error || 'Upload failed', 'error');
+        }
+      })
+      .catch(function () { _socShowToast('Video upload error', 'error'); });
+  });
+}
+
+function _socSetStep(stepId, state) {
+  var el = document.getElementById(stepId);
+  if (!el) return;
+  el.classList.remove('active', 'done');
+  if (state === 'active') el.classList.add('active');
+  else if (state === 'done') {
+    el.classList.add('done');
+    var icon = el.querySelector('.soc-step__icon');
+    if (icon) icon.textContent = '\u2713';
+  }
+}
+
+function _socResetSteps() {
+  ['soc-step-upload', 'soc-step-transcribe', 'soc-step-generate'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('active', 'done');
+    var icon = el.querySelector('.soc-step__icon');
+    if (icon) icon.textContent = id === 'soc-step-upload' ? '1' : id === 'soc-step-transcribe' ? '2' : '3';
+  });
+}
+
+function _socInitColdUpload() {
+  var root = document.getElementById('social-view');
+  if (!root) return;
+
+  var uploadBtn = root.querySelector('#soc-cold-upload-btn');
+  var filenameEl = root.querySelector('#soc-cold-upload-filename');
+  var progressEl = root.querySelector('#soc-cold-upload-progress');
+  var platformEl = root.querySelector('#soc-cold-upload-platform');
+  var dropzone = root.querySelector('#soc-video-dropzone');
+
+  if (!uploadBtn) return;
+
+  function startUpload() {
+    var social = _socAPI();
+    if (!social) return;
+
+    social.pickVideoFile().then(function (result) {
+      if (!result.success) return;
+      var selectedFilePath = result.filePath;
+      filenameEl.textContent = result.fileName;
+
+      var platform = platformEl ? platformEl.value : 'tiktok';
+      if (!selectedFilePath) return;
+
+      progressEl.style.display = 'flex';
+      _socResetSteps();
+      _socSetStep('soc-step-upload', 'active');
+      uploadBtn.disabled = true;
+
+      // Simulate upload step completing, then transcribe
+      setTimeout(function () {
+        _socSetStep('soc-step-upload', 'done');
+        _socSetStep('soc-step-transcribe', 'active');
+      }, 500);
+
+      social.coldUpload(selectedFilePath, platform)
+        .then(function (res) {
+          if (res.success) {
+            _socSetStep('soc-step-transcribe', 'done');
+            _socSetStep('soc-step-generate', 'done');
+            _socShowToast('Draft created from video!', 'success');
+            _socLoadDrafts();
+
+            // Auto-scroll to the newest draft card
+            setTimeout(function () {
+              var list = root.querySelector('#soc-drafts-list');
+              if (list) {
+                var firstCard = list.querySelector('.soc-draft-card');
+                if (firstCard) firstCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+              }
+            }, 300);
+
+            setTimeout(function () {
+              progressEl.style.display = 'none';
+              filenameEl.textContent = '';
+              uploadBtn.disabled = false;
+              _socResetSteps();
+            }, 2500);
+          } else {
+            _socResetSteps();
+            progressEl.style.display = 'none';
+            _socShowToast(res.error || 'Create from video failed', 'error');
+            uploadBtn.disabled = false;
+          }
+        })
+        .catch(function (err) {
+          console.error('[Social] Create from video error:', err);
+          _socResetSteps();
+          progressEl.style.display = 'none';
+          _socShowToast('Create from video failed', 'error');
+          uploadBtn.disabled = false;
+        });
+    });
+  }
+
+  uploadBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    startUpload();
+  });
+
+  if (dropzone) {
+    dropzone.addEventListener('click', function (e) {
+      // Don't trigger if clicking the button or select directly
+      if (e.target.closest('button') || e.target.closest('select')) return;
+      startUpload();
+    });
+  }
+}
+
+// eslint-disable-next-line no-unused-vars
+function _socRefreshDrafts() {
+  _socLoadDrafts();
 }
 
 // ─── Posts Tab ─────────────────────────────────────────────────────────────
@@ -3060,44 +3616,26 @@ window.socPanelActions = {
     }
     if (!item) return;
 
-    // Navigate to Create → Repurpose sub-tab
-    var root = document.getElementById('social-view');
-    if (!root) return;
+    // Navigate to Drafts tab
+    navigateToSocialTab('drafts');
 
-    // Switch to Create tab
-    root.querySelectorAll('.soc-tab-btn').forEach(function (b) { b.classList.remove('active'); });
-    root.querySelectorAll('.soc-tab-content').forEach(function (c) { c.classList.remove('active'); });
-    var createBtn = root.querySelector('.soc-tab-btn[data-tab="create"]');
-    if (createBtn) createBtn.classList.add('active');
-    var createTab = root.querySelector('#soc-tab-create');
-    if (createTab) createTab.classList.add('active');
+    // Populate and show the repurpose context card
+    _socShowDraftsRepurposeCtx(item);
 
-    // Switch to Repurpose sub-tab
-    root.querySelectorAll('.soc-sub-tab').forEach(function (b) { b.classList.remove('active'); });
-    root.querySelectorAll('.soc-create-panel').forEach(function (p) { p.classList.remove('active'); });
-    var repurposeBtn = root.querySelector('.soc-sub-tab[data-panel="repurpose"]');
-    if (repurposeBtn) repurposeBtn.classList.add('active');
-    var repurposePanel = root.querySelector('#soc-panel-repurpose');
-    if (repurposePanel) repurposePanel.classList.add('active');
+    _socShowToast('Content loaded — select target platforms and generate', 'success');
+  },
 
-    // Select the content in the repurpose source dropdown
-    var sourceEl = root.querySelector('#soc-repurpose-source');
-    if (sourceEl) {
-      // Ensure the option exists
-      var optExists = Array.from(sourceEl.options).some(function (o) { return o.value === id; });
-      if (!optExists) {
-        var opt = document.createElement('option');
-        opt.value = id;
-        var label = (item.title || item.body || '').substring(0, 60);
-        if (!label) label = item.source_url || id;
-        opt.textContent = '[' + (item.platform || '?') + '] ' + label;
-        sourceEl.appendChild(opt);
-      }
-      sourceEl.value = id;
-      sourceEl.dispatchEvent(new Event('change'));
+  toggleRepurposeCtx() {
+    var ctxEl = document.querySelector('#soc-drafts-repurpose-ctx');
+    if (ctxEl) ctxEl.classList.toggle('collapsed');
+  },
+
+  dismissRepurposeCtx() {
+    var ctxEl = document.querySelector('#soc-drafts-repurpose-ctx');
+    if (ctxEl) {
+      ctxEl.style.display = 'none';
+      ctxEl.removeAttribute('data-source-id');
     }
-
-    _socShowToast('Content loaded — select target platforms and repurpose', 'success');
   },
 
   deletePost(id) {
@@ -3356,6 +3894,202 @@ window.socPanelActions = {
         lightbox.classList.add('active');
       })
       .catch(() => {});
+  },
+
+  // ── Draft actions ──
+
+  draftSchedule(id, btn) {
+    var card = btn.closest('.soc-draft-card');
+    var scheduleEl = card && card.querySelector('.soc-draft-card__schedule');
+    if (scheduleEl) scheduleEl.style.display = 'flex';
+  },
+
+  draftConfirmSchedule(id, btn) {
+    var card = btn.closest('.soc-draft-card');
+    var ta = card && card.querySelector('.soc-drafts-tab-textarea');
+    var dtInput = card && card.querySelector('.soc-draft-card__datetime');
+    if (!ta || !dtInput || !dtInput.value) { _socShowToast('Pick a date/time', 'error'); return; }
+
+    var social = _socAPI();
+    if (!social) return;
+
+    var scheduleDate = new Date(dtInput.value);
+    social.updatePost(id, {
+      content: ta.value,
+      status: 'scheduled',
+      scheduled_at: scheduleDate.toISOString(),
+    }).then(function (result) {
+      if (result.success) {
+        _socShowScheduleSuccessToast(scheduleDate);
+        _socRefreshAfterSchedule();
+        _socLoadDrafts();
+      } else {
+        _socShowToast(result.error || 'Schedule failed', 'error');
+      }
+    }).catch(function () { _socShowToast('Schedule error', 'error'); });
+  },
+
+  draftCopy(id) {
+    var draft = _socDraftsCache && _socDraftsCache.find(function (d) { return d.id === id; });
+    if (!draft) return;
+    navigator.clipboard.writeText(draft.content || '').then(function () {
+      _socShowToast('Copied to clipboard!', 'success');
+    });
+  },
+
+  draftDelete(id) {
+    var social = _socAPI();
+    if (!social || !confirm('Delete this draft?')) return;
+    social.deleteDraft(id)
+      .then(function (res) {
+        if (res.success) {
+          _socShowToast('Draft deleted', 'success');
+          if (_socDraftsCache) {
+            _socDraftsCache = _socDraftsCache.filter(function (d) { return d.id !== id; });
+          }
+          _socRenderDraftsList(_socDraftsCache || []);
+        } else {
+          _socShowToast(res.error || 'Delete failed', 'error');
+        }
+      })
+      .catch(function () { _socShowToast('Delete failed', 'error'); });
+  },
+
+  // ── Saved card: Create Post inline form ──
+
+  createFromSaved(id) {
+    var formEl = document.getElementById('soc-card-create-' + id);
+    if (!formEl) return;
+    // Toggle visibility
+    var isVisible = formEl.style.display !== 'none';
+    // Close any other open create forms first
+    document.querySelectorAll('.soc-card-create-form').forEach(function (f) {
+      f.style.display = 'none';
+    });
+    formEl.style.display = isVisible ? 'none' : '';
+  },
+
+  pickVideoForCreate(id) {
+    var social = _socAPI();
+    if (!social) return;
+    social.pickVideoFile().then(function (result) {
+      if (!result.success) return;
+      var formEl = document.getElementById('soc-card-create-' + id);
+      if (!formEl) return;
+      formEl.dataset.videoPath = result.filePath;
+      var nameEl = formEl.querySelector('.soc-card-create-form__video-name');
+      if (nameEl) nameEl.textContent = result.fileName || result.filePath.split(/[\\/]/).pop();
+      _socShowToast('Video selected', 'success');
+    });
+  },
+
+  generateFromSaved(id, btn) {
+    var social = _socAPI();
+    if (!social) { _socShowToast('Social API unavailable', 'error'); return; }
+
+    var formEl = document.getElementById('soc-card-create-' + id);
+    if (!formEl) return;
+
+    // Gather selected platforms
+    var platforms = [];
+    formEl.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) {
+      platforms.push(cb.value);
+    });
+    if (platforms.length === 0) {
+      _socShowToast('Select at least one platform', 'error');
+      return;
+    }
+
+    var videoPath = formEl.dataset.videoPath || '';
+    btn.disabled = true;
+    btn.textContent = 'Generating…';
+
+    if (videoPath) {
+      // Video flow: coldUpload with source linkage
+      social.coldUpload(videoPath, platforms[0]).then(function (res) {
+        if (res.success) {
+          // Now generate repurpose drafts for remaining platforms linked to source
+          if (platforms.length > 1) {
+            social.generateContent({
+              content_type: 'repurpose',
+              source_content_id: id,
+              target_platforms: platforms.slice(1),
+            }).then(function () {
+              _socShowToast('Drafts created from video!', 'success');
+              _socLoadDrafts();
+              formEl.style.display = 'none';
+            }).catch(function () {
+              _socShowToast('Video draft created, but extra platforms failed', 'error');
+              _socLoadDrafts();
+            });
+          } else {
+            _socShowToast('Draft created from video!', 'success');
+            _socLoadDrafts();
+            formEl.style.display = 'none';
+          }
+        } else {
+          _socShowToast(res.error || 'Video upload failed', 'error');
+        }
+      }).catch(function () {
+        _socShowToast('Video processing error', 'error');
+      }).finally(function () {
+        btn.disabled = false;
+        btn.textContent = 'Generate';
+      });
+    } else {
+      // Standard repurpose flow
+      social.generateContent({
+        content_type: 'repurpose',
+        source_content_id: id,
+        target_platforms: platforms,
+      }).then(function (result) {
+        if (result.success) {
+          _socShowToast('Drafts created!', 'success');
+          _socLoadDrafts();
+          formEl.style.display = 'none';
+          // Re-render saved to show "View Drafts" button
+          _socRenderSavedResults();
+        } else {
+          _socShowToast(result.error || 'Generation failed', 'error');
+        }
+      }).catch(function () {
+        _socShowToast('Generation error', 'error');
+      }).finally(function () {
+        btn.disabled = false;
+        btn.textContent = 'Generate';
+      });
+    }
+  },
+
+  viewDraftsForSource(sourceId) {
+    // Navigate to drafts tab, then filter to show only drafts from this source
+    navigateToSocialTab('create');
+    // Switch to the drafts sub-tab within Create
+    var root = document.getElementById('social-view');
+    if (!root) return;
+    // Activate the "Drafts" sub-tab inside Create
+    root.querySelectorAll('#soc-tab-create .soc-sub-tab').forEach(function (b) { b.classList.remove('active'); });
+    root.querySelectorAll('#soc-tab-create .soc-sub-panel').forEach(function (p) { p.classList.remove('active'); });
+    var draftsSubBtn = root.querySelector('#soc-tab-create .soc-sub-tab[data-panel="drafts"]');
+    if (draftsSubBtn) draftsSubBtn.classList.add('active');
+    var draftsPanel = root.querySelector('#soc-tab-create #soc-sub-drafts');
+    if (draftsPanel) draftsPanel.classList.add('active');
+
+    // Load drafts and filter by source_content_id
+    var social = _socAPI();
+    if (!social) return;
+    social.getDrafts().then(function (drafts) {
+      var filtered = (drafts || []).filter(function (d) { return d.source_content_id === sourceId; });
+      _socDraftsCache = filtered;
+      _socRenderDraftsList(filtered);
+      if (filtered.length === 0) {
+        _socShowToast('No drafts found for this content', 'info');
+      } else {
+        _socShowToast('Showing ' + filtered.length + ' draft(s) from this content', 'success');
+      }
+    }).catch(function () {
+      _socShowToast('Failed to load drafts', 'error');
+    });
   },
 };
 

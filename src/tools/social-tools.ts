@@ -1,7 +1,7 @@
 /**
  * Social tools for the agent
  *
- * 18 tools for social media operations:
+ * 20 tools for social media operations:
  * - search_content: Search content across platforms
  * - scrape_profile: Scrape a user's profile posts
  * - get_trending: Get trending content
@@ -20,10 +20,14 @@
  * - upload_reference_image: Upload a local image for use as reference in image generation
  * - repurpose_content: Repurpose content across platforms with transcription support
  * - analyze_trends: Detect trending topics from discovered content
+ * - upload_video_draft: Attach a video file to an existing draft
+ * - create_from_video: Full pipeline: upload → transcribe → generate copy → create draft
  */
 
+import { existsSync, mkdirSync, copyFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, extname } from 'node:path';
 import { MemoryManager } from '../memory';
 import { searchContent, scrapeProfile, getTrendingTikTok, getTwitterTrending, downloadVideo } from '../social/scraping';
 import type { ScrapingPlatform } from '../social/scraping';
@@ -45,9 +49,11 @@ import type {
   RepurposePromptContext,
 } from '../social/content/prompts';
 import { transcribeContent } from '../social/transcription/assemblyai';
+import { finalizeDraft } from '../social/content/finalize';
 import { calculateViralScore } from '../social/scoring/viral-score';
 import type { ScoringPlatform } from '../social/scoring/viral-score';
 import { detectTrends } from '../social/scoring/trend-detect';
+import { app } from 'electron';
 import { KieClient, resolveModelId } from '../image';
 import type { ImageJobTracker } from '../image';
 import { SettingsManager } from '../settings';
@@ -1688,7 +1694,20 @@ async function handleRepurposeContent(input: unknown): Promise<string> {
     `[RepurposeContent] Generated repurpose prompt for ${platforms.join(', ')} from ${content.platform} content: ${content.id}`
   );
 
-  // Step 6: Emit event for panel + chat comparison UI
+  // Step 6: Persist draft social_posts for each target platform
+  const drafts: Array<{ id: string; platform: string; content: string }> = [];
+  for (const p of platforms) {
+    const post = memoryManager.socialPosts.create({
+      platform: p,
+      status: 'draft',
+      content: sourceText,
+      source_content_id: String(content.id),
+      metadata: JSON.stringify({ repurpose_source: content.platform, awaiting_refinement: true }),
+    });
+    drafts.push({ id: post.id, platform: p, content: sourceText });
+  }
+
+  // Step 7: Emit event for panel + chat comparison UI (include persisted drafts)
   socialToolEvents.emit('repurpose:completed', {
     source_content_id: content.id,
     platforms,
@@ -1699,9 +1718,10 @@ async function handleRepurposeContent(input: unknown): Promise<string> {
     source_stats: ctx.sourceStats,
     source_media_urls: sourceMediaUrls.length > 0 ? sourceMediaUrls : undefined,
     has_transcript: !!transcript,
+    drafts,
   });
 
-  // Step 7: Return prompt + source summary
+  // Step 8: Return prompt + source summary
   return JSON.stringify({
     success: true,
     source: {
@@ -1718,6 +1738,7 @@ async function handleRepurposeContent(input: unknown): Promise<string> {
     target_platforms: platforms,
     needs_image_generation: needsVisual,
     use_source_images_as_reference: targetsVisual && sourceMediaUrls.length > 0,
+    draft_ids: Object.fromEntries(drafts.map((d) => [d.platform, d.id])),
     prompt,
   });
 }
@@ -1880,6 +1901,197 @@ async function fetchPlatformTrends(
   return results;
 }
 
+// ── Upload Video Draft ──
+
+function getUploadVideoDraftDefinition() {
+  return {
+    name: 'upload_video_draft',
+    description:
+      'Attach a local video file to an existing social media draft. Copies the video to app storage and links it to the draft.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        draft_id: {
+          type: 'string',
+          description: 'The ID of the draft to attach the video to',
+        },
+        file_path: {
+          type: 'string',
+          description: 'Absolute path to the video file on disk',
+        },
+      },
+      required: ['draft_id', 'file_path'],
+    },
+  };
+}
+
+async function handleUploadVideoDraft(input: unknown): Promise<string> {
+  if (!memoryManager) {
+    return JSON.stringify({ error: 'Memory not initialized' });
+  }
+
+  const { draft_id, file_path } = input as { draft_id: string; file_path: string };
+
+  if (!draft_id || !file_path) {
+    return JSON.stringify({ error: 'Missing required fields: draft_id, file_path' });
+  }
+
+  const post = memoryManager.socialPosts.getById(draft_id);
+  if (!post) return JSON.stringify({ error: 'Draft not found' });
+
+  if (!existsSync(file_path)) {
+    return JSON.stringify({ error: 'File not found' });
+  }
+
+  socialToolEvents.emit('video:uploadStarted', { draftId: draft_id, filePath: file_path });
+
+  try {
+    const ext = extname(file_path);
+    const dateDir = new Date().toISOString().slice(0, 10);
+    const videoDir = join(app.getPath('userData'), 'videos', dateDir);
+    mkdirSync(videoDir, { recursive: true });
+
+    const destName = `${randomUUID()}${ext}`;
+    const destPath = join(videoDir, destName);
+    copyFileSync(file_path, destPath);
+
+    const updated = memoryManager.socialPosts.update(draft_id, { video_path: destPath });
+
+    socialToolEvents.emit('video:uploadCompleted', {
+      draftId: draft_id,
+      videoPath: destPath,
+      platform: post.platform,
+    });
+
+    return JSON.stringify({ success: true, data: updated });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    socialToolEvents.emit('video:uploadCompleted', { draftId: draft_id, error: message });
+    return JSON.stringify({ error: message });
+  }
+}
+
+// ── Create From Video ──
+
+function getCreateFromVideoDefinition() {
+  return {
+    name: 'create_from_video',
+    description:
+      'Full video-to-draft pipeline: copies the video to app storage, transcribes audio, generates platform-optimized copy/hashtags/captions via AI, and creates a ready-to-post draft. Shows progress in the chat.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        file_path: {
+          type: 'string',
+          description: 'Absolute path to the video file on disk',
+        },
+        platform: {
+          type: 'string',
+          description: 'Target platform: tiktok, instagram, x, linkedin, youtube',
+        },
+      },
+      required: ['file_path', 'platform'],
+    },
+  };
+}
+
+async function handleCreateFromVideo(input: unknown): Promise<string> {
+  if (!memoryManager) {
+    return JSON.stringify({ error: 'Memory not initialized' });
+  }
+
+  const { file_path, platform } = input as { file_path: string; platform: string };
+
+  if (!file_path || !platform) {
+    return JSON.stringify({ error: 'Missing required fields: file_path, platform' });
+  }
+
+  if (!existsSync(file_path)) {
+    return JSON.stringify({ error: 'File not found' });
+  }
+
+  socialToolEvents.emit('video:processing', {
+    stage: 'Uploading video...',
+    platform,
+    filePath: file_path,
+  });
+
+  try {
+    // 1. Copy video to app storage
+    const ext = extname(file_path);
+    const dateDir = new Date().toISOString().slice(0, 10);
+    const videoDir = join(app.getPath('userData'), 'videos', dateDir);
+    mkdirSync(videoDir, { recursive: true });
+
+    const destName = `${randomUUID()}${ext}`;
+    const destPath = join(videoDir, destName);
+    copyFileSync(file_path, destPath);
+
+    // 2. Transcribe
+    socialToolEvents.emit('video:processing', {
+      stage: 'Transcribing audio...',
+      platform,
+      filePath: file_path,
+    });
+    const transcription = await transcribeContent(destPath);
+
+    // 3. Finalize — generate copy/hashtags/captions via Claude
+    socialToolEvents.emit('video:processing', {
+      stage: 'Generating copy...',
+      platform,
+      filePath: file_path,
+    });
+    const brand = memoryManager.brandConfig.getActive();
+    const finalized = await finalizeDraft(transcription.text, platform, brand);
+
+    // 4. Build content with hashtags
+    const hashtagStr = finalized.hashtags.length
+      ? '\n\n' + finalized.hashtags.map((h) => (h.startsWith('#') ? h : `#${h}`)).join(' ')
+      : '';
+    const content = finalized.copy + hashtagStr;
+
+    // 5. Create draft
+    const post = memoryManager.socialPosts.create({
+      platform,
+      status: 'draft',
+      content,
+      video_path: destPath,
+      transcript: transcription.text,
+      metadata: JSON.stringify({
+        captions: finalized.captions,
+        hashtags: finalized.hashtags,
+        duration: transcription.duration,
+        language: transcription.language,
+      }),
+    });
+
+    socialToolEvents.emit('video:processing', {
+      stage: 'Done!',
+      platform,
+      filePath: file_path,
+      draftId: post.id,
+    });
+
+    // Notify UI about the new draft
+    socialToolEvents.emit('post:published', {
+      action: 'created',
+      postId: post.id,
+      platform,
+    });
+
+    return JSON.stringify({ success: true, data: post });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    socialToolEvents.emit('video:processing', {
+      stage: `Error: ${message}`,
+      platform,
+      filePath: file_path,
+      error: true,
+    });
+    return JSON.stringify({ error: message });
+  }
+}
+
 export function getSocialTools() {
   return [
     {
@@ -1953,6 +2165,14 @@ export function getSocialTools() {
     {
       ...getAnalyzeTrendsDefinition(),
       handler: handleAnalyzeTrends,
+    },
+    {
+      ...getUploadVideoDraftDefinition(),
+      handler: handleUploadVideoDraft,
+    },
+    {
+      ...getCreateFromVideoDefinition(),
+      handler: handleCreateFromVideo,
     },
   ];
 }

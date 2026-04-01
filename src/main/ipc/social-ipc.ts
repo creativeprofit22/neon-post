@@ -1,4 +1,5 @@
 import { ipcMain, dialog, app } from 'electron';
+import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
@@ -10,9 +11,11 @@ import type { ImageModelId } from '../../image';
 import type { ImageJobTracker } from '../../image';
 import type { ScrapingPlatform } from '../../social/scraping/index';
 import type { GeneratedContentType } from '../../memory/generated-content';
-import type { SocialPostStatus } from '../../memory/social-posts';
+import type { SocialPostStatus, UpdateSocialPostInput } from '../../memory/social-posts';
 import { detectTrends } from '../../social/scoring/trend-detect';
-import { repurposePrompt } from '../../social/content/prompts';
+import { repurposePrompt, refinePrompt } from '../../social/content/prompts';
+import { transcribeContent } from '../../social/transcription/assemblyai';
+import { finalizeDraft } from '../../social/content/finalize';
 import type { TrendStatusValue } from '../../memory/trends';
 import type { IPCDependencies } from './types';
 import { getCurrentSessionId } from '../../tools/session-context';
@@ -368,6 +371,28 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
     }
   );
 
+  ipcMain.handle(
+    'social:updatePost',
+    async (
+      event,
+      id: string,
+      input: UpdateSocialPostInput
+    ) => {
+      try {
+        const memory = getMemory();
+        if (!memory) return { success: false, error: 'Memory not initialized' };
+        const post = memory.socialPosts.update(id, input);
+        if (!post) return { success: false, error: 'Post not found' };
+        event.sender.send('social:postChanged', { action: 'updated', postId: post.id, platform: post.platform });
+        return { success: true, data: post };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[SocialIPC] updatePost error:', err);
+        return { success: false, error: message };
+      }
+    }
+  );
+
   // ============ Calendar Queries ============
 
   ipcMain.handle(
@@ -427,6 +452,271 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error('[SocialIPC] deletePost error:', err);
+      return { success: false, error: message };
+    }
+  });
+
+  // ============ Pick Video File ============
+
+  ipcMain.handle('social:pickVideoFile', async () => {
+    try {
+      const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: [
+          { name: 'Videos', extensions: ['mp4', 'mov', 'avi', 'mkv', 'webm'] },
+          { name: 'All Files', extensions: ['*'] },
+        ],
+      });
+      if (result.canceled || !result.filePaths.length) {
+        return { success: false, error: 'No file selected' };
+      }
+      const filePath = result.filePaths[0];
+      const fileName = path.basename(filePath);
+      return { success: true, filePath, fileName };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[SocialIPC] pickVideoFile error:', err);
+      return { success: false, error: message };
+    }
+  });
+
+  // ============ Draft Management ============
+
+  ipcMain.handle(
+    'social:uploadVideo',
+    async (_, input: { draft_id: string; file_path: string }) => {
+      try {
+        const memory = getMemory();
+        if (!memory) return { success: false, error: 'Memory not initialized' };
+
+        const post = memory.socialPosts.getById(input.draft_id);
+        if (!post) return { success: false, error: 'Draft not found' };
+
+        if (!fs.existsSync(input.file_path)) {
+          return { success: false, error: 'File not found' };
+        }
+
+        const ext = path.extname(input.file_path);
+        const dateDir = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        const videoDir = path.join(app.getPath('userData'), 'videos', dateDir);
+        fs.mkdirSync(videoDir, { recursive: true });
+
+        const destName = `${crypto.randomUUID()}${ext}`;
+        const destPath = path.join(videoDir, destName);
+        fs.copyFileSync(input.file_path, destPath);
+
+        const updated = memory.socialPosts.update(input.draft_id, { video_path: destPath });
+        return { success: true, data: updated };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[SocialIPC] uploadVideo error:', err);
+        return { success: false, error: message };
+      }
+    }
+  );
+
+  // ============ Cold Upload ============
+
+  ipcMain.handle(
+    'social:coldUpload',
+    async (
+      event,
+      input: { file_path: string; platform: string }
+    ) => {
+      try {
+        const memory = getMemory();
+        if (!memory) return { success: false, error: 'Memory not initialized' };
+
+        if (!fs.existsSync(input.file_path)) {
+          return { success: false, error: 'File not found' };
+        }
+
+        // 1. Copy video to app storage
+        const ext = path.extname(input.file_path);
+        const dateDir = new Date().toISOString().slice(0, 10);
+        const videoDir = path.join(app.getPath('userData'), 'videos', dateDir);
+        fs.mkdirSync(videoDir, { recursive: true });
+
+        const destName = `${crypto.randomUUID()}${ext}`;
+        const destPath = path.join(videoDir, destName);
+        fs.copyFileSync(input.file_path, destPath);
+
+        // 2. Transcribe
+        console.log(`[SocialIPC] coldUpload: transcribing ${destPath}`);
+        const transcription = await transcribeContent(destPath);
+
+        // 3. Finalize — generate copy/hashtags/captions via Claude
+        const brand = memory.brandConfig.getActive();
+        console.log(`[SocialIPC] coldUpload: finalizing for ${input.platform}`);
+        const finalized = await finalizeDraft(transcription.text, input.platform, brand);
+
+        // 4. Build content with hashtags
+        const hashtagStr = finalized.hashtags.length
+          ? '\n\n' + finalized.hashtags.map((h) => (h.startsWith('#') ? h : `#${h}`)).join(' ')
+          : '';
+        const content = finalized.copy + hashtagStr;
+
+        // 5. Create draft
+        const post = memory.socialPosts.create({
+          platform: input.platform,
+          status: 'draft',
+          content,
+          video_path: destPath,
+          transcript: transcription.text,
+          metadata: JSON.stringify({
+            captions: finalized.captions,
+            hashtags: finalized.hashtags,
+            duration: transcription.duration,
+            language: transcription.language,
+          }),
+        });
+
+        event.sender.send('social:postChanged', {
+          action: 'created',
+          postId: post.id,
+          platform: input.platform,
+        });
+
+        return { success: true, data: post };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[SocialIPC] coldUpload error:', err);
+        return { success: false, error: message };
+      }
+    }
+  );
+
+  // ============ Refine with Video ============
+
+  ipcMain.handle(
+    'social:refineWithVideo',
+    async (_, input: { draft_id: string }) => {
+      try {
+        const memory = getMemory();
+        if (!memory) return { success: false, error: 'Memory not initialized' };
+
+        const post = memory.socialPosts.getById(input.draft_id);
+        if (!post) return { success: false, error: 'Draft not found' };
+        if (!post.content) return { success: false, error: 'Draft has no content to refine' };
+        if (!post.video_path) return { success: false, error: 'Draft has no video attached' };
+
+        // Get or create transcript
+        let transcript = post.transcript;
+        if (!transcript) {
+          console.log(`[SocialIPC] refineWithVideo: transcribing ${post.video_path}`);
+          const result = await transcribeContent(post.video_path);
+          transcript = result.text;
+          // Persist transcript on the post
+          memory.socialPosts.update(input.draft_id, { transcript });
+        }
+
+        if (!transcript) return { success: false, error: 'Transcription produced no text' };
+
+        // Build refine prompt with optional brand config
+        const brand = memory.brandConfig.getActive();
+        const prompt = refinePrompt({
+          existingCopy: post.content,
+          transcript,
+          platform: post.platform,
+          ...(brand && {
+            brandVoice: brand.voice ?? undefined,
+            brandTone: brand.tone ?? undefined,
+            targetAudience: brand.target_audience ?? undefined,
+            themes: brand.themes ? brand.themes.split(',').map((t) => t.trim()) : undefined,
+          }),
+        });
+
+        const apiKey = SettingsManager.get('anthropic.apiKey');
+        if (!apiKey) return { success: false, error: 'Anthropic API key not configured' };
+
+        const model = SettingsManager.get('agent.model') || 'claude-3-5-haiku-20241022';
+        const client = new Anthropic({ apiKey });
+        const response = await client.messages.create({
+          model,
+          max_tokens: 1024,
+          messages: [{ role: 'user', content: prompt }],
+        });
+
+        const output = response.content
+          .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+          .map((b) => b.text)
+          .join('\n')
+          .trim();
+
+        let refinedCopy: string;
+        try {
+          const parsed = JSON.parse(output) as { copy?: string };
+          refinedCopy = parsed.copy || output;
+        } catch {
+          refinedCopy = output;
+        }
+
+        return {
+          success: true,
+          originalCopy: post.content,
+          refinedCopy,
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[SocialIPC] refineWithVideo error:', err);
+        return { success: false, error: message };
+      }
+    }
+  );
+
+  ipcMain.handle('social:getDrafts', async (_, platform?: string) => {
+    try {
+      const memory = getMemory();
+      if (!memory) return [];
+      let drafts = memory.socialPosts.getByStatus('draft');
+      if (platform) {
+        drafts = drafts.filter((d) => d.platform === platform);
+      }
+      // Sort by updated_at descending
+      drafts.sort((a, b) => (b.updated_at > a.updated_at ? 1 : b.updated_at < a.updated_at ? -1 : 0));
+      return drafts;
+    } catch (err) {
+      console.error('[SocialIPC] getDrafts error:', err);
+      return [];
+    }
+  });
+
+  ipcMain.handle(
+    'social:updateDraft',
+    async (
+      _,
+      id: string,
+      updates: { content?: string; metadata?: string | null; platform?: string; media_urls?: string | null }
+    ) => {
+      try {
+        const memory = getMemory();
+        if (!memory) return { success: false, error: 'Memory not initialized' };
+        const post = memory.socialPosts.getById(id);
+        if (!post) return { success: false, error: 'Draft not found' };
+        if (post.status !== 'draft') return { success: false, error: 'Post is not a draft' };
+        const updated = memory.socialPosts.update(id, updates);
+        return { success: true, data: updated };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[SocialIPC] updateDraft error:', err);
+        return { success: false, error: message };
+      }
+    }
+  );
+
+  ipcMain.handle('social:deleteDraft', async (_, id: string) => {
+    try {
+      const memory = getMemory();
+      if (!memory) return { success: false, error: 'Memory not initialized' };
+      const post = memory.socialPosts.getById(id);
+      if (!post) return { success: false, error: 'Draft not found' };
+      if (post.status !== 'draft') return { success: false, error: 'Post is not a draft' };
+      const deleted = memory.socialPosts.delete(id);
+      if (!deleted) return { success: false, error: 'Failed to delete' };
+      return { success: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[SocialIPC] deleteDraft error:', err);
       return { success: false, error: message };
     }
   });
@@ -521,12 +811,19 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
               : ['x'];
 
           let transcript: string | undefined;
-          if (source.metadata) {
+          const meta = source.metadata ? (() => { try { return JSON.parse(source.metadata!); } catch { return {}; } })() : {};
+
+          if (meta.transcript) {
+            transcript = meta.transcript;
+          } else if (source.content_type === 'video' && source.source_url) {
             try {
-              const meta = JSON.parse(source.metadata);
-              if (meta.transcript) transcript = meta.transcript;
-            } catch {
-              // ignore parse errors
+              const result = await transcribeContent(source.source_url);
+              transcript = result.text;
+              meta.transcript = transcript;
+              memory.discoveredContent.update(source.id, { metadata: JSON.stringify(meta) });
+              console.log(`[SocialIPC] Transcribed video for repurpose: ${source.id}`);
+            } catch (err) {
+              console.warn(`[SocialIPC] Transcription failed (non-fatal): ${err instanceof Error ? err.message : err}`);
             }
           }
 
@@ -585,7 +882,50 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
           output,
         });
 
-        return { success: true, data: generated };
+        // Persist repurpose drafts as social_posts with status='draft'
+        const draftIds: Record<string, string> = {};
+        if (input.content_type === 'repurpose') {
+          const targets = input.target_platforms?.length
+            ? input.target_platforms
+            : input.platform
+              ? [input.platform]
+              : ['x'];
+
+          // Parse output per platform (same logic as UI)
+          const drafts: Record<string, string> = {};
+          try {
+            const parsed = JSON.parse(output);
+            if (parsed && typeof parsed === 'object') {
+              for (const p of targets) {
+                if (parsed[p]) {
+                  const val = parsed[p];
+                  drafts[p] = typeof val === 'object' ? (val.copy || val.text || JSON.stringify(val)) : String(val);
+                }
+              }
+            }
+          } catch {
+            // Fallback: split by platform headers
+            for (const p of targets) {
+              const regex = new RegExp(`(?:^|\\n)#+\\s*${p}[:\\s]*\\n([\\s\\S]*?)(?=\\n#+\\s|$)`, 'i');
+              const match = output.match(regex);
+              drafts[p] = match ? match[1].trim() : output;
+            }
+          }
+
+          for (const p of targets) {
+            const content = drafts[p] || output;
+            const post = memory.socialPosts.create({
+              platform: p,
+              status: 'draft',
+              content,
+              source_content_id: input.source_content_id ?? null,
+              generated_content_id: generated.id,
+            });
+            draftIds[p] = post.id;
+          }
+        }
+
+        return { success: true, data: generated, draftIds };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('[SocialIPC] generateContent error:', err);

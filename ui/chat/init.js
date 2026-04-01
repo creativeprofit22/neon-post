@@ -136,6 +136,7 @@ async function initializeChat() {
       if (data.drafts && data.drafts.length && typeof _socReceiveGeneratedContent === 'function') {
         _socReceiveGeneratedContent(data.drafts);
       }
+      if (typeof _socRefreshDrafts === 'function') _socRefreshDrafts();
       renderRepurposeComparison(data);
     });
   }
@@ -184,6 +185,38 @@ async function initializeChat() {
     });
   }
 
+  // Listen for video upload started — show placeholder
+  if (window.pocketAgent.social?.onVideoUploadStarted) {
+    window.pocketAgent.social.onVideoUploadStarted(function (data) {
+      console.log('[Chat] Video upload started:', data.draftId);
+      addPipelinePlaceholder('video-upload-' + data.draftId, 'video', 'Uploading video...', '');
+    });
+  }
+
+  // Listen for video upload completed — remove placeholder
+  if (window.pocketAgent.social?.onVideoUploadCompleted) {
+    window.pocketAgent.social.onVideoUploadCompleted(function (data) {
+      console.log('[Chat] Video upload completed:', data.draftId, data.error || 'OK');
+      removePipelinePlaceholder('video-upload-' + data.draftId);
+    });
+  }
+
+  // Listen for video processing stages — show/update placeholder
+  if (window.pocketAgent.social?.onVideoProcessing) {
+    window.pocketAgent.social.onVideoProcessing(function (data) {
+      console.log('[Chat] Video processing:', data.stage);
+      var id = 'video-pipeline-' + data.platform;
+      if (data.stage === 'Done!' || data.error) {
+        removePipelinePlaceholder(id);
+        if (typeof _socRefreshDrafts === 'function') _socRefreshDrafts();
+      } else if (data.stage === 'Uploading video...') {
+        addPipelinePlaceholder(id, 'video', data.stage, data.platform);
+      } else {
+        updatePipelinePlaceholder(id, data.stage);
+      }
+    });
+  }
+
   // Listen for search results pushed from agent — render mini cards in chat + populate Discover cache
   if (window.pocketAgent.social?.onSearchResultsPushed) {
     window.pocketAgent.social.onSearchResultsPushed((data) => {
@@ -201,6 +234,29 @@ async function initializeChat() {
   if (window.pocketAgent.social?.onPostChanged) {
     window.pocketAgent.social.onPostChanged((data) => {
       console.log('[Chat] Post changed:', data.postId, data.platform);
+      if (typeof _socRefreshCalendar === 'function') _socRefreshCalendar();
+      if (typeof _socRefreshPosts === 'function') _socRefreshPosts();
+    });
+  }
+
+  // Listen for post published by agent — show toast + refresh Posts/Calendar
+  if (window.pocketAgent.social?.onPostPublished) {
+    window.pocketAgent.social.onPostPublished((data) => {
+      console.log('[Chat] Post published:', data.postId, data.platform);
+      var platform = (data.platform || '').charAt(0).toUpperCase() + (data.platform || '').slice(1);
+      addMessage('system', 'Posted to ' + platform + '!', true, [], null, true);
+      if (typeof _socRefreshPosts === 'function') _socRefreshPosts();
+      if (typeof _socRefreshCalendar === 'function') _socRefreshCalendar();
+    });
+  }
+
+  // Listen for schedule created by agent — show toast + refresh Calendar/Posts
+  if (window.pocketAgent.social?.onScheduleCreated) {
+    window.pocketAgent.social.onScheduleCreated((data) => {
+      console.log('[Chat] Schedule created:', data.postId, data.platform, data.scheduled_at);
+      var dateStr = data.scheduled_at ? new Date(data.scheduled_at).toLocaleString() : 'later';
+      var platform = (data.platform || '').charAt(0).toUpperCase() + (data.platform || '').slice(1);
+      addMessage('system', 'Scheduled for ' + dateStr + ' on ' + platform, true, [], null, true);
       if (typeof _socRefreshCalendar === 'function') _socRefreshCalendar();
       if (typeof _socRefreshPosts === 'function') _socRefreshPosts();
     });

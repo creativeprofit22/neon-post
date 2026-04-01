@@ -450,6 +450,26 @@ export class MemoryManager {
       );
       console.log('[Memory] Migrated social_posts table: added source_content_id column');
     }
+
+    // Migration: add video/transcript/generated_content_id columns to social_posts
+    const postCols2 = this.db.pragma('table_info(social_posts)') as Array<{ name: string }>;
+    const postColNames = new Set(postCols2.map((c) => c.name));
+    if (!postColNames.has('video_path')) {
+      this.db.exec('ALTER TABLE social_posts ADD COLUMN video_path TEXT');
+      console.log('[Memory] Migrated social_posts table: added video_path column');
+    }
+    if (!postColNames.has('video_url')) {
+      this.db.exec('ALTER TABLE social_posts ADD COLUMN video_url TEXT');
+      console.log('[Memory] Migrated social_posts table: added video_url column');
+    }
+    if (!postColNames.has('transcript')) {
+      this.db.exec('ALTER TABLE social_posts ADD COLUMN transcript TEXT');
+      console.log('[Memory] Migrated social_posts table: added transcript column');
+    }
+    if (!postColNames.has('generated_content_id')) {
+      this.db.exec('ALTER TABLE social_posts ADD COLUMN generated_content_id TEXT');
+      console.log('[Memory] Migrated social_posts table: added generated_content_id column');
+    }
   }
 
   /**

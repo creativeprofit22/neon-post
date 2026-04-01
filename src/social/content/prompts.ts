@@ -348,6 +348,127 @@ For each target platform, output a clearly labeled section:
 Produce content for ALL ${ctx.targetPlatforms.length} target platform(s): ${ctx.targetPlatforms.join(', ')}.`;
 }
 
+/** Context for cold upload finalization */
+export interface ColdUploadPromptContext {
+  /** Video transcript text */
+  transcript: string;
+  /** Target platform */
+  platform: Platform | string;
+  /** Brand voice description */
+  brandVoice?: string;
+  /** Brand tone */
+  brandTone?: string;
+  /** Target audience description */
+  targetAudience?: string;
+  /** Key themes */
+  themes?: string[];
+  /** Hashtags to include */
+  hashtags?: string[];
+  /** Things to do / emphasize */
+  dos?: string;
+  /** Things to avoid */
+  donts?: string;
+  /** Example posts for style reference */
+  examplePosts?: string;
+}
+
+/**
+ * Generate copy, captions, and hashtags from a video transcript for a cold upload.
+ * Different from repurpose — this is original content from the user's own video.
+ */
+export function coldUploadPrompt(ctx: ColdUploadPromptContext): string {
+  const brandParts: string[] = [];
+  if (ctx.brandVoice) brandParts.push(`Voice: ${ctx.brandVoice}`);
+  if (ctx.brandTone) brandParts.push(`Tone: ${ctx.brandTone}`);
+  if (ctx.targetAudience) brandParts.push(`Target Audience: ${ctx.targetAudience}`);
+  if (ctx.themes?.length) brandParts.push(`Key Themes: ${ctx.themes.join(', ')}`);
+  if (ctx.dos) brandParts.push(`DO: ${ctx.dos}`);
+  if (ctx.donts) brandParts.push(`DON'T: ${ctx.donts}`);
+  if (ctx.examplePosts) brandParts.push(`Example Posts for Reference:\n${ctx.examplePosts}`);
+
+  const brandSection = brandParts.length > 0 ? `\n## Brand Guidelines\n${brandParts.join('\n')}\n` : '';
+
+  return `You are a social media content creator. You have a video transcript from the user's own content. Generate platform-optimized copy, captions, and hashtags for posting this video.
+
+## Transcript
+${ctx.transcript}
+
+## Platform Rules
+${platformConstraints(ctx.platform)}
+${brandSection}
+## Output Format
+Respond in valid JSON only. No markdown, no explanation. Use this exact structure:
+{
+  "copy": "The main post caption/copy text",
+  "hashtags": ["hashtag1", "hashtag2", "..."],
+  "captions": "Short-form captions or subtitle text for the video"
+}
+
+Guidelines:
+- "copy" is the primary post text — hook + value + CTA, optimized for ${ctx.platform}
+- "hashtags" — 5-15 relevant hashtags (without # prefix) that maximize discoverability
+- "captions" — a concise summary or subtitle overlay text for the video itself
+- Base everything on what the speaker actually says in the transcript
+- This is the user's ORIGINAL content — write as if you are the creator, not repurposing someone else's work`;
+}
+
+/** Context for refining a draft with video transcript */
+export interface RefinePromptContext {
+  /** The existing draft copy */
+  existingCopy: string;
+  /** The video transcript */
+  transcript: string;
+  /** Target platform */
+  platform: Platform | string;
+  /** Brand voice description */
+  brandVoice?: string;
+  /** Brand tone */
+  brandTone?: string;
+  /** Target audience description */
+  targetAudience?: string;
+  /** Key themes */
+  themes?: string[];
+}
+
+/**
+ * Generate a prompt to refine existing copy using the actual video transcript.
+ * Returns improved copy that better matches the video content.
+ */
+export function refinePrompt(ctx: RefinePromptContext): string {
+  const brandParts: string[] = [];
+  if (ctx.brandVoice) brandParts.push(`Voice: ${ctx.brandVoice}`);
+  if (ctx.brandTone) brandParts.push(`Tone: ${ctx.brandTone}`);
+  if (ctx.targetAudience) brandParts.push(`Target Audience: ${ctx.targetAudience}`);
+  if (ctx.themes?.length) brandParts.push(`Key Themes: ${ctx.themes.join(', ')}`);
+
+  const brandSection =
+    brandParts.length > 0 ? `\n## Brand Guidelines\n${brandParts.join('\n')}\n` : '';
+
+  return `You are a social media content editor. You have an existing draft caption and the actual video transcript. Refine the copy to better match what's said in the video while keeping it optimized for the platform.
+
+## Current Draft
+${ctx.existingCopy}
+
+## Video Transcript
+${ctx.transcript}
+
+## Platform Rules
+${platformConstraints(ctx.platform)}
+${brandSection}
+## Instructions
+- Keep the same general tone and style as the current draft
+- Update facts, quotes, or references to accurately reflect the video content
+- Improve the hook if the transcript reveals a stronger angle
+- Maintain platform-appropriate length and formatting
+- Keep hashtags if present, adjusting only if the transcript suggests better ones
+
+## Output
+Respond in valid JSON only. No markdown, no explanation. Use this exact structure:
+{
+  "copy": "The refined post caption/copy text"
+}`;
+}
+
 /**
  * Generate a content idea brainstorm prompt.
  */

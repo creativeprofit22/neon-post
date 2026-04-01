@@ -1,10 +1,12 @@
 # Neon Post
 
+**Phase:** Social Panel UX Overhaul — Chunk 0/12
+
 Desktop AI agent (Electron + Claude Agent SDK) — system tray app with persistent memory, Telegram integration, browser automation, social media management, and scheduled tasks.
 
 ## Tech Stack
 
-Electron 40, TypeScript, Node.js, Claude Agent SDK, OpenAI (fallback), better-sqlite3, Puppeteer Core (CDP), Grammy (Telegram), Vitest, ESLint + Prettier
+Electron 40, TypeScript 5.9, Node.js, Claude Agent SDK, OpenAI (fallback), better-sqlite3, Puppeteer Core, Grammy (Telegram), Vitest, ESLint + Prettier
 
 ## Project Structure
 
@@ -24,7 +26,7 @@ src/
 ├── permissions/      # Permission system
 ├── image/            # Image generation (Kie.ai) with job tracking
 ├── social/           # Social media management
-│   ├── content/      # Content generation and system prompts
+│   ├── content/      # Content generation and prompts
 │   ├── engagement/   # Engagement monitoring and replies
 │   ├── posting/      # Multi-platform posting (X, Instagram, TikTok, LinkedIn, YouTube)
 │   ├── scoring/      # Viral scoring and trend detection
@@ -56,5 +58,3 @@ npm run typecheck && npm run lint
 ```
 
 Fix ALL errors/warnings before continuing.
-
-**Scripts:** `lint` | `lint:fix` | `typecheck` | `format` | `test` | `build`
