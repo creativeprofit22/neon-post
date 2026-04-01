@@ -930,7 +930,7 @@ function _socCopyDraft(btn) {
   if (!ta) return;
   navigator.clipboard.writeText(ta.value).then(function () {
     _socShowToast('Copied to clipboard!', 'success');
-  });
+  }).catch(function() { _socShowToast('Copy failed — check permissions', 'error'); });
 }
 
 function _socScheduleDraft(btn, _platform, _sourceId) {
@@ -1017,10 +1017,12 @@ function _socRegenerateDraft(btn, platform, sourceId) {
       ta.dispatchEvent(new Event('input'));
       _socShowToast(platform.toUpperCase() + ' draft regenerated', 'success');
     } else {
-      ta.value = result.error || 'Regeneration failed';
+      ta.value = '';
+      _socShowToast('Regeneration failed — try again', 'error');
     }
   }).catch(function () {
-    ta.value = 'Error regenerating';
+    ta.value = '';
+    _socShowToast('Regeneration failed — try again', 'error');
   }).finally(function () {
     btn.disabled = false;
     ta.placeholder = '';
@@ -2459,6 +2461,7 @@ function _socMaybeAutoDetectTrends() {
       _socTrendsLastDetect = Date.now();
       social.detectTrends().catch(function (err) {
         console.error('[Social] Auto-detect trends failed:', err);
+        _socShowToast('Trend detection unavailable', 'error');
       });
     }
   }
@@ -4902,7 +4905,7 @@ window.socPanelActions = {
         _socLightboxShowItem(items[idx]);
         lightbox.classList.add('active');
       })
-      .catch(() => {});
+      .catch(function() { _socShowToast('Failed to load gallery', 'error'); });
   },
 
   // ── Draft actions ──
@@ -4925,7 +4928,7 @@ window.socPanelActions = {
     if (!draft) return;
     navigator.clipboard.writeText(draft.content || '').then(function () {
       _socShowToast('Copied to clipboard!', 'success');
-    });
+    }).catch(function() { _socShowToast('Copy failed — check permissions', 'error'); });
   },
 
   draftDelete(id) {
