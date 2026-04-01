@@ -355,6 +355,7 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
         scheduled_at?: string | null;
         metadata?: string | null;
         source_content_id?: string | null;
+        video_path?: string | null;
       }
     ) => {
       try {
@@ -664,6 +665,89 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error('[SocialIPC] coldUpload error:', err);
+        return { success: false, error: message };
+      }
+    }
+  );
+
+  // ============ Generate From Video ============
+
+  ipcMain.handle(
+    'social:generateFromVideo',
+    async (event, input: { draft_id: string }) => {
+      try {
+        const memory = getMemory();
+        if (!memory) return { success: false, error: 'Memory not initialized' };
+
+        const post = memory.socialPosts.getById(input.draft_id);
+        if (!post) return { success: false, error: 'Draft not found' };
+        if (!post.video_path) return { success: false, error: 'Draft has no video attached' };
+
+        // 1. Transcribe
+        event.sender.send('social:videoProgress', {
+          draftId: input.draft_id,
+          step: 'transcribing',
+          percent: 0,
+        });
+
+        console.log(`[SocialIPC] generateFromVideo: transcribing ${post.video_path}`);
+        const transcription = await transcribeContent(post.video_path);
+
+        event.sender.send('social:videoProgress', {
+          draftId: input.draft_id,
+          step: 'transcribing',
+          percent: 100,
+        });
+
+        // 2. Generate copy
+        event.sender.send('social:videoProgress', {
+          draftId: input.draft_id,
+          step: 'generating',
+          percent: 0,
+        });
+
+        const brand = memory.brandConfig.getActive();
+        console.log(`[SocialIPC] generateFromVideo: finalizing for ${post.platform}`);
+        const finalized = await finalizeDraft(transcription.text, post.platform, brand);
+
+        const hashtagStr = finalized.hashtags.length
+          ? '\n\n' + finalized.hashtags.map((h) => (h.startsWith('#') ? h : `#${h}`)).join(' ')
+          : '';
+        const content = finalized.copy + hashtagStr;
+
+        // 3. Update draft
+        const updated = memory.socialPosts.update(input.draft_id, {
+          content,
+          transcript: transcription.text,
+          metadata: JSON.stringify({
+            captions: finalized.captions,
+            hashtags: finalized.hashtags,
+            duration: transcription.duration,
+            language: transcription.language,
+          }),
+        });
+
+        event.sender.send('social:videoProgress', {
+          draftId: input.draft_id,
+          step: 'complete',
+          percent: 100,
+        });
+
+        event.sender.send('social:postChanged', {
+          action: 'updated',
+          postId: input.draft_id,
+          platform: post.platform,
+        });
+
+        return { success: true, data: updated };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[SocialIPC] generateFromVideo error:', err);
+        event.sender.send('social:videoProgress', {
+          draftId: input.draft_id,
+          step: 'error',
+          percent: 0,
+        });
         return { success: false, error: message };
       }
     }

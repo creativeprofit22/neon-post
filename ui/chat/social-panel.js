@@ -2239,8 +2239,51 @@ function _socInitEntryPoints(root) {
         var filenameEl = root.querySelector('#soc-create-video-filename');
         if (filenameEl) filenameEl.textContent = result.fileName || result.filePath.split(/[\\/]/).pop();
         videoAttach.dataset.videoPath = result.filePath;
-        _socShowToast('Video attached — create a draft to use it', 'success');
       });
+    });
+  }
+
+  // "Create Draft" button inside video attach panel
+  var createVideoDraftBtn = root.querySelector('#soc-create-video-draft-btn');
+  if (createVideoDraftBtn) {
+    createVideoDraftBtn.addEventListener('click', function () {
+      var social = _socAPI();
+      if (!social) return;
+      var filePath = videoAttach && videoAttach.dataset.videoPath;
+      if (!filePath) { _socShowToast('No video selected', 'error'); return; }
+      var platformEl = root.querySelector('#soc-create-video-platform');
+      var platform = platformEl ? platformEl.value : 'tiktok';
+
+      createVideoDraftBtn.disabled = true;
+      createVideoDraftBtn.textContent = 'Creating…';
+
+      social.createPost({ platform: platform, content: '', status: 'draft' })
+        .then(function (res) {
+          if (!res.success) {
+            _socShowToast(res.error || 'Failed to create draft', 'error');
+            return;
+          }
+          return social.uploadVideo(res.id, filePath).then(function (uploadRes) {
+            if (uploadRes.success) {
+              _socShowToast('Draft created with video!', 'success');
+              _socLoadDrafts();
+              if (videoAttach) {
+                videoAttach.style.display = 'none';
+                delete videoAttach.dataset.videoPath;
+              }
+            } else {
+              _socShowToast(uploadRes.error || 'Video attach failed', 'error');
+            }
+          });
+        })
+        .catch(function (err) {
+          console.error('[Social] Create video draft error:', err);
+          _socShowToast('Failed to create draft', 'error');
+        })
+        .finally(function () {
+          createVideoDraftBtn.disabled = false;
+          createVideoDraftBtn.textContent = 'Create Draft';
+        });
     });
   }
 
@@ -2395,16 +2438,50 @@ function _socRenderDraftsList(drafts) {
     var hashtagStr = Array.isArray(hashtags) ? hashtags.map(function (h) { return h.startsWith('#') ? h : '#' + h; }).join(' ') : '';
     var sourceTitle = metadata.source_title || '';
 
+    var headerPreview = content
+      ? _socEscapeHtml(content.slice(0, 60))
+      : '<span style="color:var(--text-muted);font-style:italic">(no content yet)</span>';
+
+    // Video info block (shown when video_path exists)
+    var videoInfoHtml = '';
+    if (videoPath) {
+      videoInfoHtml =
+        '<div class="soc-draft-video-info">' +
+          '<div class="soc-draft-video-info__thumb">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>' +
+          '</div>' +
+          '<span class="soc-draft-video-info__name">' + _socEscapeHtml(videoName) + '</span>' +
+        '</div>';
+    }
+
+    // "Generate Copy from Video" button (only when video exists but no content)
+    var generateFromVideoHtml = '';
+    if (videoPath && !content) {
+      generateFromVideoHtml =
+        '<button class="soc-btn soc-generate-from-video-btn" data-draft-id="' + draft.id + '">' +
+          '\u2728 Generate Copy from Video' +
+        '</button>' +
+        '<div class="soc-video-progress" data-draft-id="' + draft.id + '" style="display:none">' +
+          '<span class="soc-video-progress__step" data-step="upload">\u2713 Upload</span>' +
+          '<span class="soc-video-progress__arrow">\u2192</span>' +
+          '<span class="soc-video-progress__step" data-step="transcribing">\u25CB Transcribing</span>' +
+          '<span class="soc-video-progress__arrow">\u2192</span>' +
+          '<span class="soc-video-progress__step" data-step="generating">\u25CB Generate</span>' +
+        '</div>';
+    }
+
     return '<div class="soc-draft-card" data-draft-id="' + draft.id + '" data-platform="' + p + '">' +
       '<div class="soc-draft-card__header" onclick="_socToggleDraftCard(this)">' +
         '<span class="soc-draft-card__platform platform--' + p + '">' + _socEscapeHtml(p.toUpperCase()) + '</span>' +
-        '<span style="flex:1;font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _socEscapeHtml(content.slice(0, 60)) + '</span>' +
+        '<span style="flex:1;font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + headerPreview + '</span>' +
         '<span class="soc-draft-card__char-count ' + (charCount > charLimit ? 'over' : '') + '">' + charCount + '/' + charLimit + '</span>' +
         '<svg class="soc-draft-card__chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"/></svg>' +
       '</div>' +
       '<div class="soc-draft-card__body">' +
         '<textarea class="soc-draft-card__textarea soc-drafts-tab-textarea" data-draft-id="' + draft.id + '" data-platform="' + p + '" data-limit="' + charLimit + '">' + _socEscapeHtml(content) + '</textarea>' +
         (hashtagStr ? '<div class="soc-draft-card__hashtags">' + _socEscapeHtml(hashtagStr) + '</div>' : '') +
+        videoInfoHtml +
+        generateFromVideoHtml +
         // Media strip + attach button
         '<div class="soc-media-strip-row">' +
           _socRenderMediaThumbnails(mediaItems, draft.id) +
@@ -2420,8 +2497,8 @@ function _socRenderDraftsList(drafts) {
         '</div>' +
         // Actions
         '<div class="soc-draft-card__actions">' +
-          '<button class="soc-btn soc-btn-sm soc-btn-primary" onclick="socPanelActions.draftSchedule(\'' + draft.id + '\', this)">Schedule</button>' +
-          '<button class="soc-btn soc-btn-sm soc-btn-secondary" onclick="socPanelActions.draftCopy(\'' + draft.id + '\')">Copy</button>' +
+          (content ? '<button class="soc-btn soc-btn-sm soc-btn-primary" onclick="socPanelActions.draftSchedule(\'' + draft.id + '\', this)">Schedule</button>' : '') +
+          (content ? '<button class="soc-btn soc-btn-sm soc-btn-secondary" onclick="socPanelActions.draftCopy(\'' + draft.id + '\')">Copy</button>' : '') +
           (videoPath && content ? '<button class="soc-btn soc-btn-sm soc-btn-accent soc-draft-refine-btn" data-draft-id="' + draft.id + '">Refine with Video</button>' : '') +
           '<button class="soc-btn soc-btn-sm soc-btn-danger" onclick="socPanelActions.draftDelete(\'' + draft.id + '\')">Delete</button>' +
         '</div>' +
@@ -2479,6 +2556,14 @@ function _socRenderDraftsList(drafts) {
     btn.addEventListener('click', function () {
       var draftId = btn.dataset.draftId;
       _socRefineWithVideo(draftId, btn);
+    });
+  });
+
+  // Attach generate-from-video buttons
+  listEl.querySelectorAll('.soc-generate-from-video-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var draftId = btn.dataset.draftId;
+      _socGenerateFromVideo(draftId, btn);
     });
   });
 }
@@ -2547,6 +2632,43 @@ function _socRefineWithVideo(draftId, btn) {
       btn.disabled = false;
       btn.textContent = 'Refine with Video';
       _socShowToast('Refine error', 'error');
+    });
+}
+
+function _socGenerateFromVideo(draftId, btn) {
+  var social = _socAPI();
+  if (!social) return;
+
+  var card = btn.closest('.soc-draft-card');
+  var progressEl = card && card.querySelector('.soc-video-progress[data-draft-id="' + draftId + '"]');
+
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+  if (progressEl) {
+    progressEl.style.display = 'flex';
+    // Mark upload as done (file already attached)
+    var uploadStep = progressEl.querySelector('[data-step="upload"]');
+    if (uploadStep) { uploadStep.textContent = '\u2713 Upload'; uploadStep.classList.add('done'); }
+  }
+
+  social.generateFromVideo(draftId)
+    .then(function (res) {
+      if (res.success) {
+        _socShowToast('Copy generated from video!', 'success');
+        _socLoadDrafts();
+      } else {
+        _socShowToast(res.error || 'Generation failed', 'error');
+        btn.disabled = false;
+        btn.textContent = '\u2728 Generate Copy from Video';
+        if (progressEl) progressEl.style.display = 'none';
+      }
+    })
+    .catch(function (err) {
+      console.error('[Social] Generate from video error:', err);
+      _socShowToast('Generation failed', 'error');
+      btn.disabled = false;
+      btn.textContent = '\u2728 Generate Copy from Video';
+      if (progressEl) progressEl.style.display = 'none';
     });
 }
 

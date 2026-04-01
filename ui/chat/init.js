@@ -217,6 +217,38 @@ async function initializeChat() {
     });
   }
 
+  // Listen for video generation progress (Generate Copy from Video)
+  if (window.pocketAgent.social?.onVideoProgress) {
+    window.pocketAgent.social.onVideoProgress(function (data) {
+      var progressEl = document.querySelector('.soc-video-progress[data-draft-id="' + data.draftId + '"]');
+      if (!progressEl) return;
+
+      if (data.step === 'transcribing') {
+        var transStep = progressEl.querySelector('[data-step="transcribing"]');
+        if (transStep) {
+          transStep.classList.add('active');
+          transStep.textContent = data.percent >= 100
+            ? '\u2713 Transcribing'
+            : '\u25CF Transcribing (' + data.percent + '%)';
+          if (data.percent >= 100) {
+            transStep.classList.remove('active');
+            transStep.classList.add('done');
+          }
+        }
+      } else if (data.step === 'generating') {
+        var transStep2 = progressEl.querySelector('[data-step="transcribing"]');
+        if (transStep2) { transStep2.textContent = '\u2713 Transcribing'; transStep2.classList.add('done'); transStep2.classList.remove('active'); }
+        var genStep = progressEl.querySelector('[data-step="generating"]');
+        if (genStep) { genStep.classList.add('active'); genStep.textContent = '\u25CF Generate'; }
+      } else if (data.step === 'complete') {
+        progressEl.querySelectorAll('.soc-video-progress__step').forEach(function (s) {
+          s.classList.add('done');
+          s.classList.remove('active');
+        });
+      }
+    });
+  }
+
   // Listen for search results pushed from agent — render mini cards in chat + populate Discover cache
   if (window.pocketAgent.social?.onSearchResultsPushed) {
     window.pocketAgent.social.onSearchResultsPushed((data) => {

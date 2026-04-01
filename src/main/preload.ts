@@ -306,6 +306,13 @@ contextBridge.exposeInMainWorld('pocketAgent', {
       ipcRenderer.invoke('social:coldUpload', { file_path: filePath, platform }),
     refineWithVideo: (draftId: string) =>
       ipcRenderer.invoke('social:refineWithVideo', { draft_id: draftId }),
+    generateFromVideo: (draftId: string) =>
+      ipcRenderer.invoke('social:generateFromVideo', { draft_id: draftId }),
+    onVideoProgress: (
+      callback: (data: { draftId: string; step: string; percent: number }) => void
+    ) => {
+      ipcRenderer.on('social:videoProgress', (_, data) => callback(data));
+    },
     onImageGenerating: (
       callback: (data: { predictionId: string; prompt: string; model: string }) => void
     ) => {
@@ -1016,6 +1023,14 @@ declare global {
           refinedCopy?: string;
           error?: string;
         }>;
+        generateFromVideo: (draftId: string) => Promise<{
+          success: boolean;
+          data?: Record<string, unknown>;
+          error?: string;
+        }>;
+        onVideoProgress: (
+          callback: (data: { draftId: string; step: string; percent: number }) => void
+        ) => void;
         getImageStatus: (predictionId: string) => Promise<{
           success: boolean;
           predictionId?: string;
