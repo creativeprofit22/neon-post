@@ -21,6 +21,14 @@ const _socSelectedIds = new Set();  // currently selected gallery item IDs
 let _socScheduleModalDraftId = null; // draft id for schedule modal
 let _socScheduleModalMode = 'schedule'; // current toggle mode: 'now' | 'schedule' | 'queue'
 
+// ─── Receive agent-generated content (callable from init.js onRepurposeCompleted) ──
+
+function _socReceiveGeneratedContent(drafts) {
+  _socDraftsCache = null;
+  _socLoadDrafts();
+  _socShowToast('Agent created ' + drafts.length + ' draft(s)', 'success');
+}
+
 // ─── Receive pushed search results (callable from init.js before panel is opened) ──
 
 function _socReceivePushedResults(data) {
