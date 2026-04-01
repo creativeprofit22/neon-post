@@ -1112,133 +1112,169 @@
       </div>
     </div>
 
-    <!-- Create Tab -->
+    <!-- Create Tab (unified — includes entry points, repurpose context, and drafts) -->
     <div class="soc-tab-content" id="soc-tab-create">
       <div class="soc-tab-body">
-        <div class="soc-sub-tabs">
-          <button class="soc-sub-tab active" data-panel="generate">Generate</button>
-          <button class="soc-sub-tab" data-panel="repurpose">Repurpose</button>
-          <button class="soc-sub-tab" data-panel="image">Image</button>
+        <!-- Entry Points -->
+        <h3 class="soc-section-title" style="margin-bottom:12px">Start a Post</h3>
+        <div class="soc-entry-points" id="soc-entry-points">
+          <button class="soc-entry-card" id="soc-entry-saved">
+            <span class="soc-entry-card__icon">&#x1F4BE;</span>
+            <span class="soc-entry-card__label">From Saved Content</span>
+          </button>
+          <button class="soc-entry-card" id="soc-entry-video">
+            <span class="soc-entry-card__icon">&#x1F3AC;</span>
+            <span class="soc-entry-card__label">From Video</span>
+          </button>
+          <button class="soc-entry-card" id="soc-entry-scratch">
+            <span class="soc-entry-card__icon">&#x270D;&#xFE0F;</span>
+            <span class="soc-entry-card__label">Write from Scratch</span>
+          </button>
         </div>
 
-        <!-- Generate Panel -->
-        <div class="soc-create-panel active" id="soc-panel-generate">
-          <div class="soc-form-row">
-            <div class="soc-form-group">
-              <label>Content Type</label>
-              <select id="soc-create-content-type">
-                <option value="caption">Caption</option>
-                <option value="script">Script</option>
-                <option value="thread">Thread</option>
-                <option value="hook">Hook</option>
-                <option value="hashtags">Hashtags</option>
-              </select>
-            </div>
-            <div class="soc-form-group">
-              <label>Platform</label>
-              <select id="soc-create-platform">
-                <option value="">Any</option>
-                <option value="tiktok">TikTok</option>
-                <option value="youtube">YouTube</option>
-                <option value="instagram">Instagram</option>
-                <option value="twitter">Twitter / X</option>
-                <option value="linkedin">LinkedIn</option>
-              </select>
-            </div>
+        <!-- Saved Content Picker (hidden by default) -->
+        <div id="soc-create-saved-picker" class="soc-create-saved-picker" style="display:none">
+          <div class="soc-flex-between soc-mb-12">
+            <span class="soc-section-title">Pick Saved Content</span>
+            <button class="soc-btn soc-btn-sm soc-btn-secondary" id="soc-create-saved-picker-close">Close</button>
           </div>
-          <div class="soc-form-group">
-            <label>Prompt</label>
-            <textarea id="soc-create-prompt" rows="3" placeholder="Describe what you want to create..."></textarea>
-          </div>
-          <button class="soc-btn soc-btn-primary" id="soc-create-generate-btn">Generate</button>
-          <div class="soc-generated-output" id="soc-create-output">Generated content will appear here</div>
+          <div id="soc-create-saved-picker-list" class="soc-create-saved-picker-list"></div>
         </div>
 
-        <!-- Repurpose Panel -->
-        <div class="soc-create-panel" id="soc-panel-repurpose">
-          <div class="soc-form-group">
-            <label>Source Content</label>
-            <select id="soc-repurpose-source" style="width:100%">
-              <option value="">Select saved content to repurpose…</option>
-            </select>
+        <!-- Video Attachment (hidden by default) -->
+        <div id="soc-create-video-attach" class="soc-create-video-attach" style="display:none">
+          <div class="soc-flex-between soc-mb-12">
+            <span class="soc-section-title">Video Attached</span>
+            <button class="soc-btn soc-btn-sm soc-btn-secondary" id="soc-create-video-attach-close">Close</button>
           </div>
-          <div id="soc-repurpose-preview" class="soc-repurpose-preview-card" style="display:none">
-            <div class="soc-repurpose-preview-card__header">
-              <span class="soc-repurpose-preview-card__platform" id="soc-repurpose-preview-platform"></span>
-              <span class="soc-repurpose-preview-card__type" id="soc-repurpose-preview-type"></span>
-            </div>
-            <div class="soc-repurpose-preview-card__title" id="soc-repurpose-preview-title"></div>
-            <div class="soc-repurpose-preview-card__stats" id="soc-repurpose-preview-stats"></div>
-            <div class="soc-repurpose-preview-card__creator" id="soc-repurpose-preview-creator"></div>
-            <div class="soc-repurpose-preview-card__tags" id="soc-repurpose-preview-tags"></div>
-            <div class="soc-repurpose-preview-card__body" id="soc-repurpose-preview-body"></div>
-          </div>
-          <div class="soc-form-group">
-            <label>Target Platforms</label>
-            <div class="soc-checkbox-group" id="soc-repurpose-platforms">
-              <label><input type="checkbox" value="tiktok"> TikTok</label>
-              <label><input type="checkbox" value="youtube"> YouTube</label>
-              <label><input type="checkbox" value="instagram"> Instagram</label>
-              <label><input type="checkbox" value="x"> X / Twitter</label>
-              <label><input type="checkbox" value="linkedin"> LinkedIn</label>
-            </div>
-          </div>
-          <button class="soc-btn soc-btn-primary" id="soc-repurpose-generate-btn">Generate Drafts</button>
-          <div id="soc-repurpose-drafts" class="soc-repurpose-drafts"></div>
-        </div>
-
-        <!-- Image Panel -->
-        <div class="soc-create-panel" id="soc-panel-image">
-          <div class="soc-form-row">
-            <div class="soc-form-group">
-              <label>Model</label>
-              <select id="soc-image-model">
-                <option value="nano-banana-2" selected>Nano Banana 2</option>
-                <option value="flux-pro">Flux Pro</option>
-                <option value="flux-1.1-pro">Flux 1.1 Pro</option>
-                <option value="flux-pro-ultra">Flux Pro Ultra</option>
-                <option value="flux-kontext-pro">Flux Kontext Pro</option>
-                <option value="flux-kontext-max">Flux Kontext Max</option>
-                <option value="ideogram-v3">Ideogram V3</option>
-                <option value="recraft-v3">Recraft V3</option>
-              </select>
-            </div>
-            <div class="soc-form-group">
-              <label>Aspect Ratio</label>
-              <select id="soc-image-aspect">
-                <option value="1:1" selected>1:1 (Square)</option>
-                <option value="16:9">16:9 (Landscape)</option>
-                <option value="9:16">9:16 (Portrait)</option>
-                <option value="4:3">4:3</option>
-                <option value="3:4">3:4</option>
-                <option value="3:2">3:2</option>
-                <option value="2:3">2:3</option>
-              </select>
-            </div>
-            <div class="soc-form-group">
-              <label>Quality</label>
-              <select id="soc-image-quality">
-                <option value="1K" selected>1K</option>
-                <option value="2K">2K</option>
-                <option value="4K">4K</option>
-              </select>
-            </div>
-          </div>
-          <div class="soc-form-group">
-            <label>Image Prompt</label>
-            <textarea id="soc-image-prompt" rows="3" placeholder="Describe the image you want to generate..."></textarea>
-          </div>
-          <button class="soc-btn soc-btn-primary" id="soc-image-gen-btn">🎨 Generate Image</button>
-          <div class="soc-generated-output soc-image-output-area" id="soc-image-output">
-            <div class="soc-image-placeholder">Generated image will appear here</div>
+          <div class="soc-create-video-attach__info">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            <span id="soc-create-video-filename"></span>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Drafts Tab (hidden — merges into Create in later chunks) -->
-    <div class="soc-tab-content" id="soc-tab-drafts" style="display:none"
-      <div class="soc-tab-body">
+        <!-- Write from Scratch panels (hidden by default) -->
+        <div id="soc-create-scratch-panel" style="display:none">
+          <div class="soc-sub-tabs">
+            <button class="soc-sub-tab active" data-panel="generate">Generate</button>
+            <button class="soc-sub-tab" data-panel="repurpose">Repurpose</button>
+            <button class="soc-sub-tab" data-panel="image">Image</button>
+          </div>
+
+          <!-- Generate Panel -->
+          <div class="soc-create-panel active" id="soc-panel-generate">
+            <div class="soc-form-row">
+              <div class="soc-form-group">
+                <label>Content Type</label>
+                <select id="soc-create-content-type">
+                  <option value="caption">Caption</option>
+                  <option value="script">Script</option>
+                  <option value="thread">Thread</option>
+                  <option value="hook">Hook</option>
+                  <option value="hashtags">Hashtags</option>
+                </select>
+              </div>
+              <div class="soc-form-group">
+                <label>Platform</label>
+                <select id="soc-create-platform">
+                  <option value="">Any</option>
+                  <option value="tiktok">TikTok</option>
+                  <option value="youtube">YouTube</option>
+                  <option value="instagram">Instagram</option>
+                  <option value="twitter">Twitter / X</option>
+                  <option value="linkedin">LinkedIn</option>
+                </select>
+              </div>
+            </div>
+            <div class="soc-form-group">
+              <label>Prompt</label>
+              <textarea id="soc-create-prompt" rows="3" placeholder="Describe what you want to create..."></textarea>
+            </div>
+            <button class="soc-btn soc-btn-primary" id="soc-create-generate-btn">Generate</button>
+            <div class="soc-generated-output" id="soc-create-output">Generated content will appear here</div>
+          </div>
+
+          <!-- Repurpose Panel -->
+          <div class="soc-create-panel" id="soc-panel-repurpose">
+            <div class="soc-form-group">
+              <label>Source Content</label>
+              <select id="soc-repurpose-source" style="width:100%">
+                <option value="">Select saved content to repurpose…</option>
+              </select>
+            </div>
+            <div id="soc-repurpose-preview" class="soc-repurpose-preview-card" style="display:none">
+              <div class="soc-repurpose-preview-card__header">
+                <span class="soc-repurpose-preview-card__platform" id="soc-repurpose-preview-platform"></span>
+                <span class="soc-repurpose-preview-card__type" id="soc-repurpose-preview-type"></span>
+              </div>
+              <div class="soc-repurpose-preview-card__title" id="soc-repurpose-preview-title"></div>
+              <div class="soc-repurpose-preview-card__stats" id="soc-repurpose-preview-stats"></div>
+              <div class="soc-repurpose-preview-card__creator" id="soc-repurpose-preview-creator"></div>
+              <div class="soc-repurpose-preview-card__tags" id="soc-repurpose-preview-tags"></div>
+              <div class="soc-repurpose-preview-card__body" id="soc-repurpose-preview-body"></div>
+            </div>
+            <div class="soc-form-group">
+              <label>Target Platforms</label>
+              <div class="soc-checkbox-group" id="soc-repurpose-platforms">
+                <label><input type="checkbox" value="tiktok"> TikTok</label>
+                <label><input type="checkbox" value="youtube"> YouTube</label>
+                <label><input type="checkbox" value="instagram"> Instagram</label>
+                <label><input type="checkbox" value="x"> X / Twitter</label>
+                <label><input type="checkbox" value="linkedin"> LinkedIn</label>
+              </div>
+            </div>
+            <button class="soc-btn soc-btn-primary" id="soc-repurpose-generate-btn">Generate Drafts</button>
+            <div id="soc-repurpose-drafts" class="soc-repurpose-drafts"></div>
+          </div>
+
+          <!-- Image Panel -->
+          <div class="soc-create-panel" id="soc-panel-image">
+            <div class="soc-form-row">
+              <div class="soc-form-group">
+                <label>Model</label>
+                <select id="soc-image-model">
+                  <option value="nano-banana-2" selected>Nano Banana 2</option>
+                  <option value="flux-pro">Flux Pro</option>
+                  <option value="flux-1.1-pro">Flux 1.1 Pro</option>
+                  <option value="flux-pro-ultra">Flux Pro Ultra</option>
+                  <option value="flux-kontext-pro">Flux Kontext Pro</option>
+                  <option value="flux-kontext-max">Flux Kontext Max</option>
+                  <option value="ideogram-v3">Ideogram V3</option>
+                  <option value="recraft-v3">Recraft V3</option>
+                </select>
+              </div>
+              <div class="soc-form-group">
+                <label>Aspect Ratio</label>
+                <select id="soc-image-aspect">
+                  <option value="1:1" selected>1:1 (Square)</option>
+                  <option value="16:9">16:9 (Landscape)</option>
+                  <option value="9:16">9:16 (Portrait)</option>
+                  <option value="4:3">4:3</option>
+                  <option value="3:4">3:4</option>
+                  <option value="3:2">3:2</option>
+                  <option value="2:3">2:3</option>
+                </select>
+              </div>
+              <div class="soc-form-group">
+                <label>Quality</label>
+                <select id="soc-image-quality">
+                  <option value="1K" selected>1K</option>
+                  <option value="2K">2K</option>
+                  <option value="4K">4K</option>
+                </select>
+              </div>
+            </div>
+            <div class="soc-form-group">
+              <label>Image Prompt</label>
+              <textarea id="soc-image-prompt" rows="3" placeholder="Describe the image you want to generate..."></textarea>
+            </div>
+            <button class="soc-btn soc-btn-primary" id="soc-image-gen-btn">&#x1F3A8; Generate Image</button>
+            <div class="soc-generated-output soc-image-output-area" id="soc-image-output">
+              <div class="soc-image-placeholder">Generated image will appear here</div>
+            </div>
+          </div>
+        </div>
+
         <!-- Repurpose Context (shown when repurposing from Discover/Saved) -->
         <div id="soc-drafts-repurpose-ctx" class="soc-drafts-repurpose-ctx" style="display:none">
           <div class="soc-drafts-repurpose-ctx__header" onclick="socPanelActions.toggleRepurposeCtx()">
@@ -1268,41 +1304,7 @@
             <button class="soc-btn soc-btn-primary" id="soc-drafts-repurpose-gen-btn">Generate Drafts</button>
           </div>
         </div>
-        <!-- Create from Video Section -->
-        <div class="soc-create-from-video">
-          <div class="soc-create-from-video__dropzone" id="soc-video-dropzone">
-            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-            <span class="soc-create-from-video__label">Choose a video to auto-generate a post</span>
-            <div class="soc-create-from-video__controls">
-              <select id="soc-cold-upload-platform">
-                <option value="tiktok">TikTok</option>
-                <option value="youtube">YouTube</option>
-                <option value="instagram">Instagram</option>
-                <option value="x">X</option>
-                <option value="linkedin">LinkedIn</option>
-              </select>
-              <button class="soc-btn soc-btn-primary" id="soc-cold-upload-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                Upload Video
-              </button>
-            </div>
-            <span id="soc-cold-upload-filename" class="soc-hint"></span>
-          </div>
-          <div id="soc-cold-upload-progress" class="soc-create-from-video__steps" style="display:none">
-            <div class="soc-step" id="soc-step-upload">
-              <span class="soc-step__icon">1</span>
-              <span class="soc-step__text">Upload</span>
-            </div>
-            <div class="soc-step" id="soc-step-transcribe">
-              <span class="soc-step__icon">2</span>
-              <span class="soc-step__text">Transcribe</span>
-            </div>
-            <div class="soc-step" id="soc-step-generate">
-              <span class="soc-step__icon">3</span>
-              <span class="soc-step__text">Generate</span>
-            </div>
-          </div>
-        </div>
+
         <!-- Drafts Filter -->
         <div class="soc-flex-between soc-mb-12" style="margin-top:16px">
           <span class="soc-section-title">Drafts</span>

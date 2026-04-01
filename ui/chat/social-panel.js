@@ -99,7 +99,7 @@ function navigateToSocialTab(tab, subTab) {
   if (resolvedTab === 'content-browse') _socLoadDiscovered();
   if (resolvedTab === 'calendar') showCalendarPanel();
   if (resolvedTab === 'posts') _socLoadPosts();
-  if (resolvedTab === 'create' && tab === 'drafts') _socLoadDrafts();
+  if (resolvedTab === 'create') _socLoadDrafts();
 }
 
 // ─── Show / Hide / Toggle ──────────────────────────────────────────────────
@@ -898,6 +898,7 @@ function _socInit() {
       if (target === 'content-browse') { _socLoadDiscovered(); _socMaybeAutoDetectTrends(); }
       if (target === 'calendar') showCalendarPanel();
       if (target === 'preview')  _socInitPreviewTab();
+      if (target === 'create')   _socLoadDrafts();
     });
   });
 
@@ -914,17 +915,20 @@ function _socInit() {
     });
   }
 
-  // ── Create sub-tabs ──
-  root.querySelectorAll('.soc-sub-tab').forEach(btn => {
+  // ── Create sub-tabs (inside scratch panel) ──
+  root.querySelectorAll('#soc-create-scratch-panel .soc-sub-tab').forEach(btn => {
     btn.addEventListener('click', () => {
       const target = btn.dataset.panel;
-      root.querySelectorAll('.soc-sub-tab').forEach(b => b.classList.remove('active'));
-      root.querySelectorAll('.soc-create-panel').forEach(p => p.classList.remove('active'));
+      root.querySelectorAll('#soc-create-scratch-panel .soc-sub-tab').forEach(b => b.classList.remove('active'));
+      root.querySelectorAll('#soc-create-scratch-panel .soc-create-panel').forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
       const el = root.querySelector('#soc-panel-' + target);
       if (el) el.classList.add('active');
     });
   });
+
+  // ── Entry point buttons ──
+  _socInitEntryPoints(root);
 
   // ── Gallery filter bar ──
   const galSearch    = root.querySelector('#soc-gallery-search');
@@ -1010,9 +1014,6 @@ function _socInit() {
   // ── Drafts filter ──
   var draftsFilter = root.querySelector('#soc-drafts-filter');
   if (draftsFilter) draftsFilter.addEventListener('change', function () { _socLoadDrafts(); });
-
-  // ── Cold upload ──
-  _socInitColdUpload();
 
   // ── Discover search ──
   const discoverSearch    = root.querySelector('#soc-discover-search');
@@ -1780,7 +1781,7 @@ function _socRefreshActiveTab() {
   if (tab === 'content-browse') _socLoadDiscovered();
   if (tab === 'posts')    _socLoadPosts();
   if (tab === 'calendar') _socCalendarRenderCurrentView();
-  if (tab === 'drafts')   _socLoadDrafts();
+  if (tab === 'create')   _socLoadDrafts();
 }
 
 // ─── Targeted refresh functions (called from init.js event listeners) ───────
@@ -2199,6 +2200,136 @@ function _socRenderTrendCard(trend) {
     '</div>';
 
   return html;
+}
+
+// ─── Entry Points (Create tab) ────────────────────────────────────────────
+
+function _socInitEntryPoints(root) {
+  var entrySaved = root.querySelector('#soc-entry-saved');
+  var entryVideo = root.querySelector('#soc-entry-video');
+  var entryScratch = root.querySelector('#soc-entry-scratch');
+  var savedPicker = root.querySelector('#soc-create-saved-picker');
+  var savedPickerClose = root.querySelector('#soc-create-saved-picker-close');
+  var videoAttach = root.querySelector('#soc-create-video-attach');
+  var videoAttachClose = root.querySelector('#soc-create-video-attach-close');
+  var scratchPanel = root.querySelector('#soc-create-scratch-panel');
+
+  function hideAllPanels() {
+    if (savedPicker) savedPicker.style.display = 'none';
+    if (videoAttach) videoAttach.style.display = 'none';
+    if (scratchPanel) scratchPanel.style.display = 'none';
+  }
+
+  if (entrySaved) {
+    entrySaved.addEventListener('click', function () {
+      hideAllPanels();
+      if (savedPicker) savedPicker.style.display = '';
+      _socRenderSavedPicker();
+    });
+  }
+
+  if (entryVideo) {
+    entryVideo.addEventListener('click', function () {
+      var social = _socAPI();
+      if (!social) { _socShowToast('Social API unavailable', 'error'); return; }
+      social.pickVideoFile().then(function (result) {
+        if (!result.success) return;
+        hideAllPanels();
+        if (videoAttach) videoAttach.style.display = '';
+        var filenameEl = root.querySelector('#soc-create-video-filename');
+        if (filenameEl) filenameEl.textContent = result.fileName || result.filePath.split(/[\\/]/).pop();
+        videoAttach.dataset.videoPath = result.filePath;
+        _socShowToast('Video attached — create a draft to use it', 'success');
+      });
+    });
+  }
+
+  if (entryScratch) {
+    entryScratch.addEventListener('click', function () {
+      hideAllPanels();
+      if (scratchPanel) scratchPanel.style.display = '';
+    });
+  }
+
+  if (savedPickerClose) {
+    savedPickerClose.addEventListener('click', function () {
+      if (savedPicker) savedPicker.style.display = 'none';
+    });
+  }
+
+  if (videoAttachClose) {
+    videoAttachClose.addEventListener('click', function () {
+      if (videoAttach) {
+        videoAttach.style.display = 'none';
+        delete videoAttach.dataset.videoPath;
+      }
+    });
+  }
+}
+
+function _socRenderSavedPicker() {
+  var root = document.getElementById('social-view');
+  var listEl = root && root.querySelector('#soc-create-saved-picker-list');
+  if (!listEl) return;
+
+  // If cached, render immediately
+  if (_socSavedCache && _socSavedCache.length) {
+    _socRenderSavedPickerItems(listEl, _socSavedCache);
+    return;
+  }
+
+  listEl.innerHTML = '<p class="hint" style="text-align:center;padding:16px">Loading saved content…</p>';
+
+  var social = _socAPI();
+  if (!social) {
+    listEl.innerHTML = '<p class="hint" style="text-align:center;padding:16px">Social API unavailable</p>';
+    return;
+  }
+
+  social.getSavedContent()
+    .then(function (items) {
+      _socSavedCache = items;
+      _socRenderSavedPickerItems(listEl, items);
+    })
+    .catch(function () {
+      listEl.innerHTML = '<p class="hint" style="text-align:center;padding:16px;color:var(--error)">Failed to load saved content</p>';
+    });
+}
+
+function _socRenderSavedPickerItems(listEl, items) {
+  if (!items || items.length === 0) {
+    listEl.innerHTML = '<p class="hint" style="text-align:center;padding:16px">No saved content yet. Discover and save content first.</p>';
+    return;
+  }
+
+  listEl.innerHTML = items.map(function (item) {
+    var title = item.title || item.source_url || '(Untitled)';
+    var platform = (item.platform || 'unknown').toUpperCase();
+    var preview = (item.transcript || item.body || '').substring(0, 80);
+    if (preview.length === 80) preview += '…';
+
+    return '<div class="soc-saved-picker-item" data-id="' + item.id + '">' +
+      '<span class="soc-draft-card__platform platform--' + (item.platform || 'unknown') + '">' + _socEscapeHtml(platform) + '</span>' +
+      '<div class="soc-saved-picker-item__text">' +
+        '<div class="soc-saved-picker-item__title">' + _socEscapeHtml(title) + '</div>' +
+        (preview ? '<div class="soc-saved-picker-item__preview">' + _socEscapeHtml(preview) + '</div>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  // Wire click → repurpose flow
+  listEl.querySelectorAll('.soc-saved-picker-item').forEach(function (el) {
+    el.addEventListener('click', function () {
+      var id = el.dataset.id;
+      var item = _socSavedCache && _socSavedCache.find(function (i) { return i.id === id; });
+      if (!item) return;
+      // Hide picker, show repurpose context
+      var picker = document.getElementById('soc-create-saved-picker');
+      if (picker) picker.style.display = 'none';
+      _socShowDraftsRepurposeCtx(item);
+      _socShowToast('Content loaded — select target platforms and generate', 'success');
+    });
+  });
 }
 
 // ─── Drafts Tab ───────────────────────────────────────────────────────────
@@ -3650,8 +3781,8 @@ window.socPanelActions = {
     }
     if (!item) return;
 
-    // Navigate to Drafts tab
-    navigateToSocialTab('drafts');
+    // Navigate to Create tab (repurpose context lives there now)
+    navigateToSocialTab('create');
 
     // Populate and show the repurpose context card
     _socShowDraftsRepurposeCtx(item);
@@ -4096,18 +4227,8 @@ window.socPanelActions = {
   },
 
   viewDraftsForSource(sourceId) {
-    // Navigate to drafts tab, then filter to show only drafts from this source
+    // Navigate to Create tab (drafts live there now)
     navigateToSocialTab('create');
-    // Switch to the drafts sub-tab within Create
-    var root = document.getElementById('social-view');
-    if (!root) return;
-    // Activate the "Drafts" sub-tab inside Create
-    root.querySelectorAll('#soc-tab-create .soc-sub-tab').forEach(function (b) { b.classList.remove('active'); });
-    root.querySelectorAll('#soc-tab-create .soc-sub-panel').forEach(function (p) { p.classList.remove('active'); });
-    var draftsSubBtn = root.querySelector('#soc-tab-create .soc-sub-tab[data-panel="drafts"]');
-    if (draftsSubBtn) draftsSubBtn.classList.add('active');
-    var draftsPanel = root.querySelector('#soc-tab-create #soc-sub-drafts');
-    if (draftsPanel) draftsPanel.classList.add('active');
 
     // Load drafts and filter by source_content_id
     var social = _socAPI();

@@ -1074,6 +1074,116 @@
   accent-color: var(--accent);
 }
 
+/* ─── Entry Points (Create tab) ───────────────────────────────────── */
+#social-view .soc-entry-points {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+#social-view .soc-entry-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+  color: var(--text-primary);
+}
+
+#social-view .soc-entry-card:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+#social-view .soc-entry-card__icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+#social-view .soc-entry-card__label {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ─── Saved Content Picker ────────────────────────────────────────── */
+#social-view .soc-create-saved-picker {
+  margin-bottom: 16px;
+}
+
+#social-view .soc-create-saved-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+#social-view .soc-saved-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+#social-view .soc-saved-picker-item:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--accent);
+}
+
+#social-view .soc-saved-picker-item__text {
+  flex: 1;
+  min-width: 0;
+}
+
+#social-view .soc-saved-picker-item__title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#social-view .soc-saved-picker-item__preview {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Video Attachment ────────────────────────────────────────────── */
+#social-view .soc-create-video-attach {
+  margin-bottom: 16px;
+}
+
+#social-view .soc-create-video-attach__info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
 /* ─── Create Sub-Tabs ──────────────────────────────────────────────── */
 #social-view .soc-sub-tabs {
   display: flex;
