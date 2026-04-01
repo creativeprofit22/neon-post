@@ -59,8 +59,14 @@ function navigateToSocialTab(tab, subTab) {
   var root = document.getElementById('social-view');
   if (!root) return;
 
-  // For hidden tabs (posts, gallery, accounts), show them directly without tab bar highlight
-  var hiddenTabs = ['posts', 'gallery', 'accounts'];
+  // Accounts is now a modal — open it and return
+  if (resolvedTab === 'accounts') {
+    _socOpenAccountsModal();
+    return;
+  }
+
+  // For hidden tabs (posts, gallery), show them directly without tab bar highlight
+  var hiddenTabs = ['posts', 'gallery'];
   if (hiddenTabs.indexOf(resolvedTab) !== -1) {
     root.querySelectorAll('.soc-tab-btn').forEach(function (b) { b.classList.remove('active'); });
     root.querySelectorAll('.soc-tab-content').forEach(function (c) { c.classList.remove('active'); });
@@ -94,7 +100,6 @@ function navigateToSocialTab(tab, subTab) {
   if (resolvedTab === 'gallery') _socLoadGallery();
   if (resolvedTab === 'posts') _socLoadPosts();
   if (resolvedTab === 'create' && tab === 'drafts') _socLoadDrafts();
-  if (resolvedTab === 'accounts') { _socLoadAccounts(); _socLoadBrand(); }
 }
 
 // ─── Show / Hide / Toggle ──────────────────────────────────────────────────
@@ -895,6 +900,19 @@ function _socInit() {
       if (target === 'preview')  _socInitPreviewTab();
     });
   });
+
+  // ── Accounts modal ──
+  var modalOverlay = document.getElementById('soc-accounts-modal');
+  var modalCloseBtn = document.getElementById('soc-accounts-modal-close');
+  if (modalOverlay) {
+    if (modalCloseBtn) modalCloseBtn.addEventListener('click', _socCloseAccountsModal);
+    modalOverlay.addEventListener('click', function (e) {
+      if (e.target === modalOverlay) _socCloseAccountsModal();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && modalOverlay.style.display !== 'none') _socCloseAccountsModal();
+    });
+  }
 
   // ── Create sub-tabs ──
   root.querySelectorAll('.soc-sub-tab').forEach(btn => {
@@ -1763,7 +1781,6 @@ function _socRefreshActiveTab() {
   if (tab === 'calendar') _socCalendarRenderCurrentView();
   if (tab === 'gallery')  _socLoadGallery();
   if (tab === 'drafts')   _socLoadDrafts();
-  if (tab === 'accounts') { _socLoadAccounts(); _socLoadBrand(); }
 }
 
 // ─── Targeted refresh functions (called from init.js event listeners) ───────
@@ -3424,6 +3441,23 @@ function _socDeleteSelected() {
       }
     })
     .catch(() => _socShowToast('Failed to delete selected items', 'error'));
+}
+
+// ─── Accounts Modal ───────────────────────────────────────────────────────
+
+// eslint-disable-next-line no-unused-vars
+function _socOpenAccountsModal() {
+  var modal = document.getElementById('soc-accounts-modal');
+  if (!modal) return;
+  modal.style.display = '';
+  _socLoadAccounts();
+  _socLoadBrand();
+}
+
+// eslint-disable-next-line no-unused-vars
+function _socCloseAccountsModal() {
+  var modal = document.getElementById('soc-accounts-modal');
+  if (modal) modal.style.display = 'none';
 }
 
 // ─── Accounts & Brand ──────────────────────────────────────────────────────

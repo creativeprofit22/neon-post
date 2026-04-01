@@ -995,7 +995,7 @@
       <h1>Social</h1>
       <div class="soc-header-actions">
         <button onclick="playNormalClick(); hideSocialPanel()">←</button>
-        <button class="soc-header-gear" onclick="playNormalClick(); navigateToSocialTab('accounts')">⚙</button>
+        <button class="soc-header-gear" onclick="playNormalClick(); _socOpenAccountsModal()">⚙</button>
       </div>
     </div>
 
@@ -1442,9 +1442,14 @@
       </div>
     </div>
 
-    <!-- Accounts Tab (hidden — accessed via gear icon) -->
-    <div class="soc-tab-content" id="soc-tab-accounts" style="display:none"
-      <div class="soc-tab-body">
+    <!-- Accounts Modal (opened via gear icon) -->
+    <div class="soc-modal-overlay" id="soc-accounts-modal" style="display:none">
+      <div class="soc-modal-panel">
+        <div class="soc-modal-header">
+          <span class="soc-section-title">Settings</span>
+          <button class="soc-modal-close" id="soc-accounts-modal-close">&times;</button>
+        </div>
+
         <!-- Connected Accounts -->
         <span class="soc-section-title">Connected Accounts</span>
         <div id="soc-accounts-list" class="soc-accounts-list"></div>
