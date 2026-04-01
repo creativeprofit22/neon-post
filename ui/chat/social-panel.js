@@ -5167,7 +5167,7 @@ function _socPreviewLoadSources(preselectSourceId) {
 
   // Load from scheduled/draft posts
   Promise.all([
-    social && social.getPosts ? social.getPosts(50) : Promise.resolve([]),
+    social && social.listPosts ? social.listPosts() : Promise.resolve([]),
     social && social.getDiscovered ? social.getDiscovered(50) : Promise.resolve([]),
   ]).then(function(results) {
     var posts = results[0] || [];
@@ -5270,17 +5270,17 @@ function _socInitPreviewTab(preselectSourceId) {
       var type = parts[0];
       var id = parts.slice(1).join(':');
 
-      if (type === 'set' && social && social.getPosts) {
+      if (type === 'set' && social && social.listPosts) {
         // Load all posts for this repurposed set
-        social.getPosts(100).then(function(posts) {
+        social.listPosts().then(function(posts) {
           var setPosts = posts.filter(function(p) { return p.source_content_id === id; });
           if (!setPosts.length) return;
           // Fill caption with first post's content for reference
           if (captionEl) captionEl.value = setPosts[0].content || '';
           _socRenderAllPreviews(setPosts);
         });
-      } else if (type === 'post' && social && social.getPosts) {
-        social.getPosts(100).then(function(posts) {
+      } else if (type === 'post' && social && social.listPosts) {
+        social.listPosts().then(function(posts) {
           var p = posts.find(function(x) { return x.id === id; });
           if (!p) return;
           if (captionEl) captionEl.value = p.content || '';
@@ -5327,17 +5327,20 @@ function _socInitCopilot() {
     var tabName = activeTab ? activeTab.dataset.tab : 'unknown';
     var parts = ['tab: ' + tabName];
 
-    // If on Create tab, try to get selected draft info
+    // If on Create tab, try to get the focused/expanded draft info
     if (tabName === 'create') {
-      var editingCard = root.querySelector('.soc-draft-card.editing');
+      // Find the draft whose textarea is focused, or the first non-collapsed card
+      var focusedTa = root.querySelector('.soc-draft-card__textarea:focus');
+      var editingCard = focusedTa
+        ? focusedTa.closest('.soc-draft-card')
+        : root.querySelector('.soc-draft-card:not(.collapsed)');
       if (editingCard) {
         var draftId = editingCard.dataset.draftId || '';
         var platform = editingCard.dataset.platform || '';
         parts.push('editing draft #' + draftId + ' (' + platform + ')');
-        var bodyEl = editingCard.querySelector('.soc-draft-body');
-        if (bodyEl && bodyEl.textContent) {
-          var preview = bodyEl.textContent.trim().slice(0, 200);
-          parts.push('draft text: ' + preview);
+        var ta = editingCard.querySelector('.soc-draft-card__textarea');
+        if (ta && ta.value) {
+          parts.push('draft text: ' + ta.value.trim().slice(0, 200));
         }
       }
     }

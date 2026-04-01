@@ -105,6 +105,7 @@
 /* ─── Tab Content ──────────────────────────────────────────────────── */
 #social-view .soc-tab-content {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   display: none;
   flex-direction: column;
