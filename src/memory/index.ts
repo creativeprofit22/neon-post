@@ -470,6 +470,10 @@ export class MemoryManager {
       this.db.exec('ALTER TABLE social_posts ADD COLUMN generated_content_id TEXT');
       console.log('[Memory] Migrated social_posts table: added generated_content_id column');
     }
+    if (!postColNames.has('media_items')) {
+      this.db.exec('ALTER TABLE social_posts ADD COLUMN media_items TEXT');
+      console.log('[Memory] Migrated social_posts table: added media_items column');
+    }
   }
 
   /**

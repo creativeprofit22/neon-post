@@ -299,6 +299,9 @@ contextBridge.exposeInMainWorld('pocketAgent', {
     pickVideoFile: () => ipcRenderer.invoke('social:pickVideoFile'),
     uploadVideo: (draftId: string, filePath: string) =>
       ipcRenderer.invoke('social:uploadVideo', { draft_id: draftId, file_path: filePath }),
+    pickMediaFiles: () => ipcRenderer.invoke('social:pickMediaFiles'),
+    attachMedia: (draftId: string, files: Array<{ filePath: string; type: string; fileName: string }>) =>
+      ipcRenderer.invoke('social:attachMedia', { draft_id: draftId, files }),
     coldUpload: (filePath: string, platform: string) =>
       ipcRenderer.invoke('social:coldUpload', { file_path: filePath, platform }),
     refineWithVideo: (draftId: string) =>
@@ -993,6 +996,15 @@ declare global {
         uploadVideo: (
           draftId: string,
           filePath: string
+        ) => Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }>;
+        pickMediaFiles: () => Promise<{
+          success: boolean;
+          files?: Array<{ filePath: string; fileName: string; type: string }>;
+          error?: string;
+        }>;
+        attachMedia: (
+          draftId: string,
+          files: Array<{ filePath: string; type: string; fileName: string }>
         ) => Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }>;
         coldUpload: (
           filePath: string,

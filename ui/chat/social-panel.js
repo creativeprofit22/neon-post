@@ -2384,6 +2384,8 @@ function _socRenderDraftsList(drafts) {
     var charCount = content.length;
     var videoPath = draft.video_path || '';
     var videoName = videoPath ? videoPath.split(/[\\/]/).pop() : '';
+    var mediaItems = [];
+    try { if (draft.media_items) mediaItems = JSON.parse(draft.media_items); } catch (_e2) { /* ignore */ }
     var sourceUrl = draft.source_content_id ? '(from repurpose)' : '';
     var createdAt = draft.created_at ? _socTimeAgo(draft.created_at) : '';
 
@@ -2403,14 +2405,12 @@ function _socRenderDraftsList(drafts) {
       '<div class="soc-draft-card__body">' +
         '<textarea class="soc-draft-card__textarea soc-drafts-tab-textarea" data-draft-id="' + draft.id + '" data-platform="' + p + '" data-limit="' + charLimit + '">' + _socEscapeHtml(content) + '</textarea>' +
         (hashtagStr ? '<div class="soc-draft-card__hashtags">' + _socEscapeHtml(hashtagStr) + '</div>' : '') +
-        // Video pill or upload button
-        (videoPath
-          ? '<div class="soc-draft-video-pill">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>' +
-              _socEscapeHtml(videoName) +
-            '</div>'
-          : '<button class="soc-btn soc-btn-sm soc-btn-secondary soc-draft-upload-video-btn" data-draft-id="' + draft.id + '" style="margin-top:8px">Upload Video</button>'
-        ) +
+        // Media strip + attach button
+        '<div class="soc-media-strip-row">' +
+          _socRenderMediaThumbnails(mediaItems, draft.id) +
+          '<button class="soc-btn soc-btn-sm soc-btn-secondary soc-draft-attach-media-btn" data-draft-id="' + draft.id + '">+ Attach Media</button>' +
+        '</div>' +
+        _socRenderPlatformWarning(p, mediaItems) +
         // Source & meta
         '<div class="soc-draft-card-meta">' +
           (sourceTitle
@@ -2457,11 +2457,20 @@ function _socRenderDraftsList(drafts) {
     });
   });
 
-  // Attach video upload buttons
-  listEl.querySelectorAll('.soc-draft-upload-video-btn').forEach(function (btn) {
+  // Attach media buttons
+  listEl.querySelectorAll('.soc-draft-attach-media-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var draftId = btn.dataset.draftId;
-      _socPickVideoForDraft(draftId);
+      _socPickMediaForDraft(draftId);
+    });
+  });
+
+  // Attach media remove buttons
+  listEl.querySelectorAll('.soc-media-thumb__remove').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var draftId = btn.dataset.draftId;
+      var idx = parseInt(btn.dataset.mediaIdx, 10);
+      _socRemoveMediaItem(draftId, idx);
     });
   });
 
@@ -2539,6 +2548,99 @@ function _socRefineWithVideo(draftId, btn) {
       btn.textContent = 'Refine with Video';
       _socShowToast('Refine error', 'error');
     });
+}
+
+function _socRenderMediaThumbnails(mediaItems, draftId) {
+  if (!mediaItems || !mediaItems.length) return '';
+  return '<div class="soc-media-strip">' +
+    mediaItems.map(function (item, idx) {
+      var isVideo = item.type === 'video';
+      var label = isVideo ? '\uD83C\uDFAC' : '';
+      return '<div class="soc-media-thumb" title="' + _socEscapeHtml(item.name) + '">' +
+        (isVideo
+          ? '<div class="soc-media-thumb__video-icon">' + label + '</div>'
+          : '<img src="file://' + _socEscapeHtml(item.path.replace(/\\/g, '/')) + '" alt="' + _socEscapeHtml(item.name) + '" />') +
+        '<button class="soc-media-thumb__remove" data-draft-id="' + draftId + '" data-media-idx="' + idx + '">\u2715</button>' +
+      '</div>';
+    }).join('') +
+  '</div>';
+}
+
+function _socRenderPlatformWarning(platform, mediaItems) {
+  if (!mediaItems || !mediaItems.length) return '';
+  var hasVideo = mediaItems.some(function (i) { return i.type === 'video'; });
+  var hasImage = mediaItems.some(function (i) { return i.type === 'image'; });
+  var imageCount = mediaItems.filter(function (i) { return i.type === 'image'; }).length;
+  var warnings = [];
+
+  if (platform === 'tiktok' && !hasVideo) {
+    warnings.push('TikTok requires a video');
+  }
+  if (platform === 'instagram' && imageCount > 10) {
+    warnings.push('Instagram allows up to 10 images');
+  }
+  if (platform === 'instagram' && hasVideo && hasImage) {
+    warnings.push('Instagram: mix video and images in separate posts');
+  }
+  if ((platform === 'x' || platform === 'twitter') && imageCount > 4) {
+    warnings.push('X allows up to 4 images per post');
+  }
+  if ((platform === 'x' || platform === 'twitter') && hasVideo && hasImage) {
+    warnings.push('X: cannot mix video and images');
+  }
+  if (platform === 'linkedin' && imageCount > 9) {
+    warnings.push('LinkedIn allows up to 9 images');
+  }
+
+  if (!warnings.length) return '';
+  return warnings.map(function (w) {
+    return '<div class="soc-platform-warning">\u26A0 ' + _socEscapeHtml(w) + '</div>';
+  }).join('');
+}
+
+function _socPickMediaForDraft(draftId) {
+  var social = _socAPI();
+  if (!social) return;
+
+  social.pickMediaFiles().then(function (result) {
+    if (!result.success || !result.files || !result.files.length) return;
+    _socShowToast('Attaching media...', 'success');
+    social.attachMedia(draftId, result.files)
+      .then(function (res) {
+        if (res.success) {
+          _socShowToast('Media attached!', 'success');
+          _socLoadDrafts();
+        } else {
+          _socShowToast(res.error || 'Attach failed', 'error');
+        }
+      })
+      .catch(function () { _socShowToast('Media attach error', 'error'); });
+  });
+}
+
+function _socRemoveMediaItem(draftId, idx) {
+  var social = _socAPI();
+  if (!social) return;
+
+  // Find the draft in cache to get current media_items
+  var draft = null;
+  if (_socDraftsCache) {
+    draft = _socDraftsCache.find(function (d) { return d.id === draftId; });
+  }
+  if (!draft) return;
+
+  var mediaItems = [];
+  try { if (draft.media_items) mediaItems = JSON.parse(draft.media_items); } catch (_e) { /* ignore */ }
+  mediaItems.splice(idx, 1);
+
+  social.updateDraft(draftId, { media_items: JSON.stringify(mediaItems) })
+    .then(function (res) {
+      if (res.success) {
+        _socShowToast('Media removed', 'success');
+        _socLoadDrafts();
+      }
+    })
+    .catch(function () { _socShowToast('Remove failed', 'error'); });
 }
 
 function _socPickVideoForDraft(draftId) {

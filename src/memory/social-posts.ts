@@ -5,6 +5,12 @@ import Database from 'better-sqlite3';
 
 export type SocialPostStatus = 'draft' | 'scheduled' | 'posting' | 'posted' | 'failed';
 
+export interface MediaItem {
+  path: string;
+  type: 'image' | 'video';
+  name: string;
+}
+
 export interface SocialPost {
   id: string;
   social_account_id: string | null;
@@ -27,6 +33,7 @@ export interface SocialPost {
   views: number;
   metadata: string | null;
   source_content_id: string | null;
+  media_items: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -44,6 +51,7 @@ export interface CreateSocialPostInput {
   video_url?: string | null;
   transcript?: string | null;
   generated_content_id?: string | null;
+  media_items?: string | null;
 }
 
 export interface UpdateSocialPostInput {
@@ -66,6 +74,7 @@ export interface UpdateSocialPostInput {
   video_url?: string | null;
   transcript?: string | null;
   generated_content_id?: string | null;
+  media_items?: string | null;
 }
 
 // ============ Schema ============
@@ -117,8 +126,8 @@ export class SocialPostsStore {
     this.db
       .prepare(
         `INSERT INTO social_posts
-           (id, social_account_id, platform, status, content, media_urls, scheduled_at, metadata, source_content_id, video_path, video_url, transcript, generated_content_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           (id, social_account_id, platform, status, content, media_urls, scheduled_at, metadata, source_content_id, video_path, video_url, transcript, generated_content_id, media_items)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         id,
@@ -133,7 +142,8 @@ export class SocialPostsStore {
         input.video_path ?? null,
         input.video_url ?? null,
         input.transcript ?? null,
-        input.generated_content_id ?? null
+        input.generated_content_id ?? null,
+        input.media_items ?? null
       );
     return this.getById(id)!;
   }
@@ -230,6 +240,10 @@ export class SocialPostsStore {
     if (input.generated_content_id !== undefined) {
       fields.push('generated_content_id = ?');
       values.push(input.generated_content_id);
+    }
+    if (input.media_items !== undefined) {
+      fields.push('media_items = ?');
+      values.push(input.media_items);
     }
 
     if (fields.length === 0) return this.getById(id);

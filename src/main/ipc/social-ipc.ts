@@ -480,6 +480,89 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
     }
   });
 
+  // ============ Pick Media Files ============
+
+  ipcMain.handle('social:pickMediaFiles', async () => {
+    try {
+      const result = await dialog.showOpenDialog({
+        properties: ['openFile', 'multiSelections'],
+        filters: [
+          {
+            name: 'Media',
+            extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'avi', 'mkv', 'webm'],
+          },
+          { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'] },
+          { name: 'Videos', extensions: ['mp4', 'mov', 'avi', 'mkv', 'webm'] },
+          { name: 'All Files', extensions: ['*'] },
+        ],
+      });
+      if (result.canceled || !result.filePaths.length) {
+        return { success: false, error: 'No files selected' };
+      }
+      const imageExts = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp']);
+      const videoExts = new Set(['.mp4', '.mov', '.avi', '.mkv', '.webm']);
+      const files = result.filePaths.map((filePath) => {
+        const ext = path.extname(filePath).toLowerCase();
+        const type = imageExts.has(ext) ? 'image' : videoExts.has(ext) ? 'video' : 'image';
+        return { filePath, fileName: path.basename(filePath), type };
+      });
+      return { success: true, files };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[SocialIPC] pickMediaFiles error:', err);
+      return { success: false, error: message };
+    }
+  });
+
+  // ============ Attach Media ============
+
+  ipcMain.handle(
+    'social:attachMedia',
+    async (_, input: { draft_id: string; files: Array<{ filePath: string; type: string; fileName: string }> }) => {
+      try {
+        const memory = getMemory();
+        if (!memory) return { success: false, error: 'Memory not initialized' };
+
+        const post = memory.socialPosts.getById(input.draft_id);
+        if (!post) return { success: false, error: 'Draft not found' };
+
+        const dateDir = new Date().toISOString().slice(0, 10);
+        const mediaDir = path.join(app.getPath('userData'), 'media', dateDir);
+        fs.mkdirSync(mediaDir, { recursive: true });
+
+        // Parse existing media items
+        let existingItems: Array<{ path: string; type: string; name: string }> = [];
+        if (post.media_items) {
+          try {
+            existingItems = JSON.parse(post.media_items);
+          } catch {
+            existingItems = [];
+          }
+        }
+
+        const newItems: Array<{ path: string; type: string; name: string }> = [];
+        for (const file of input.files) {
+          if (!fs.existsSync(file.filePath)) continue;
+          const ext = path.extname(file.filePath);
+          const destName = `${crypto.randomUUID()}${ext}`;
+          const destPath = path.join(mediaDir, destName);
+          fs.copyFileSync(file.filePath, destPath);
+          newItems.push({ path: destPath, type: file.type, name: file.fileName });
+        }
+
+        const allItems = [...existingItems, ...newItems];
+        const updated = memory.socialPosts.update(input.draft_id, {
+          media_items: JSON.stringify(allItems),
+        });
+        return { success: true, data: updated };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('[SocialIPC] attachMedia error:', err);
+        return { success: false, error: message };
+      }
+    }
+  );
+
   // ============ Draft Management ============
 
   ipcMain.handle(
