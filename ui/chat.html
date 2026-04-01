@@ -1332,46 +1332,35 @@
       </div>
     </div>
 
-    <!-- Posts Tab (hidden — moves in later chunks) -->
-    <div class="soc-tab-content" id="soc-tab-posts" style="display:none"
-      <div class="soc-tab-body">
-        <div class="soc-composer">
-          <textarea id="soc-post-content" placeholder="Write your post content..."></textarea>
-          <div class="soc-composer-controls">
-            <select id="soc-post-platform">
-              <option value="tiktok">TikTok</option>
-              <option value="youtube">YouTube</option>
-              <option value="instagram">Instagram</option>
-              <option value="twitter">Twitter / X</option>
-              <option value="linkedin">LinkedIn</option>
-            </select>
-            <select id="soc-post-status">
-              <option value="draft">Draft</option>
-              <option value="scheduled">Scheduled</option>
-            </select>
-            <input type="datetime-local" id="soc-post-schedule">
-            <button class="soc-btn soc-btn-primary" id="soc-post-create-btn">Create Post</button>
-          </div>
-        </div>
-        <div class="soc-flex-between soc-mb-12">
-          <span class="soc-section-title">Posts</span>
-          <select id="soc-posts-filter">
-            <option value="all">All</option>
-            <option value="draft">Drafts</option>
-            <option value="scheduled">Scheduled</option>
-            <option value="posted">Posted</option>
-          </select>
-        </div>
-        <table class="soc-posts-table">
-          <thead><tr><th>Platform</th><th>Content</th><th>Status</th><th>Scheduled</th><th>Created</th><th></th></tr></thead>
-          <tbody id="soc-posts-table-body"></tbody>
-        </table>
-      </div>
-    </div>
-
     <!-- Calendar Tab -->
     <div class="soc-tab-content" id="soc-tab-calendar">
       <div class="soc-tab-body">
+        <!-- Quick Post (collapsible) -->
+        <div class="soc-quick-post" id="soc-quick-post">
+          <button class="soc-quick-post-toggle" id="soc-quick-post-toggle">
+            <span>Quick Post</span>
+            <svg class="soc-quick-post-chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9l6 6l6-6"/></svg>
+          </button>
+          <div class="soc-quick-post-body" id="soc-quick-post-body" style="display:none;">
+            <textarea id="soc-post-content" placeholder="Write your post content..." rows="3"></textarea>
+            <div class="soc-composer-controls">
+              <select id="soc-post-platform">
+                <option value="tiktok">TikTok</option>
+                <option value="youtube">YouTube</option>
+                <option value="instagram">Instagram</option>
+                <option value="twitter">Twitter / X</option>
+                <option value="linkedin">LinkedIn</option>
+              </select>
+              <select id="soc-post-status">
+                <option value="draft">Draft</option>
+                <option value="scheduled">Scheduled</option>
+              </select>
+              <input type="datetime-local" id="soc-post-schedule">
+              <button class="soc-btn soc-btn-primary" id="soc-post-create-btn">Create Post</button>
+            </div>
+          </div>
+        </div>
+
         <div class="soc-calendar-wrapper">
           <div class="soc-calendar-main">
             <div class="soc-calendar-header">
@@ -1385,6 +1374,7 @@
                 <button class="soc-calendar-view-btn active" data-view="month">Month</button>
                 <button class="soc-calendar-view-btn" data-view="week">Week</button>
                 <button class="soc-calendar-view-btn" data-view="agenda">Agenda</button>
+                <button class="soc-calendar-view-btn" data-view="posts">Posts</button>
               </div>
             </div>
             <div class="soc-calendar-weekdays">
@@ -1393,6 +1383,21 @@
             <div class="soc-calendar-grid" id="soc-calendar-grid"></div>
             <div class="soc-calendar-week-view" id="soc-calendar-week-view" style="display:none;"></div>
             <div class="soc-calendar-agenda-view" id="soc-calendar-agenda-view" style="display:none;"></div>
+            <div class="soc-calendar-posts-view" id="soc-calendar-posts-view" style="display:none;">
+              <div class="soc-flex-between soc-mb-12">
+                <span class="soc-section-title">Posts</span>
+                <select id="soc-posts-filter">
+                  <option value="all">All</option>
+                  <option value="draft">Drafts</option>
+                  <option value="scheduled">Scheduled</option>
+                  <option value="posted">Posted</option>
+                </select>
+              </div>
+              <table class="soc-posts-table">
+                <thead><tr><th>Platform</th><th>Content</th><th>Status</th><th>Scheduled</th><th>Created</th><th></th></tr></thead>
+                <tbody id="soc-posts-table-body"></tbody>
+              </table>
+            </div>
           </div>
           <div class="soc-calendar-sidebar" id="soc-calendar-sidebar">
             <div class="soc-calendar-sidebar-header">

@@ -67,8 +67,15 @@ function navigateToSocialTab(tab, subTab) {
     return;
   }
 
-  // For hidden tabs (posts, gallery), show them directly without tab bar highlight
-  var hiddenTabs = ['posts', 'gallery'];
+  // Posts is now a calendar sub-view — switch to calendar tab + posts view
+  if (resolvedTab === 'posts') {
+    resolvedTab = 'calendar';
+    _socCalendarView = 'posts';
+    localStorage.setItem('soc-calendar-view', 'posts');
+  }
+
+  // For hidden tabs (gallery), show them directly without tab bar highlight
+  var hiddenTabs = ['gallery'];
   if (hiddenTabs.indexOf(resolvedTab) !== -1) {
     root.querySelectorAll('.soc-tab-btn').forEach(function (b) { b.classList.remove('active'); });
     root.querySelectorAll('.soc-tab-content').forEach(function (c) { c.classList.remove('active'); });
@@ -100,7 +107,6 @@ function navigateToSocialTab(tab, subTab) {
   // Refresh the tab data
   if (resolvedTab === 'content-browse') _socLoadDiscovered();
   if (resolvedTab === 'calendar') showCalendarPanel();
-  if (resolvedTab === 'posts') _socLoadPosts();
   if (resolvedTab === 'create') _socLoadDrafts();
 }
 
@@ -186,8 +192,7 @@ function _socShowScheduleSuccessToast(scheduledDate) {
 }
 
 function _socRefreshAfterSchedule() {
-  if (_socCalendarInitialized) _socCalendarRender();
-  _socLoadPosts();
+  if (_socCalendarInitialized) _socCalendarRenderCurrentView();
 }
 
 // ─── Schedule Modal ─────────────────────────────────────────────────────────
@@ -1453,6 +1458,20 @@ function _socInit() {
     });
   }
 
+  // ── Quick Post toggle ──
+  const quickPostToggle = root.querySelector('#soc-quick-post-toggle');
+  if (quickPostToggle) {
+    quickPostToggle.addEventListener('click', () => {
+      const body = root.querySelector('#soc-quick-post-body');
+      const qp = root.querySelector('#soc-quick-post');
+      if (body) {
+        const open = body.style.display !== 'none';
+        body.style.display = open ? 'none' : '';
+        if (qp) qp.classList.toggle('open', !open);
+      }
+    });
+  }
+
   // ── Post composer ──
   const postCreateBtn = root.querySelector('#soc-post-create-btn');
   if (postCreateBtn) {
@@ -1473,7 +1492,7 @@ function _socInit() {
             _socShowToast('Post created!', 'success');
             const ta = root.querySelector('#soc-post-content');
             if (ta) ta.value = '';
-            _socLoadPosts();
+            _socCalendarRenderCurrentView();
           } else {
             _socShowToast(result.error || 'Failed to create post', 'error');
           }
@@ -1971,7 +1990,6 @@ function _socRefreshActiveTab() {
   if (!activeBtn) return;
   const tab = activeBtn.dataset.tab;
   if (tab === 'content-browse') _socLoadDiscovered();
-  if (tab === 'posts')    _socLoadPosts();
   if (tab === 'calendar') _socCalendarRenderCurrentView();
   if (tab === 'create')   _socLoadDrafts();
 }
@@ -3215,11 +3233,13 @@ function _socCalendarSwitchView() {
   var weekdays   = root.querySelector('.soc-calendar-weekdays');
   var weekView   = root.querySelector('#soc-calendar-week-view');
   var agendaView = root.querySelector('#soc-calendar-agenda-view');
+  var postsView  = root.querySelector('#soc-calendar-posts-view');
 
   if (monthGrid)  monthGrid.style.display  = _socCalendarView === 'month' ? '' : 'none';
   if (weekdays)   weekdays.style.display   = _socCalendarView === 'month' ? '' : 'none';
   if (weekView)   weekView.style.display   = _socCalendarView === 'week' ? '' : 'none';
   if (agendaView) agendaView.style.display = _socCalendarView === 'agenda' ? '' : 'none';
+  if (postsView)  postsView.style.display  = _socCalendarView === 'posts' ? '' : 'none';
 
   _socCalendarCloseSidebar();
   _socCalendarRenderCurrentView();
@@ -3230,6 +3250,8 @@ function _socCalendarRenderCurrentView() {
     _socRenderWeekView(_socCalendarWeekStart);
   } else if (_socCalendarView === 'agenda') {
     _socRenderAgendaView();
+  } else if (_socCalendarView === 'posts') {
+    _socLoadPosts();
   } else {
     _socCalendarRender();
   }
@@ -3244,7 +3266,9 @@ function _socCalendarUpdateLabel() {
   var monthNames = ['January','February','March','April','May','June',
     'July','August','September','October','November','December'];
 
-  if (_socCalendarView === 'week') {
+  if (_socCalendarView === 'posts') {
+    label.textContent = 'All Posts';
+  } else if (_socCalendarView === 'week') {
     var end = new Date(_socCalendarWeekStart);
     end.setDate(end.getDate() + 6);
     var sMonth = monthNames[_socCalendarWeekStart.getMonth()].substring(0, 3);
@@ -3703,6 +3727,34 @@ function _socRenderWeekView(startDate) {
 
 // ─── Calendar: Agenda View ────────────────────────────────────────────────
 
+function _socAgendaDateLabel(dateStr, todayStr) {
+  var today = new Date(todayStr + 'T00:00:00');
+  var tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  var tomorrowStr = _socCalendarDateStr(tomorrow);
+  if (dateStr === todayStr) return 'Today';
+  if (dateStr === tomorrowStr) return 'Tomorrow';
+  var d = new Date(dateStr + 'T00:00:00');
+  var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var monthNames = ['January','February','March','April','May','June',
+    'July','August','September','October','November','December'];
+  return dayNames[d.getDay()] + ', ' + monthNames[d.getMonth()] + ' ' + d.getDate();
+}
+
+function _socAgendaPlatformIcon(platform) {
+  var p = (platform || '').toLowerCase();
+  var color = _socCalendarPlatformColors[p] || 'var(--text-secondary)';
+  var label = (p === 'twitter' || p === 'x') ? 'X' : p.charAt(0).toUpperCase();
+  return '<span class="soc-agenda-platform-icon" style="background:' + color + '" title="' + _socEscapeHtml(platform || '') + '">' + label + '</span>';
+}
+
+function _socAgendaStatusBadge(status) {
+  var s = (status || 'draft').toLowerCase();
+  var cls = 'soc-agenda-status-badge soc-agenda-status-' + s;
+  var label = s.charAt(0).toUpperCase() + s.slice(1);
+  return '<span class="' + cls + '">' + label + '</span>';
+}
+
 function _socRenderAgendaView() {
   var root = document.getElementById('social-view');
   if (!root) return;
@@ -3716,7 +3768,6 @@ function _socRenderAgendaView() {
   var startOffset = (firstDay + 6) % 7;
   var startDate = new Date(_socCalendarYear, _socCalendarMonth, 1 - startOffset);
   var endDate = new Date(_socCalendarYear, _socCalendarMonth + 1, 0);
-  // Extend to end of last visible week
   var endOffset = (7 - ((endDate.getDay() + 6) % 7 + 1)) % 7;
   endDate.setDate(endDate.getDate() + endOffset);
 
@@ -3739,59 +3790,78 @@ function _socRenderAgendaView() {
       return;
     }
 
-    // Sort by scheduled_at / created_at
     allPosts.sort(function (a, b) {
       var aTime = a.post.scheduled_at || a.post.created_at || '';
       var bTime = b.post.scheduled_at || b.post.created_at || '';
       return aTime.localeCompare(bTime);
     });
 
-    // Group by date
+    // Group by date with counts
     var todayStr = _socCalendarDateStr(new Date());
-    var monthNames = ['January','February','March','April','May','June',
-      'July','August','September','October','November','December'];
-    var dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-    var html = '';
-    var lastDate = '';
-
+    var grouped = {};
+    var groupOrder = [];
     allPosts.forEach(function (entry) {
-      if (entry.dateStr !== lastDate) {
-        lastDate = entry.dateStr;
-        var d = new Date(entry.dateStr + 'T00:00:00');
-        var isToday = entry.dateStr === todayStr;
-        html += '<div class="soc-agenda-date-header' + (isToday ? ' soc-agenda-date-today' : '') + '">' +
-          '<span class="soc-agenda-date-day">' + dayNames[d.getDay()] + '</span>' +
-          '<span class="soc-agenda-date-full">' + monthNames[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear() + '</span>' +
-          (isToday ? '<span class="soc-agenda-today-badge">Today</span>' : '') +
-        '</div>';
+      if (!grouped[entry.dateStr]) {
+        grouped[entry.dateStr] = [];
+        groupOrder.push(entry.dateStr);
       }
+      grouped[entry.dateStr].push(entry.post);
+    });
 
-      var post = entry.post;
-      var platform = (post.platform || '').toLowerCase();
-      var color = _socCalendarPlatformColors[platform] || 'var(--text-secondary)';
-      var time = '';
-      var schedStr = post.scheduled_at || post.created_at || '';
-      if (schedStr && schedStr.length > 10) {
-        var dt = new Date(schedStr);
-        var h = dt.getHours();
-        var m = String(dt.getMinutes()).padStart(2, '0');
-        var ampm = h >= 12 ? 'PM' : 'AM';
-        time = (h % 12 || 12) + ':' + m + ' ' + ampm;
-      }
-      var content = post.title || post.body || post.content || 'Untitled';
-      var preview = content.length > 120 ? _socEscapeHtml(content.substring(0, 120)) + '…' : _socEscapeHtml(content);
+    var html = '';
 
-      html +=
-        '<div class="soc-agenda-item" style="border-left-color:' + color + '">' +
-          '<div class="soc-agenda-item-time">' + (time || '—') + '</div>' +
-          '<div class="soc-agenda-item-body">' +
-            '<div class="soc-agenda-item-header">' +
-              _socMakePlatformBadge(post.platform || 'unknown') +
-              ' ' + _socMakeStatusBadge(post.status) +
+    groupOrder.forEach(function (dateStr) {
+      var posts = grouped[dateStr];
+      var label = _socAgendaDateLabel(dateStr, todayStr);
+      var isToday = dateStr === todayStr;
+      var countLabel = posts.length === 1 ? '1 post' : posts.length + ' posts';
+
+      html += '<div class="soc-agenda-day-header' + (isToday ? ' soc-agenda-day-header-today' : '') + '">' +
+        '<span class="soc-agenda-day-label">' + label + '</span>' +
+        '<span class="soc-agenda-day-count">' + countLabel + '</span>' +
+      '</div>';
+
+      posts.forEach(function (post) {
+        var time = '';
+        var schedStr = post.scheduled_at || post.created_at || '';
+        if (schedStr && schedStr.length > 10) {
+          var dt = new Date(schedStr);
+          var h = dt.getHours();
+          var m = String(dt.getMinutes()).padStart(2, '0');
+          var ampm = h >= 12 ? 'PM' : 'AM';
+          time = (h % 12 || 12) + ':' + m + ' ' + ampm;
+        }
+        var content = post.title || post.body || post.content || 'Untitled';
+        var preview = content.length > 100 ? _socEscapeHtml(content.substring(0, 100)) + '…' : _socEscapeHtml(content);
+
+        // Thumbnail: use media_url if available, else show emoji
+        var thumb = '';
+        if (post.media_url) {
+          thumb = '<img class="soc-agenda-post-thumb" src="' + _socEscapeHtml(post.media_url) + '" alt="" />';
+        } else {
+          var emoji = (post.content_type === 'video' || (post.media_type || '').includes('video')) ? '🎬' : '📝';
+          thumb = '<span class="soc-agenda-post-thumb soc-agenda-post-thumb-emoji">' + emoji + '</span>';
+        }
+
+        // Platform icons as overlapping circles
+        var platforms = (post.platforms || [post.platform]).filter(Boolean);
+        var iconsHtml = '<div class="soc-agenda-platform-icons">';
+        platforms.forEach(function (pl) { iconsHtml += _socAgendaPlatformIcon(pl); });
+        iconsHtml += '</div>';
+
+        html +=
+          '<div class="soc-agenda-post">' +
+            thumb +
+            '<div class="soc-agenda-post-body">' +
+              '<div class="soc-agenda-post-content">' + preview + '</div>' +
+              '<div class="soc-agenda-post-meta">' +
+                iconsHtml +
+                '<span class="soc-agenda-post-time">' + (time || '—') + '</span>' +
+              '</div>' +
+              _socAgendaStatusBadge(post.status) +
             '</div>' +
-            '<div class="soc-agenda-item-content">' + preview + '</div>' +
-          '</div>' +
-        '</div>';
+          '</div>';
+      });
     });
 
     container.innerHTML = html;
