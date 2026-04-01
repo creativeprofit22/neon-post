@@ -2657,6 +2657,11 @@
   opacity: 0.4;
 }
 
+#social-view .soc-reschedule-loading {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 /* Overflow "+N more" badge */
 #social-view .soc-calendar-more {
   font-size: 0.6em;

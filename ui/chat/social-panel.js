@@ -370,9 +370,17 @@ function _socScheduleModalConfirm() {
   var social = _socAPI();
   if (!social || !_socScheduleModalDraftId) return;
 
+  var confirmBtn = document.getElementById('soc-schedule-confirm');
+  var originalText = confirmBtn ? confirmBtn.textContent : '';
+  if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'Scheduling...'; }
+
+  function _restoreConfirmBtn() {
+    if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = originalText; }
+  }
+
   var draftId = _socScheduleModalDraftId;
   var draft = _socDraftsCache && _socDraftsCache.find(function (d) { return d.id === draftId; });
-  if (!draft) { _socShowToast('Draft not found', 'error'); return; }
+  if (!draft) { _socShowToast('Draft not found', 'error'); _restoreConfirmBtn(); return; }
 
   if (_socScheduleModalMode === 'now') {
     // Publish immediately
@@ -388,7 +396,8 @@ function _socScheduleModalConfirm() {
       } else {
         _socShowToast(result.error || 'Publish failed', 'error');
       }
-    }).catch(function () { _socShowToast('Publish error', 'error'); });
+    }).catch(function () { _socShowToast('Publish error', 'error'); })
+      .finally(_restoreConfirmBtn);
     return;
   }
 
@@ -406,7 +415,8 @@ function _socScheduleModalConfirm() {
       } else {
         _socShowToast(result.error || 'Queue failed', 'error');
       }
-    }).catch(function () { _socShowToast('Queue error', 'error'); });
+    }).catch(function () { _socShowToast('Queue error', 'error'); })
+      .finally(_restoreConfirmBtn);
     return;
   }
 
@@ -415,6 +425,7 @@ function _socScheduleModalConfirm() {
   var timeInput = document.getElementById('soc-schedule-time');
   if (!dateInput || !dateInput.value || !timeInput || !timeInput.value) {
     _socShowToast('Pick a date and time', 'error');
+    _restoreConfirmBtn();
     return;
   }
 
@@ -432,7 +443,8 @@ function _socScheduleModalConfirm() {
     } else {
       _socShowToast(result.error || 'Schedule failed', 'error');
     }
-  }).catch(function () { _socShowToast('Schedule error', 'error'); });
+  }).catch(function () { _socShowToast('Schedule error', 'error'); })
+    .finally(_restoreConfirmBtn);
 }
 
 function _socInitScheduleModal() {
@@ -2175,6 +2187,9 @@ function _socDiscoverSearch(query, platform) {
   const results = root && root.querySelector('#soc-discover-results');
   if (!results || !social) return;
 
+  var searchBtn = root && root.querySelector('#soc-discover-search-btn');
+  if (searchBtn) searchBtn.disabled = true;
+
   results.innerHTML = '<div class="soc-card-grid">' + _socSkeletonCards(6) + '</div>';
 
   social.searchContent(query, platform)
@@ -2199,6 +2214,9 @@ function _socDiscoverSearch(query, platform) {
     .catch(err => {
       console.error('[Social] Search failed:', err);
       _socShowToast('Search failed', 'error');
+    })
+    .finally(function () {
+      if (searchBtn) searchBtn.disabled = false;
     });
 }
 
@@ -3835,6 +3853,11 @@ function _socReschedulePost(postId, newDateStr) {
   var social = _socAPI();
   if (!social) { _socShowToast('Social API unavailable', 'error'); return; }
 
+  // Add loading state to the dragged chip
+  var root = document.getElementById('social-view');
+  var chipEl = root && root.querySelector('.soc-calendar-chip--draggable[data-post-id="' + postId + '"]');
+  if (chipEl) chipEl.classList.add('soc-reschedule-loading');
+
   // Find the post to preserve its original time
   var originalTime = '12:00:00';
   Object.keys(_socCalendarPostsByDay).forEach(function (dayKey) {
@@ -3863,7 +3886,10 @@ function _socReschedulePost(postId, newDateStr) {
         _socShowToast(result.error || 'Failed to reschedule', 'error');
       }
     })
-    .catch(function () { _socShowToast('Failed to reschedule', 'error'); });
+    .catch(function () { _socShowToast('Failed to reschedule', 'error'); })
+    .finally(function () {
+      if (chipEl) chipEl.classList.remove('soc-reschedule-loading');
+    });
 }
 
 function _socCalendarCloseSidebar() {
@@ -4451,10 +4477,16 @@ window.socPanelActions = {
     const social = _socAPI();
     if (!social) { _socShowToast('Social API unavailable', 'error'); return; }
 
+    // Disable all save buttons for this item to prevent double-clicks
+    var root = document.getElementById('social-view');
+    var saveBtns = root ? root.querySelectorAll('button[onclick*="saveDiscovered(\\\'' + id + '\\\')"]') : [];
+    saveBtns.forEach(function (b) { b.disabled = true; });
+
     // Look up the raw search result from cache
     const item = _socDiscoverSearchCache && _socDiscoverSearchCache[id];
     if (!item) {
       // Already a DB item (from getDiscovered), nothing to save
+      saveBtns.forEach(function (b) { b.disabled = false; });
       _socShowToast('Content already saved', 'success');
       return;
     }
@@ -4495,6 +4527,9 @@ window.socPanelActions = {
       .catch(err => {
         console.error('[Social] Save discovered failed:', err);
         _socShowToast('Failed to save content', 'error');
+      })
+      .finally(function () {
+        saveBtns.forEach(function (b) { b.disabled = false; });
       });
   },
 
