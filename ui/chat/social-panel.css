@@ -4520,9 +4520,13 @@
   max-width: 80vw;
   max-height: 80vh;
   background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(168, 130, 255, 0.2);
+  border-radius: 16px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.3),
+    0 12px 40px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(168, 130, 255, 0.08),
+    0 0 24px -4px rgba(168, 130, 255, 0.12);
   display: none;
   flex-direction: column;
   z-index: 50;
@@ -4534,13 +4538,25 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(30, 22, 48, 0.95) 0%, var(--bg-secondary) 100%);
+  border-bottom: 1px solid rgba(168, 130, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(168, 130, 255, 0.18);
   cursor: grab;
   flex-shrink: 0;
-  min-height: 40px;
+  min-height: 42px;
   user-select: none;
+  position: relative;
+}
+.soc-bubble__header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(168, 130, 255, 0.5), var(--accent), rgba(168, 130, 255, 0.5), transparent);
+  border-radius: 16px 16px 0 0;
 }
 .soc-bubble__header:active { cursor: grabbing; }
 
@@ -4565,9 +4581,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.04);
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--text-muted);
   cursor: pointer;
   font-size: 14px;
@@ -4575,9 +4591,9 @@
   flex-shrink: 0;
 }
 .soc-bubble__btn:hover {
-  background: var(--bg-tertiary);
+  background: rgba(168, 130, 255, 0.12);
   color: var(--text-primary);
-  border-color: var(--border);
+  border-color: rgba(168, 130, 255, 0.25);
 }
 
 .soc-bubble__body {
@@ -4603,8 +4619,9 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 6px 12px;
-  border-top: 1px solid var(--border);
+  padding: 6px 14px;
+  border-top: 1px solid rgba(168, 130, 255, 0.08);
+  background: rgba(168, 130, 255, 0.02);
   flex-shrink: 0;
 }
 .soc-bubble__actions:empty { display: none; }
@@ -4628,7 +4645,8 @@
 
 .soc-bubble__footer {
   flex-shrink: 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid rgba(168, 130, 255, 0.08);
+  background: rgba(168, 130, 255, 0.02);
 }
 
 /* Override input area styles when inside bubble */
@@ -4652,34 +4670,74 @@
 .soc-bubble--minimized {
   height: auto !important;
   min-height: auto !important;
-  bottom: 16px !important;
+  bottom: 28px !important;
   right: 16px !important;
   top: auto !important;
   left: auto !important;
   width: auto !important;
   min-width: auto !important;
-  max-width: 260px !important;
-  border-radius: 22px !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(168, 85, 247, 0.4), inset 0 0 0 1px rgba(168, 85, 247, 0.15) !important;
-  border-color: rgba(168, 85, 247, 0.3) !important;
+  max-width: 380px !important;
+  border-radius: 26px 26px 6px 26px !important;
+  background: linear-gradient(
+    145deg,
+    rgba(38, 20, 60, 0.98) 0%,
+    rgba(72, 30, 120, 0.92) 45%,
+    rgba(120, 60, 180, 0.85) 100%
+  ) !important;
+  border: 1px solid rgba(168, 85, 247, 0.45) !important;
+  box-shadow:
+    0 6px 28px rgba(0, 0, 0, 0.55),
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(168, 85, 247, 0.3),
+    0 0 20px rgba(138, 60, 220, 0.2),
+    0 0 40px rgba(168, 85, 247, 0.08) !important;
+  overflow: visible !important;
+  transition: box-shadow 0.3s ease, transform 0.2s ease !important;
+}
+.soc-bubble--minimized:hover {
+  box-shadow:
+    0 8px 36px rgba(0, 0, 0, 0.6),
+    0 2px 10px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(168, 85, 247, 0.45),
+    0 0 28px rgba(138, 60, 220, 0.3),
+    0 0 56px rgba(168, 85, 247, 0.12) !important;
+  transform: translateY(-1px);
+}
+/* Speech-bubble tail pointing down-right */
+.soc-bubble--minimized::after {
+  content: '';
+  position: absolute;
+  bottom: -14px;
+  right: 14px;
+  width: 0;
+  height: 0;
+  border-left: 16px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 16px solid rgba(100, 45, 160, 0.9);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))
+    drop-shadow(0 0 6px rgba(138, 60, 220, 0.15));
+  z-index: -1;
 }
 .soc-bubble--minimized .soc-bubble__header {
   border-bottom: none !important;
-  border-radius: 22px !important;
-  padding: 6px 10px 6px 14px !important;
-  min-height: 36px !important;
-  background: linear-gradient(135deg, rgba(30, 30, 40, 0.95) 0%, rgba(88, 50, 140, 0.4) 100%) !important;
+  border-radius: 26px 26px 6px 26px !important;
+  padding: 14px 18px 14px 22px !important;
+  min-height: 56px !important;
+  background: transparent !important;
 }
 .soc-bubble--minimized .soc-bubble__mode-icon {
-  font-size: 14px !important;
+  font-size: 20px !important;
+  filter: drop-shadow(0 0 4px rgba(168, 85, 247, 0.4));
 }
 .soc-bubble--minimized .soc-bubble__session-name {
-  font-size: 12px !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 .soc-bubble--minimized .soc-bubble__btn {
-  width: 24px !important;
-  height: 24px !important;
-  font-size: 12px !important;
+  width: 32px !important;
+  height: 32px !important;
+  font-size: 15px !important;
 }
 
 /* Bubble dragging */
