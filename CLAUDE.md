@@ -10,35 +10,28 @@ Electron 40, TypeScript 5.9, Node.js, Claude Agent SDK, OpenAI (fallback), bette
 
 ```
 src/
-├── main/             # Electron main process, tray, windows
-│   └── ipc/          # IPC handlers (agent, cron, social, sessions, settings)
-├── agent/            # Claude Agent SDK wrapper, chat engine, providers
-├── memory/           # SQLite persistence (messages, facts, embeddings, social, trends)
-├── channels/         # Communication channels (Telegram, iOS relay)
-├── scheduler/        # Cron jobs, social scheduling, notifications
-├── browser/          # Browser automation (Electron + CDP)
-├── tools/            # Agent tool implementations
-├── config/           # Configuration and system prompts
-├── settings/         # User preferences, schema, themes
-├── auth/             # OAuth flows
-├── permissions/      # Permission system
-├── image/            # Image generation (Kie.ai) with job tracking
-├── social/           # Social media management
-│   ├── content/      # Content generation and prompts
-│   ├── engagement/   # Engagement monitoring and replies
-│   ├── posting/      # Multi-platform posting (X, Instagram, TikTok, LinkedIn, YouTube)
-│   ├── scoring/      # Viral scoring and trend detection
-│   ├── scraping/     # Web scraping (Apify, RapidAPI)
-│   ├── transcription/# Audio/video transcription
-│   └── video/        # Video processing
-├── mcp/              # Model Context Protocol servers
-└── utils/            # General helpers
+├── main/           # Electron main process, tray, windows
+│   └── ipc/        # IPC handlers (agent, cron, social, sessions, settings)
+├── agent/          # Claude Agent SDK wrapper, chat engine, providers
+├── memory/         # SQLite persistence (messages, facts, embeddings, social, trends)
+├── channels/       # Communication channels (Telegram, iOS relay)
+├── scheduler/      # Cron jobs, social scheduling, notifications
+├── browser/        # Browser automation (Electron + CDP)
+├── tools/          # Agent tool implementations
+├── config/         # Configuration and system prompts
+├── settings/       # User preferences, schema, themes
+├── auth/           # OAuth flows
+├── permissions/    # Permission system
+├── image/          # Image generation (Kie.ai) with job tracking
+├── social/         # Social media (content, engagement, posting, scoring, scraping, video)
+├── mcp/            # Model Context Protocol servers
+└── utils/          # General helpers
 ui/
-├── chat/             # Chat interface (JS modules, CSS)
-├── shared/           # Theme loader, base styles, CSS variables
-└── *.html            # Feature pages (chat, settings, setup, cron, facts, soul, etc.)
-tests/                # Vitest unit tests
-scripts/              # Build and utility scripts
+├── chat/           # Chat interface (JS modules, CSS)
+├── shared/         # Theme loader, base styles, CSS variables
+└── *.html          # Feature pages (chat, settings, setup, cron, facts, soul, etc.)
+tests/              # Vitest unit tests
+scripts/            # Build and utility scripts
 ```
 
 ## Organization Rules

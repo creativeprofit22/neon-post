@@ -33,6 +33,8 @@ let _dragStartX, _dragStartY, _dragBubbleX, _dragBubbleY, _dragging = false;
 let _socBubbleResizeInit = false;
 let _resizing = false, _resizeDir, _resizeStartX, _resizeStartY, _resizeStartRect;
 let _socBubbleSessionPickerInit = false;
+let _socBubbleMinimizeInit = false;
+let _socBubbleClosed = false;
 
 // ─── Receive agent-generated content (callable from init.js onRepurposeCompleted) ──
 
@@ -180,9 +182,20 @@ function _socBubbleShow() {
 
   bubble.classList.add('active');
   _socBubbleActive = true;
+  _socBubbleClosed = false;
+
+  // Restore minimized state
+  if (localStorage.getItem('soc-bubble-minimized') === 'true') {
+    bubble.classList.add('soc-bubble--minimized');
+    var minBtn = document.getElementById('soc-bubble-minimize');
+    if (minBtn) minBtn.textContent = '\u25A2'; // ▢
+  }
+
   _socBubbleInitDrag();
   _socBubbleInitResize();
   _socBubbleInitSessionPicker();
+  _socBubbleInitMinimize();
+  _socBubbleUpdateActions();
 }
 
 function _socBubbleHide() {
@@ -474,6 +487,80 @@ function _socBubbleInitSessionPicker() {
       switchSession(sessionId);
     });
   }
+}
+
+// ─── Minimize / Expand Toggle ─────────────────────────────────────────────
+
+function _socBubbleInitMinimize() {
+  if (_socBubbleMinimizeInit) return;
+  var bubble = document.getElementById('soc-bubble');
+  if (!bubble) return;
+  _socBubbleMinimizeInit = true;
+
+  var minBtn = document.getElementById('soc-bubble-minimize');
+  if (minBtn) {
+    minBtn.addEventListener('click', function () {
+      var isMinimized = bubble.classList.toggle('soc-bubble--minimized');
+      minBtn.textContent = isMinimized ? '\u25A2' : '\u2500'; // ▢ or ─
+      localStorage.setItem('soc-bubble-minimized', isMinimized ? 'true' : 'false');
+    });
+  }
+
+  var closeBtn = document.getElementById('soc-bubble-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', function () {
+      _socBubbleHide();
+      _socBubbleClosed = true;
+    });
+  }
+
+  // Keep bubble in bounds on window resize
+  window.addEventListener('resize', function () {
+    if (!_socBubbleActive) return;
+    var b = document.getElementById('soc-bubble');
+    var parent = b ? b.parentElement : null;
+    if (!b || !parent) return;
+    var maxLeft = parent.clientWidth - b.offsetWidth;
+    var maxTop = parent.clientHeight - b.offsetHeight;
+    if (b.offsetLeft > maxLeft) b.style.left = Math.max(0, maxLeft) + 'px';
+    if (b.offsetTop > maxTop) b.style.top = Math.max(0, maxTop) + 'px';
+  });
+}
+
+// ─── Context-Aware Quick Actions ──────────────────────────────────────────
+
+var _socBubbleActionMap = {
+  'content-browse': ['Find trending content', 'Search ideas for my niche'],
+  'create': ['Rewrite this draft', 'Add hashtags', 'Make it shorter'],
+  'calendar': ['Schedule all drafts', 'Best posting times'],
+  'preview': ['Compare all platforms']
+};
+
+function _socBubbleUpdateActions() {
+  var actionsEl = document.getElementById('soc-bubble-actions');
+  if (!actionsEl) return;
+
+  var root = document.getElementById('social-view');
+  var activeBtn = root ? root.querySelector('.soc-tab-btn.active') : null;
+  var activeTab = activeBtn ? activeBtn.dataset.tab : '';
+  var actions = _socBubbleActionMap[activeTab] || [];
+
+  var html = '';
+  for (var i = 0; i < actions.length; i++) {
+    html += '<button class="soc-bubble__action-pill" data-action="' + actions[i] + '">' + actions[i] + '</button>';
+  }
+  actionsEl.innerHTML = html;
+
+  // Attach click handlers
+  actionsEl.querySelectorAll('.soc-bubble__action-pill').forEach(function (pill) {
+    pill.addEventListener('click', function () {
+      var actionText = pill.dataset.action;
+      var input = document.getElementById('message-input');
+      if (input) { input.value = actionText; input.focus(); }
+      var sendBtn = document.getElementById('send-btn');
+      if (sendBtn) sendBtn.click();
+    });
+  });
 }
 
 function _socBubbleUpdateSession() {
@@ -1581,6 +1668,9 @@ function _socInit() {
         if (filterEl) filterEl.value = _socDraftsFilterValue;
         _socLoadDrafts();
       }
+
+      // Update bubble quick actions for new tab
+      _socBubbleUpdateActions();
     });
   });
 
