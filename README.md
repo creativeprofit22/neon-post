@@ -1,186 +1,69 @@
-# 🐱 Neon Post
+# Neon Post — My Contributions
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/KenKaiii/neon-post/main/assets/icon_rounded_1024.png" alt="Neon Post" width="200">
-</p>
-
-<p align="center">
-  <strong>Your AI that actually knows you.</strong>
-</p>
-
-<p align="center">
-  <a href="https://github.com/KenKaiii/neon-post/releases/latest"><img src="https://img.shields.io/github/v/release/KenKaiii/neon-post?include_prereleases&style=for-the-badge" alt="GitHub release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
-  <a href="https://youtube.com/@kenkaidoesai"><img src="https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="YouTube"></a>
-  <a href="https://skool.com/kenkai"><img src="https://img.shields.io/badge/Skool-Community-7C3AED?style=for-the-badge" alt="Skool"></a>
-</p>
-
-**Neon Post** is a personal AI that lives in your menu bar 24/7. It remembers everything, learns who you are, and actually gets better at helping you over time.
-
-It's not just a chatbot. It extracts facts about you, runs automations while you sleep, manages your calendar and tasks, and evolves to work with *you specifically*. Talk to it from your desktop or Telegram. Set up routines that do stuff on your behalf. It's an assistant that's always there.
+> **Fork of [KenKaiii/pocket-agent](https://github.com/KenKaiii/pocket-agent)** — a menu-bar AI personal assistant (Electron + Claude Agent SDK + SQLite + TypeScript).
+>
+> I extended the core product with a full social media content creation and publishing system, a redesigned floating UI, and dozens of UX fixes — **40 commits, 34,000+ lines of code across 131 files.**
 
 ---
 
-## 🧠 Why this exists
+## What I Built
 
-Every AI assistant starts from zero. Every. Single. Time.
+### Social Media Content Creator System
+Built an end-to-end social media workflow from scratch on top of the existing AI assistant:
 
-Neon Post keeps everything. Not just chat logs, but facts about your life, your projects, your preferences. It uses semantic search to pull up stuff from months ago. And it has a "soul" system that learns *how* to work with you better over time.
+- **Content repurposing pipeline** — scrape sources, cache results, score content for viral potential, transcribe media, and generate repurposed posts for multiple platforms
+- **Multi-platform posting** — compose, preview, and publish content to different social platforms from a single interface
+- **Engagement tools** — trend card actions, inline previews, and multi-platform preview before publishing
+- **Image generation** (Kie.ai integration) — generate images from prompts with a job tracker, gallery with copy-URL support, and a "Discover Saved" tab
+- **Scheduling** — schedule modal with calendar merge for planning content drops across platforms
+- **Brand configuration** — per-brand settings for the repurposing pipeline so content matches each brand's voice
 
-The more you use it, the more useful it becomes.
+### Floating Bubble UI (Full Redesign)
+Replaced the old static copilot bar with a floating, interactive bubble:
 
----
+- Draggable and resizable bubble container
+- Show/hide with DOM reparenting for performance
+- Session picker modal to switch between isolated conversation threads
+- Minimize behavior and polish animations
 
-## ✨ What it actually does
+### UX Overhaul (13-Part Fix Series)
+Systematic pass across the entire UI to fix gaps in the user experience:
 
-### Persistent memory that actually works
-Not just storing messages. It actively extracts and organizes knowledge about you. Projects you're working on. People you mention. Decisions you've made. Preferences you've expressed. All searchable. When you mention something from three months ago, it knows what you're talking about.
+- Empty states for all views (no more blank screens)
+- Button loading states throughout the app
+- Navigation toasts and image generation notifications
+- Cache invalidation and state reset/cleanup
+- Silent error fixes — caught and surfaced errors that were being swallowed
+- Label polish and visual feedback improvements
 
-### Routines and automations
-Create scheduled prompts that run automatically and take action:
-- "Every morning at 8am, check my calendar and Slack, then give me a briefing"
-- "Every Friday at 5pm, review what I accomplished this week and update my progress doc"
-- "Monitor this webpage daily and alert me if the price drops"
-
-These aren't just reminders. They're full agent executions with access to tools, browser automation, and your conversation history.
-
-### Self-improving over time
-The "soul" system learns how to work with *you specifically*. Not facts about you, but facts about the dynamic. Your communication style. What kind of responses you prefer. Boundaries you've set. It gets better the more you use it.
-
-### Browser automation with authenticated sessions
-Two modes:
-- **Basic mode:** Hidden window for screenshots, clicking, form filling, data extraction
-- **Chrome mode:** Connects to your actual browser with all your logged-in sessions (Gmail, GitHub, whatever). No re-authentication needed.
-
-Automate workflows that require being logged in. Scrape data from sites you have access to. Fill out forms across multiple sites.
-
-### Multi-session isolation
-Up to 5 separate conversation threads, each with completely isolated memory. Work stuff doesn't bleed into personal stuff. Each session has its own facts, tasks, calendar, and conversation history.
-
-### Telegram integration
-Same brain, different interface. Talk to it from your phone with full access to memory and tools. Add the bot to group chats and link each group to a different session. Your work group stays separate from your personal one.
-
-### Calendar, tasks, and reminders
-Built-in task management with priorities, due dates, and automatic reminders. Calendar events with location and time-based alerts. Daily logs for journaling. The agent can create, modify, and remind you about any of it.
-
-### 40+ skill integrations
-Notion, GitHub, Slack, Apple Notes, Apple Reminders, Google Workspace, Trello, Obsidian, and more. Plus MCP server support for adding your own. Full terminal access when you need it.
-
-### Customizable personality
-Edit the identity file to change how it talks. Make it formal, casual, terse, verbose. Whatever works for you.
+### Infrastructure
+- Proxy-fetch utility for safe external requests
+- Modernized ESLint configuration
+- Comprehensive unit test suite
+- Replaced Claude Agent SDK with custom engine for all agent modes
 
 ---
 
-## 🚀 Getting started
+## Stats
 
-### Download
-
-| Mac | Link |
-|-----|------|
-| Apple Silicon (M1/M2/M3/M4) | [Download](https://github.com/KenKaiii/neon-post/releases/latest) |
-| Intel | [Download](https://github.com/KenKaiii/neon-post/releases/latest) |
-
-### Setup
-
-1. Drag to Applications, launch it
-2. It shows up in your menu bar
-3. Click it, paste your Anthropic API key (get one at [console.anthropic.com](https://console.anthropic.com))
-4. Start chatting
-
-That's it.
+| | |
+|---|---|
+| My commits | 40 of 133 total |
+| Lines added | 34,000+ |
+| Files touched | 131 |
+| New features | Social content system, bubble UI, image generation, scheduling |
+| Fixes | UX overhaul, error handling, cache invalidation, state management |
 
 ---
 
-## 📱 Telegram setup (optional)
+## Original Project
 
-If you want to talk to it from your phone:
+Neon Post (originally Pocket Agent) is a personal AI assistant that lives in your menu bar. It features persistent memory, routines/automations, browser automation, multi-session isolation, Telegram integration, and 40+ skill integrations. See the [upstream repo](https://github.com/KenKaiii/pocket-agent) for full documentation.
 
-1. Create a bot with [@BotFather](https://t.me/botfather) on Telegram
-2. Copy the token into Neon Post settings
-3. Message your bot
-
-**Group chats:** You can add the bot to groups. Use `/link SessionName` to connect that group to a specific session. Each group can have its own isolated conversation.
-
-**Note:** For the bot to see all messages in a group (not just commands), either make it an admin or disable privacy mode in BotFather.
-
-**Commands:** `/status` `/facts` `/clear` `/link <session>` `/unlink` `/mychatid`
+**Stack:** Electron + Claude Agent SDK + SQLite + TypeScript
 
 ---
 
-## 🌐 Browser automation details
-
-**Default mode** runs in a hidden Electron window. No setup needed. Works for:
-- Screenshots
-- Clicking elements (by CSS selector)
-- Typing into inputs
-- Extracting page content (text, HTML, links, tables)
-- Running JavaScript
-- Downloading files
-
-**Chrome mode** connects to your actual browser. You need to start Chrome with remote debugging:
-
-```bash
-# macOS
-/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222
-
-# Windows
-"C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222
-
-# Linux
-google-chrome --remote-debugging-port=9222
-```
-
-Then it can access your logged-in sessions and manage multiple tabs.
-
----
-
-## 🔒 Privacy
-
-- Everything stored locally in SQLite on your machine
-- Conversations go to Anthropic's API (that's how it works)
-- API keys stored in your system keychain
-- No analytics, no telemetry
-
----
-
-## 🔌 Extensibility
-
-There's a skill system with 40+ integrations (Notion, GitHub, Slack, Apple Notes, etc.) and support for MCP servers if you want to extend it. Plus full terminal access.
-
-Most people won't need this stuff, but it's there if you do.
-
----
-
-## 🛠️ For developers
-
-```bash
-git clone https://github.com/KenKaiii/neon-post.git
-cd neon-post
-npm install
-npm run dev
-```
-
-Stack: Electron + Claude Agent SDK + SQLite + TypeScript
-
----
-
-## 👥 Community
-
-- [YouTube @kenkaidoesai](https://youtube.com/@kenkaidoesai) - tutorials and demos
-- [Skool community](https://skool.com/kenkai) - come hang out
-
----
-
-## 📄 License
+## License
 
 MIT
-
----
-
-<p align="center">
-  <strong>An AI that remembers you, learns from you, and works for you. Even when you're not there.</strong>
-</p>
-
-<p align="center">
-  <a href="https://github.com/KenKaiii/neon-post/releases/latest"><img src="https://img.shields.io/badge/Download-Latest%20Release-blue?style=for-the-badge" alt="Download"></a>
-</p>
