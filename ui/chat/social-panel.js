@@ -30,6 +30,8 @@ let _socBubbleInputParent = null;     // original parent of #input-area
 let _socBubbleInputNext = null;       // original nextSibling of #input-area
 let _socBubbleDragInit = false;
 let _dragStartX, _dragStartY, _dragBubbleX, _dragBubbleY, _dragging = false;
+let _socBubbleResizeInit = false;
+let _resizing = false, _resizeDir, _resizeStartX, _resizeStartY, _resizeStartRect;
 
 // ─── Receive agent-generated content (callable from init.js onRepurposeCompleted) ──
 
@@ -178,6 +180,7 @@ function _socBubbleShow() {
   bubble.classList.add('active');
   _socBubbleActive = true;
   _socBubbleInitDrag();
+  _socBubbleInitResize();
 }
 
 function _socBubbleHide() {
@@ -249,6 +252,113 @@ function _socBubbleInitDrag() {
     _dragging = false;
     bubble.classList.remove('soc-bubble--dragging');
     document.body.style.userSelect = '';
+    localStorage.setItem('soc-bubble-pos', JSON.stringify({ left: bubble.offsetLeft, top: bubble.offsetTop }));
+  });
+}
+
+function _socBubbleInitResize() {
+  if (_socBubbleResizeInit) return;
+  var bubble = document.getElementById('soc-bubble');
+  if (!bubble) return;
+  var handles = bubble.querySelectorAll('.soc-bubble__resize');
+  if (!handles.length) return;
+  _socBubbleResizeInit = true;
+
+  handles.forEach(function (handle) {
+    handle.addEventListener('mousedown', function (e) {
+      _resizing = true;
+      _resizeDir = handle.dataset.dir;
+      _resizeStartX = e.clientX;
+      _resizeStartY = e.clientY;
+      _resizeStartRect = {
+        left: bubble.offsetLeft,
+        top: bubble.offsetTop,
+        width: bubble.offsetWidth,
+        height: bubble.offsetHeight
+      };
+      bubble.classList.add('soc-bubble--resizing');
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    });
+  });
+
+  document.addEventListener('mousemove', function (e) {
+    if (!_resizing) return;
+    var deltaX = e.clientX - _resizeStartX;
+    var deltaY = e.clientY - _resizeStartY;
+    var dir = _resizeDir;
+    var newLeft = _resizeStartRect.left;
+    var newTop = _resizeStartRect.top;
+    var newWidth = _resizeStartRect.width;
+    var newHeight = _resizeStartRect.height;
+    var parent = bubble.parentElement;
+    var maxW = parent ? parent.clientWidth * 0.8 : 800;
+    var maxH = parent ? parent.clientHeight * 0.8 : 600;
+
+    // Width changes
+    if (dir === 'e' || dir === 'ne' || dir === 'se') {
+      newWidth = _resizeStartRect.width + deltaX;
+    }
+    if (dir === 'w' || dir === 'nw' || dir === 'sw') {
+      newWidth = _resizeStartRect.width - deltaX;
+      newLeft = _resizeStartRect.left + deltaX;
+    }
+
+    // Height changes
+    if (dir === 's' || dir === 'se' || dir === 'sw') {
+      newHeight = _resizeStartRect.height + deltaY;
+    }
+    if (dir === 'n' || dir === 'ne' || dir === 'nw') {
+      newHeight = _resizeStartRect.height - deltaY;
+      newTop = _resizeStartRect.top + deltaY;
+    }
+
+    // Clamp width
+    if (newWidth < 280) {
+      if (dir === 'w' || dir === 'nw' || dir === 'sw') {
+        newLeft = _resizeStartRect.left + _resizeStartRect.width - 280;
+      }
+      newWidth = 280;
+    }
+    if (newWidth > maxW) {
+      if (dir === 'w' || dir === 'nw' || dir === 'sw') {
+        newLeft = _resizeStartRect.left + _resizeStartRect.width - maxW;
+      }
+      newWidth = maxW;
+    }
+
+    // Clamp height
+    if (newHeight < 300) {
+      if (dir === 'n' || dir === 'ne' || dir === 'nw') {
+        newTop = _resizeStartRect.top + _resizeStartRect.height - 300;
+      }
+      newHeight = 300;
+    }
+    if (newHeight > maxH) {
+      if (dir === 'n' || dir === 'ne' || dir === 'nw') {
+        newTop = _resizeStartRect.top + _resizeStartRect.height - maxH;
+      }
+      newHeight = maxH;
+    }
+
+    bubble.style.width = newWidth + 'px';
+    bubble.style.height = newHeight + 'px';
+    if (dir === 'w' || dir === 'nw' || dir === 'sw' || dir === 'n' || dir === 'ne') {
+      bubble.style.left = newLeft + 'px';
+      bubble.style.right = 'auto';
+    }
+    if (dir === 'n' || dir === 'ne' || dir === 'nw') {
+      bubble.style.top = newTop + 'px';
+      bubble.style.bottom = 'auto';
+    }
+  });
+
+  document.addEventListener('mouseup', function () {
+    if (!_resizing) return;
+    _resizing = false;
+    bubble.classList.remove('soc-bubble--resizing');
+    document.body.style.userSelect = '';
+    localStorage.setItem('soc-bubble-size', JSON.stringify({ width: bubble.offsetWidth, height: bubble.offsetHeight }));
     localStorage.setItem('soc-bubble-pos', JSON.stringify({ left: bubble.offsetLeft, top: bubble.offsetTop }));
   });
 }
