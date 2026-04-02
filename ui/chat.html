@@ -1698,6 +1698,48 @@
       </div>
     </div>
 
+    <!-- Copilot Bubble (floating chat overlay) -->
+    <div class="soc-bubble" id="soc-bubble">
+      <div class="soc-bubble__header" id="soc-bubble-header">
+        <span class="soc-bubble__mode-icon">🎬</span>
+        <span class="soc-bubble__session-name" id="soc-bubble-session-name">Session</span>
+        <button class="soc-bubble__btn" id="soc-bubble-swap" title="Switch session">⇄</button>
+        <button class="soc-bubble__btn" id="soc-bubble-minimize" title="Minimize">─</button>
+        <button class="soc-bubble__btn" id="soc-bubble-close" title="Close">✕</button>
+      </div>
+      <div class="soc-bubble__body" id="soc-bubble-body">
+        <!-- #messages will be reparented here -->
+      </div>
+      <div class="soc-bubble__actions" id="soc-bubble-actions">
+        <!-- Context-aware quick action pills -->
+      </div>
+      <div class="soc-bubble__footer" id="soc-bubble-footer">
+        <!-- #input-area will be reparented here -->
+      </div>
+      <div class="soc-bubble__resize soc-bubble__resize--n" data-dir="n"></div>
+      <div class="soc-bubble__resize soc-bubble__resize--s" data-dir="s"></div>
+      <div class="soc-bubble__resize soc-bubble__resize--e" data-dir="e"></div>
+      <div class="soc-bubble__resize soc-bubble__resize--w" data-dir="w"></div>
+      <div class="soc-bubble__resize soc-bubble__resize--ne" data-dir="ne"></div>
+      <div class="soc-bubble__resize soc-bubble__resize--nw" data-dir="nw"></div>
+      <div class="soc-bubble__resize soc-bubble__resize--se" data-dir="se"></div>
+      <div class="soc-bubble__resize soc-bubble__resize--sw" data-dir="sw"></div>
+    </div>
+
+    <!-- Session Picker Modal -->
+    <div class="soc-modal-overlay" id="soc-bubble-session-modal" style="display:none">
+      <div class="soc-modal-panel soc-session-picker">
+        <div class="soc-modal-header">
+          <h3 class="soc-section-title">Pick a session</h3>
+          <button class="soc-modal-close" id="soc-bubble-session-modal-close">×</button>
+        </div>
+        <div class="soc-session-picker__search">
+          <input type="text" id="soc-session-search" placeholder="Search sessions..." autocomplete="off">
+        </div>
+        <div class="soc-session-picker__list" id="soc-session-list"></div>
+      </div>
+    </div>
+
   </div><!-- #social-view -->
 
   </div><!-- .main-content -->

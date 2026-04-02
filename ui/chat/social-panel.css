@@ -4506,3 +4506,240 @@
 #social-view .soc-empty-state--wide {
   grid-column: 1 / -1;
 }
+
+/* ─── Copilot Bubble ─────────────────────────────────────────────── */
+.soc-bubble {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 360px;
+  height: 450px;
+  min-width: 280px;
+  min-height: 300px;
+  max-width: 80vw;
+  max-height: 80vh;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  display: none;
+  flex-direction: column;
+  z-index: 50;
+  overflow: hidden;
+}
+.soc-bubble.active { display: flex; }
+
+.soc-bubble__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  cursor: grab;
+  flex-shrink: 0;
+  min-height: 40px;
+  user-select: none;
+}
+.soc-bubble__header:active { cursor: grabbing; }
+
+.soc-bubble__mode-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.soc-bubble__session-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.soc-bubble__btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+.soc-bubble__btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+.soc-bubble__body {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Override message styles when inside bubble */
+.soc-bubble__body #messages {
+  padding: 12px;
+}
+.soc-bubble__body #messages > * {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.soc-bubble__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.soc-bubble__actions:empty { display: none; }
+
+.soc-bubble__action-pill {
+  padding: 3px 10px;
+  font-size: 11px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.soc-bubble__action-pill:hover {
+  background: var(--accent);
+  color: var(--bg-primary);
+  border-color: var(--accent);
+}
+
+.soc-bubble__footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+}
+
+/* Override input area styles when inside bubble */
+.soc-bubble__footer #input-area {
+  padding: 8px 12px 10px;
+}
+.soc-bubble__footer .input-toolbar-btns {
+  display: none;
+}
+.soc-bubble__footer .input-container {
+  padding-right: 40px;
+}
+
+/* Bubble minimized state */
+.soc-bubble--minimized .soc-bubble__body,
+.soc-bubble--minimized .soc-bubble__actions,
+.soc-bubble--minimized .soc-bubble__footer {
+  display: none;
+}
+.soc-bubble--minimized {
+  height: auto !important;
+  min-height: auto !important;
+}
+
+/* Bubble dragging */
+.soc-bubble--dragging { opacity: 0.9; }
+
+/* Bubble animation */
+@keyframes socBubbleIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.soc-bubble.active { animation: socBubbleIn 0.2s ease; }
+.soc-bubble--exiting {
+  animation: socBubbleIn 0.15s ease reverse forwards;
+}
+
+/* Resize handles */
+.soc-bubble__resize { position: absolute; z-index: 2; }
+.soc-bubble__resize--n { top: -3px; left: 8px; right: 8px; height: 6px; cursor: n-resize; }
+.soc-bubble__resize--s { bottom: -3px; left: 8px; right: 8px; height: 6px; cursor: s-resize; }
+.soc-bubble__resize--e { right: -3px; top: 8px; bottom: 8px; width: 6px; cursor: e-resize; }
+.soc-bubble__resize--w { left: -3px; top: 8px; bottom: 8px; width: 6px; cursor: w-resize; }
+.soc-bubble__resize--ne { top: -3px; right: -3px; width: 12px; height: 12px; cursor: ne-resize; }
+.soc-bubble__resize--nw { top: -3px; left: -3px; width: 12px; height: 12px; cursor: nw-resize; }
+.soc-bubble__resize--se { bottom: -3px; right: -3px; width: 12px; height: 12px; cursor: se-resize; }
+.soc-bubble__resize--sw { bottom: -3px; left: -3px; width: 12px; height: 12px; cursor: sw-resize; }
+
+/* ─── Session Picker Modal ───────────────────────────────────────── */
+.soc-session-picker {
+  width: 400px;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+}
+.soc-session-picker__search {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.soc-session-picker__search input {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+}
+.soc-session-picker__search input:focus {
+  border-color: var(--accent);
+}
+.soc-session-picker__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+.soc-session-picker__section-title {
+  padding: 8px 16px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.soc-session-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.soc-session-row:hover { background: var(--bg-tertiary); }
+.soc-session-row.active {
+  background: rgba(var(--accent-rgb, 99, 102, 241), 0.1);
+  border-left: 3px solid var(--accent);
+}
+.soc-session-row.dimmed { opacity: 0.5; }
+.soc-session-row__icon { font-size: 16px; flex-shrink: 0; }
+.soc-session-row__name { flex: 1; font-size: 13px; color: var(--text-primary); }
+.soc-session-row__time { font-size: 11px; color: var(--text-muted); }
+.soc-session-row__hint { font-size: 11px; color: var(--text-muted); font-style: italic; }
+
+/* Bubble mode hint (shown when not in creator mode) */
+.soc-bubble-hint {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  padding: 8px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  z-index: 50;
+  display: none;
+}
+.soc-bubble-hint.active { display: block; }
