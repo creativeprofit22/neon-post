@@ -22,6 +22,13 @@ let _socScheduleModalDraftId = null; // draft id for schedule modal
 let _socScheduleModalMode = 'schedule'; // current toggle mode: 'now' | 'schedule' | 'queue'
 let _socDraftsFilterValue = '';          // persisted drafts filter value across tab switches
 
+// ─── Copilot Bubble state ──────────────────────────────────────────────────
+let _socBubbleActive = false;
+let _socBubbleMessagesParent = null;  // original parent of #messages
+let _socBubbleMessagesNext = null;    // original nextSibling of #messages
+let _socBubbleInputParent = null;     // original parent of #input-area
+let _socBubbleInputNext = null;       // original nextSibling of #input-area
+
 // ─── Receive agent-generated content (callable from init.js onRepurposeCompleted) ──
 
 function _socReceiveGeneratedContent(drafts) {
@@ -119,6 +126,98 @@ function navigateToSocialTab(tab, subTab) {
   if (resolvedTab === 'create') _socLoadDrafts();
 }
 
+// ─── Copilot Bubble Show / Hide ────────────────────────────────────────────
+
+function _socBubbleShow() {
+  if (currentAgentMode !== 'creator') return;
+
+  var messagesEl = document.getElementById('messages');
+  var inputEl = document.getElementById('input-area');
+  var body = document.getElementById('soc-bubble-body');
+  var footer = document.getElementById('soc-bubble-footer');
+  var bubble = document.getElementById('soc-bubble');
+  if (!messagesEl || !inputEl || !body || !footer || !bubble) return;
+
+  // Save original positions for restore
+  _socBubbleMessagesParent = messagesEl.parentNode;
+  _socBubbleMessagesNext = messagesEl.nextSibling;
+  _socBubbleInputParent = inputEl.parentNode;
+  _socBubbleInputNext = inputEl.nextSibling;
+
+  // Reparent into bubble
+  body.appendChild(messagesEl);
+  footer.appendChild(inputEl);
+
+  // Update session name in header
+  var nameEl = document.getElementById('soc-bubble-session-name');
+  if (nameEl) {
+    var sess = sessions.find(function (s) { return s.id === currentSessionId; });
+    nameEl.textContent = (sess && sess.name) || 'Session';
+  }
+
+  // Restore saved position/size from localStorage
+  try {
+    var pos = localStorage.getItem('soc-bubble-pos');
+    if (pos) {
+      var p = JSON.parse(pos);
+      if (p.top != null) bubble.style.top = p.top + 'px';
+      if (p.left != null) bubble.style.left = p.left + 'px';
+      bubble.style.bottom = 'auto';
+      bubble.style.right = 'auto';
+    }
+    var size = localStorage.getItem('soc-bubble-size');
+    if (size) {
+      var s = JSON.parse(size);
+      if (s.width) bubble.style.width = s.width + 'px';
+      if (s.height) bubble.style.height = s.height + 'px';
+    }
+  } catch (_e) { /* ignore parse errors */ }
+
+  bubble.classList.add('active');
+  _socBubbleActive = true;
+}
+
+function _socBubbleHide() {
+  if (!_socBubbleActive) return;
+
+  var bubble = document.getElementById('soc-bubble');
+  var messagesEl = document.getElementById('messages');
+  var inputEl = document.getElementById('input-area');
+
+  if (bubble) bubble.classList.remove('active');
+
+  // Move DOM nodes back to original positions
+  if (messagesEl && _socBubbleMessagesParent) {
+    _socBubbleMessagesParent.insertBefore(messagesEl, _socBubbleMessagesNext);
+  }
+  if (inputEl && _socBubbleInputParent) {
+    _socBubbleInputParent.insertBefore(inputEl, _socBubbleInputNext);
+  }
+
+  _socBubbleActive = false;
+  _socBubbleMessagesParent = null;
+  _socBubbleMessagesNext = null;
+  _socBubbleInputParent = null;
+  _socBubbleInputNext = null;
+}
+
+function _socBubbleUpdateSession() {
+  var socialView = document.getElementById('social-view');
+  if (!socialView || !socialView.classList.contains('active')) return;
+
+  var sess = sessions.find(function (s) { return s.id === currentSessionId; });
+  var mode = sess ? sess.mode : currentAgentMode;
+
+  if (mode === 'creator') {
+    // Update header name and ensure bubble is shown
+    var nameEl = document.getElementById('soc-bubble-session-name');
+    if (nameEl) nameEl.textContent = (sess && sess.name) || 'Session';
+    if (!_socBubbleActive) _socBubbleShow();
+  } else {
+    _socBubbleHide();
+  }
+}
+
 // ─── Show / Hide / Toggle ──────────────────────────────────────────────────
 
 function showSocialPanel() {
@@ -141,12 +240,16 @@ function showSocialPanel() {
 
   // Refresh the active tab's data on every show
   _socRefreshActiveTab();
+
+  _socBubbleShow();
 }
 
 function hideSocialPanel() {
   const chatView = document.getElementById('chat-view');
   const socialView = document.getElementById('social-view');
   if (!socialView) return;
+
+  _socBubbleHide();
 
   socialView.classList.remove('active');
   chatView.classList.remove('hidden');
@@ -5100,6 +5203,10 @@ window.socPanelActions = {
     }).catch(function () {
       _socShowToast('Failed to load drafts', 'error');
     });
+  },
+
+  onSessionChanged() {
+    _socBubbleUpdateSession();
   },
 };
 
