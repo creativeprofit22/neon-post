@@ -32,6 +32,7 @@ let _socBubbleDragInit = false;
 let _dragStartX, _dragStartY, _dragBubbleX, _dragBubbleY, _dragging = false;
 let _socBubbleResizeInit = false;
 let _resizing = false, _resizeDir, _resizeStartX, _resizeStartY, _resizeStartRect;
+let _socBubbleSessionPickerInit = false;
 
 // ─── Receive agent-generated content (callable from init.js onRepurposeCompleted) ──
 
@@ -181,6 +182,7 @@ function _socBubbleShow() {
   _socBubbleActive = true;
   _socBubbleInitDrag();
   _socBubbleInitResize();
+  _socBubbleInitSessionPicker();
 }
 
 function _socBubbleHide() {
@@ -361,6 +363,117 @@ function _socBubbleInitResize() {
     localStorage.setItem('soc-bubble-size', JSON.stringify({ width: bubble.offsetWidth, height: bubble.offsetHeight }));
     localStorage.setItem('soc-bubble-pos', JSON.stringify({ left: bubble.offsetLeft, top: bubble.offsetTop }));
   });
+}
+
+// ─── Session Picker Modal ─────────────────────────────────────────────────
+
+var _socSessionModeIcons = { general: '🐾', coder: '🔧', researcher: '🔍', writer: '✍️', therapist: '💬', creator: '🎬' };
+
+function _socBubbleOpenSessionPicker() {
+  var modal = document.getElementById('soc-bubble-session-modal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  var searchInput = document.getElementById('soc-session-search');
+  if (searchInput) searchInput.value = '';
+  _socBubbleRenderSessionList();
+  if (searchInput) searchInput.focus();
+}
+
+function _socBubbleCloseSessionPicker() {
+  var modal = document.getElementById('soc-bubble-session-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function _socBubbleRenderSessionList(filter) {
+  var listEl = document.getElementById('soc-session-list');
+  if (!listEl) return;
+
+  var all = typeof sessions !== 'undefined' ? sessions : [];
+  if (filter) {
+    var f = filter.toLowerCase();
+    all = all.filter(function (s) { return s.name && s.name.toLowerCase().indexOf(f) !== -1; });
+  }
+
+  var creatorSessions = all.filter(function (s) { return s.mode === 'creator'; })
+    .sort(function (a, b) { return (b.updated_at || '').localeCompare(a.updated_at || ''); });
+  var otherSessions = all.filter(function (s) { return s.mode !== 'creator'; })
+    .sort(function (a, b) { return (b.updated_at || '').localeCompare(a.updated_at || ''); });
+
+  if (!creatorSessions.length && !otherSessions.length) {
+    listEl.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted);font-size:13px;">No sessions found</div>';
+    return;
+  }
+
+  var html = '';
+  if (creatorSessions.length) {
+    html += '<div class="soc-session-picker__section-title">CREATOR SESSIONS</div>';
+    html += _socBubbleBuildSessionRows(creatorSessions, false);
+  }
+  if (otherSessions.length) {
+    html += '<div class="soc-session-picker__section-title">OTHER SESSIONS</div>';
+    html += _socBubbleBuildSessionRows(otherSessions, true);
+  }
+  listEl.innerHTML = html;
+}
+
+function _socBubbleBuildSessionRows(list, dimmed) {
+  var html = '';
+  for (var i = 0; i < list.length; i++) {
+    var s = list[i];
+    var icon = _socSessionModeIcons[s.mode] || '🐾';
+    var isActive = s.id === currentSessionId;
+    var cls = 'soc-session-row' + (isActive ? ' active' : '') + (dimmed ? ' dimmed' : '');
+    html += '<div class="' + cls + '" data-session-id="' + s.id + '">' +
+      '<span class="soc-session-row__icon">' + icon + '</span>' +
+      '<span class="soc-session-row__name">' + (s.name || 'Untitled') + '</span>' +
+      '<span class="soc-session-row__time">' + _socTimeAgo(s.updated_at) + '</span>' +
+      '</div>';
+  }
+  return html;
+}
+
+function _socBubbleInitSessionPicker() {
+  if (_socBubbleSessionPickerInit) return;
+  var modal = document.getElementById('soc-bubble-session-modal');
+  if (!modal) return;
+  _socBubbleSessionPickerInit = true;
+
+  var swapBtn = document.getElementById('soc-bubble-swap');
+  if (swapBtn) {
+    swapBtn.addEventListener('click', function () { _socBubbleOpenSessionPicker(); });
+  }
+
+  var closeBtn = document.getElementById('soc-bubble-session-modal-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', function () { _socBubbleCloseSessionPicker(); });
+  }
+
+  modal.addEventListener('click', function (e) {
+    if (e.target === modal) _socBubbleCloseSessionPicker();
+  });
+
+  var searchInput = document.getElementById('soc-session-search');
+  if (searchInput) {
+    searchInput.addEventListener('input', function () { _socBubbleRenderSessionList(searchInput.value); });
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && modal.style.display !== 'none' && modal.style.display !== '') {
+      _socBubbleCloseSessionPicker();
+    }
+  });
+
+  var listEl = document.getElementById('soc-session-list');
+  if (listEl) {
+    listEl.addEventListener('click', function (e) {
+      var row = e.target.closest('.soc-session-row');
+      if (!row) return;
+      var sessionId = row.dataset.sessionId;
+      if (!sessionId) return;
+      _socBubbleCloseSessionPicker();
+      switchSession(sessionId);
+    });
+  }
 }
 
 function _socBubbleUpdateSession() {
