@@ -6,7 +6,6 @@ let _socInitialized = false;
 let _socNotyf = null;
 let _socEditingAccountId = null;  // null = adding, string = editing
 let _socDiscoverCache = null;     // cached discover/search results for tab persistence
-let _socDiscoverCacheTime = 0;    // timestamp when _socDiscoverCache was last set
 let _socDiscoverSearchCache = null; // cached raw search results (ContentResult[]) keyed by index
 let _socSavedCache = null;          // cached saved/bookmarked content from DB
 let _socTrendsCache = null;          // cached trends for Discover → Trends sub-tab
@@ -1283,10 +1282,8 @@ function _socInit() {
         root.querySelectorAll('.soc-gallery-item.selected').forEach(function(el) { el.classList.remove('selected'); });
       }
 
-      if (target === 'search' && _socDiscoverCache && Date.now() - _socDiscoverCacheTime > 300000) {
-        _socDiscoverCache = null;
-        _socLoadDiscovered();
-      }
+      // Search cache persists until user clears it or app restarts
+
       if (target === 'saved') _socLoadSavedContent();
       if (target === 'trends') _socLoadTrends();
       if (target === 'gallery') _socLoadGallery();
@@ -2084,8 +2081,6 @@ function _socInit() {
   // Initial data load for the first visible tab
   _socLoadDiscovered();
 
-  // ── Copilot bar ──
-  _socInitCopilot();
 }
 
 // ─── Platform field toggle ─────────────────────────────────────────────────
@@ -2227,7 +2222,6 @@ function _socDiscoverSearch(query, platform) {
       }
       // Cache search results so they persist across tab switches
       _socDiscoverCache = items;
-      _socDiscoverCacheTime = Date.now();
       // Store raw search items for the Save button mapping
       _socDiscoverSearchCache = {};
       if (items && items.length) {
@@ -2497,11 +2491,10 @@ function _socLoadTrends() {
   const results = root && root.querySelector('#soc-trends-results');
   if (!results) return;
 
-  if (_socTrendsCache && Date.now() - _socTrendsLastDetect <= 300000) {
+  if (_socTrendsCache) {
     _socRenderTrends(_socTrendsCache);
     return;
   }
-  _socTrendsCache = null;
 
   results.innerHTML = '<div class="soc-card-grid">' + _socSkeletonCards(4) + '</div>';
   if (!social) { results.innerHTML = '<div class="soc-empty"><p>Social API unavailable</p></div>'; return; }
@@ -5519,99 +5512,3 @@ function _socInitPreviewTab(preselectSourceId) {
   _socPreviewLoadSources(preselectSourceId);
 }
 
-// ─── Copilot Bar ───────────────────────────────────────────────────────
-// eslint-disable-next-line no-unused-vars
-function _socInitCopilot() {
-  var inputEl = document.getElementById('soc-copilot-input');
-  var sendBtn = document.getElementById('soc-copilot-send');
-  var responseEl = document.getElementById('soc-copilot-response');
-  var actionsContainer = document.querySelector('.soc-copilot-actions');
-  if (!inputEl || !sendBtn || !responseEl) return;
-
-  function _socCopilotGetContext() {
-    var root = document.getElementById('social-view');
-    if (!root) return '';
-    var activeTab = root.querySelector('.soc-tab-btn.active');
-    var tabName = activeTab ? activeTab.dataset.tab : 'unknown';
-    var parts = ['tab: ' + tabName];
-
-    // If on Create tab, try to get the focused/expanded draft info
-    if (tabName === 'create') {
-      // Find the draft whose textarea is focused, or the first non-collapsed card
-      var focusedTa = root.querySelector('.soc-draft-card__textarea:focus');
-      var editingCard = focusedTa
-        ? focusedTa.closest('.soc-draft-card')
-        : root.querySelector('.soc-draft-card:not(.collapsed)');
-      if (editingCard) {
-        var draftId = editingCard.dataset.draftId || '';
-        var platform = editingCard.dataset.platform || '';
-        parts.push('editing draft #' + draftId + ' (' + platform + ')');
-        var ta = editingCard.querySelector('.soc-draft-card__textarea');
-        if (ta && ta.value) {
-          parts.push('draft text: ' + ta.value.trim().slice(0, 200));
-        }
-      }
-    }
-    return parts.join(', ');
-  }
-
-  function _socCopilotSend(message) {
-    if (!message) return;
-    var context = _socCopilotGetContext();
-    var prefixed = '[Social Panel Context: ' + context + ']\n\n' + message;
-
-    // Show loading state
-    responseEl.textContent = 'Thinking...';
-    responseEl.classList.add('visible');
-    sendBtn.disabled = true;
-
-    window.pocketAgent.agent.send(prefixed, currentSessionId).then(function (result) {
-      var text = '';
-      if (result && typeof result === 'object') {
-        text = result.text || result.content || result.message || JSON.stringify(result);
-      } else if (typeof result === 'string') {
-        text = result;
-      }
-      responseEl.textContent = text || '(no response)';
-      responseEl.classList.add('visible');
-      responseEl.scrollTop = responseEl.scrollHeight;
-    }).catch(function (err) {
-      responseEl.textContent = 'Error: ' + (err.message || err);
-      responseEl.classList.add('visible');
-    }).finally(function () {
-      sendBtn.disabled = false;
-    });
-  }
-
-  // Send on click
-  sendBtn.addEventListener('click', function () {
-    var msg = inputEl.value.trim();
-    if (!msg) return;
-    inputEl.value = '';
-    _socCopilotSend(msg);
-  });
-
-  // Send on Enter
-  inputEl.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendBtn.click();
-    }
-  });
-
-  // Quick action buttons
-  if (actionsContainer) {
-    actionsContainer.addEventListener('click', function (e) {
-      var btn = e.target.closest('.soc-copilot-action-btn');
-      if (!btn) return;
-      var action = btn.dataset.action;
-      var commands = {
-        trending: 'Find trending topics and hashtags for my niche right now.',
-        rewrite: 'Rewrite the current draft to be punchier and more engaging.',
-        schedule: 'Schedule all my pending drafts at optimal times.'
-      };
-      var msg = commands[action];
-      if (msg) _socCopilotSend(msg);
-    });
-  }
-}

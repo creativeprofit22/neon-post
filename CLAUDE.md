@@ -1,5 +1,7 @@
 # Neon Post
 
+**Phase:** Social Copilot Bubble — Chunk 0/7
+
 Desktop AI agent (Electron + Claude Agent SDK) — system tray app with persistent memory, Telegram integration, browser automation, social media management, and scheduled tasks.
 
 ## Tech Stack

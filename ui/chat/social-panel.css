@@ -2307,10 +2307,14 @@
 #social-view .soc-content-card__footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
   padding: 7px 10px;
   border-top: 1px solid var(--border);
   gap: 6px;
+}
+
+#social-view .soc-content-card__footer .soc-content-card__time {
+  margin-right: auto;
 }
 
 #social-view .soc-content-card__time {
@@ -4293,104 +4297,6 @@
 @keyframes soc-toast-slide-in {
   from { transform: translateY(20px); opacity: 0; }
   to   { transform: translateY(0); opacity: 1; }
-}
-
-/* ─── Copilot Bar ─────────────────────────────────────────────────── */
-.soc-copilot-bar {
-  border-top: 1px solid var(--border);
-  padding: 8px 12px;
-  background: var(--bg-secondary);
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  gap: 6px;
-}
-
-.soc-copilot-response {
-  max-height: 150px;
-  overflow-y: auto;
-  font-size: 13px;
-  line-height: 1.45;
-  padding: 8px;
-  color: var(--text);
-  white-space: pre-wrap;
-  word-break: break-word;
-  display: none;
-  background: var(--bg-primary, var(--bg));
-  border-radius: 6px;
-  border: 1px solid var(--border);
-}
-
-.soc-copilot-response.visible {
-  display: block;
-}
-
-.soc-copilot-actions {
-  display: flex;
-  flex-direction: row;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.soc-copilot-action-btn {
-  padding: 4px 10px;
-  font-size: 12px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--bg-primary, var(--bg));
-  color: var(--text);
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-  white-space: nowrap;
-}
-
-.soc-copilot-action-btn:hover {
-  background: var(--accent);
-  color: var(--bg);
-  border-color: var(--accent);
-}
-
-.soc-copilot-input {
-  display: flex;
-  flex-direction: row;
-  gap: 6px;
-  align-items: center;
-}
-
-.soc-copilot-input input {
-  flex: 1;
-  padding: 6px 10px;
-  font-size: 13px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--bg-primary, var(--bg));
-  color: var(--text);
-  outline: none;
-}
-
-.soc-copilot-input input:focus {
-  border-color: var(--accent);
-}
-
-.soc-copilot-send-btn {
-  padding: 6px 12px;
-  font-size: 12px;
-  border-radius: 6px;
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: var(--bg);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: opacity 0.15s;
-}
-
-.soc-copilot-send-btn:hover {
-  opacity: 0.85;
-}
-
-.soc-copilot-send-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* ─── Progress Bar ────────────────────────────────────────────────── */
