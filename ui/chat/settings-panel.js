@@ -22,6 +22,10 @@ function _dismissOtherPanels(keepId) {
     if (viewId === keepId) continue;
     const v = document.getElementById(viewId);
     if (v && v.classList.contains('active')) {
+      // Restore reparented DOM nodes before hiding social panel
+      if (viewId === 'social-view' && typeof _socBubbleHide === 'function') {
+        _socBubbleHide();
+      }
       v.classList.remove('active');
       const btn = document.getElementById(btnId);
       if (btn) btn.classList.remove('active');

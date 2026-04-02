@@ -6,6 +6,7 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  position: relative;
 }
 
 #social-view.active {
@@ -307,8 +308,8 @@
 /* ─── Card Grid (Discover) ─────────────────────────────────────────── */
 #social-view .soc-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
 }
 
 #social-view .soc-card {
@@ -2148,7 +2149,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 10px;
+  padding: 8px 12px;
   background: var(--bg-tertiary);
   border-bottom: 1px solid var(--border);
 }
@@ -2242,19 +2243,19 @@
 }
 
 #social-view .soc-content-card__body {
-  padding: 10px;
+  padding: 12px;
 }
 
 #social-view .soc-content-card__title {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 6px;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 #social-view .soc-content-card__meta {
@@ -2276,8 +2277,8 @@
 #social-view .soc-content-card__stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-  padding: 6px 0 2px;
+  gap: 6px;
+  padding: 8px 0 4px;
   border-top: 1px solid var(--border);
 }
 
@@ -2289,7 +2290,7 @@
 }
 
 #social-view .soc-stat-value {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.3;
@@ -2308,9 +2309,9 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  padding: 7px 10px;
+  padding: 8px 12px;
   border-top: 1px solid var(--border);
-  gap: 6px;
+  gap: 8px;
 }
 
 #social-view .soc-content-card__footer .soc-content-card__time {
@@ -4583,11 +4584,15 @@
   flex: 1;
   overflow: hidden;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Override message styles when inside bubble */
 .soc-bubble__body #messages {
   padding: 12px;
+  flex: 1;
+  min-height: 0;
 }
 .soc-bubble__body #messages > * {
   margin-left: 0 !important;
@@ -4640,12 +4645,41 @@
 /* Bubble minimized state */
 .soc-bubble--minimized .soc-bubble__body,
 .soc-bubble--minimized .soc-bubble__actions,
-.soc-bubble--minimized .soc-bubble__footer {
+.soc-bubble--minimized .soc-bubble__footer,
+.soc-bubble--minimized .soc-bubble__resize {
   display: none;
 }
 .soc-bubble--minimized {
   height: auto !important;
   min-height: auto !important;
+  bottom: 16px !important;
+  right: 16px !important;
+  top: auto !important;
+  left: auto !important;
+  width: auto !important;
+  min-width: auto !important;
+  max-width: 260px !important;
+  border-radius: 22px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(168, 85, 247, 0.4), inset 0 0 0 1px rgba(168, 85, 247, 0.15) !important;
+  border-color: rgba(168, 85, 247, 0.3) !important;
+}
+.soc-bubble--minimized .soc-bubble__header {
+  border-bottom: none !important;
+  border-radius: 22px !important;
+  padding: 6px 10px 6px 14px !important;
+  min-height: 36px !important;
+  background: linear-gradient(135deg, rgba(30, 30, 40, 0.95) 0%, rgba(88, 50, 140, 0.4) 100%) !important;
+}
+.soc-bubble--minimized .soc-bubble__mode-icon {
+  font-size: 14px !important;
+}
+.soc-bubble--minimized .soc-bubble__session-name {
+  font-size: 12px !important;
+}
+.soc-bubble--minimized .soc-bubble__btn {
+  width: 24px !important;
+  height: 24px !important;
+  font-size: 12px !important;
 }
 
 /* Bubble dragging */
