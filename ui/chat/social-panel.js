@@ -28,6 +28,8 @@ let _socBubbleMessagesParent = null;  // original parent of #messages
 let _socBubbleMessagesNext = null;    // original nextSibling of #messages
 let _socBubbleInputParent = null;     // original parent of #input-area
 let _socBubbleInputNext = null;       // original nextSibling of #input-area
+let _socBubbleDragInit = false;
+let _dragStartX, _dragStartY, _dragBubbleX, _dragBubbleY, _dragging = false;
 
 // ─── Receive agent-generated content (callable from init.js onRepurposeCompleted) ──
 
@@ -175,6 +177,7 @@ function _socBubbleShow() {
 
   bubble.classList.add('active');
   _socBubbleActive = true;
+  _socBubbleInitDrag();
 }
 
 function _socBubbleHide() {
@@ -199,6 +202,55 @@ function _socBubbleHide() {
   _socBubbleMessagesNext = null;
   _socBubbleInputParent = null;
   _socBubbleInputNext = null;
+}
+
+function _socBubbleInitDrag() {
+  if (_socBubbleDragInit) return;
+  var bubble = document.getElementById('soc-bubble');
+  var header = document.getElementById('soc-bubble-header');
+  if (!bubble || !header) return;
+  _socBubbleDragInit = true;
+
+  header.addEventListener('mousedown', function (e) {
+    if (e.target.closest('.soc-bubble__btn')) return;
+    _dragging = true;
+    _dragStartX = e.clientX;
+    _dragStartY = e.clientY;
+    _dragBubbleX = bubble.offsetLeft;
+    _dragBubbleY = bubble.offsetTop;
+    bubble.classList.add('soc-bubble--dragging');
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', function (e) {
+    if (!_dragging) return;
+    var deltaX = e.clientX - _dragStartX;
+    var deltaY = e.clientY - _dragStartY;
+    var newLeft = _dragBubbleX + deltaX;
+    var newTop = _dragBubbleY + deltaY;
+    var parent = bubble.parentElement;
+    if (newLeft < 0) newLeft = 0;
+    if (newTop < 0) newTop = 0;
+    if (parent && newLeft + bubble.offsetWidth > parent.clientWidth) {
+      newLeft = parent.clientWidth - bubble.offsetWidth;
+    }
+    if (parent && newTop + bubble.offsetHeight > parent.clientHeight) {
+      newTop = parent.clientHeight - bubble.offsetHeight;
+    }
+    bubble.style.left = newLeft + 'px';
+    bubble.style.top = newTop + 'px';
+    bubble.style.bottom = 'auto';
+    bubble.style.right = 'auto';
+  });
+
+  document.addEventListener('mouseup', function () {
+    if (!_dragging) return;
+    _dragging = false;
+    bubble.classList.remove('soc-bubble--dragging');
+    document.body.style.userSelect = '';
+    localStorage.setItem('soc-bubble-pos', JSON.stringify({ left: bubble.offsetLeft, top: bubble.offsetTop }));
+  });
 }
 
 function _socBubbleUpdateSession() {
