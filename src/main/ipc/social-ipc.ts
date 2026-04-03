@@ -5,7 +5,7 @@ import fs from 'fs';
 import Anthropic from '@anthropic-ai/sdk';
 import { proxyFetch } from '../../utils/proxy-fetch';
 import { SettingsManager } from '../../settings';
-import { searchContent } from '../../social/scraping/index';
+import { searchContent, downloadVideo } from '../../social/scraping/index';
 import { KieClient } from '../../image';
 import type { ImageModelId } from '../../image';
 import type { ImageJobTracker } from '../../image';
@@ -982,9 +982,29 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
 
           if (meta.transcript) {
             transcript = meta.transcript;
-          } else if (source.content_type === 'video' && source.source_url) {
+          } else if (
+            ['video', 'reel', 'slideshow'].includes((source.content_type ?? '').toLowerCase()) &&
+            (source.media_urls || source.source_url)
+          ) {
             try {
-              const result = await transcribeContent(source.source_url);
+              // Extract direct video URL from media_urls (CDN links from scraper)
+              let videoUrl: string | undefined;
+              if (source.media_urls) {
+                try {
+                  const urls = JSON.parse(source.media_urls) as string[];
+                  // Pick first video-like URL (mp4/webm/m3u8) or fall back to first URL
+                  videoUrl = urls.find((u) => /\.(mp4|webm|m3u8|mov)/i.test(u)) ?? urls[0];
+                } catch { /* malformed JSON — fall through */ }
+              }
+
+              // Download video locally first — CDN URLs expire and page URLs
+              // (source_url) are not direct media files that AssemblyAI can ingest
+              const downloadUrl = videoUrl || source.source_url!;
+              const videoDir = path.join(app.getPath('userData'), 'videos', 'repurpose');
+              console.log(`[SocialIPC] Downloading video for transcription: ${downloadUrl}`);
+              const localPath = await downloadVideo(downloadUrl, videoDir);
+
+              const result = await transcribeContent(localPath);
               transcript = result.text;
               meta.transcript = transcript;
               memory.discoveredContent.update(source.id, { metadata: JSON.stringify(meta) });

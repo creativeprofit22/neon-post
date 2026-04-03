@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Notification, globalShortcut, screen, powerMonitor } from 'electron';
+import { app, BrowserWindow, Notification, globalShortcut, screen, powerMonitor, session } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
@@ -1082,6 +1082,11 @@ async function restartAgent(): Promise<void> {
 
 app.whenReady().then(async () => {
   console.log('[Main] App ready, starting initialization...');
+
+  // Clear CSS/resource cache so UI changes are always fresh
+  const ses = session.defaultSession;
+  await ses.clearCache();
+  console.log('[Main] Cleared session cache');
 
   try {
     // Show splash screen immediately

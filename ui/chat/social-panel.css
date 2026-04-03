@@ -1,5 +1,487 @@
 /* Social Panel — scoped under #social-view */
 
+/* ═══════════════════════════════════════════════════════════════════════
+   VISUAL OVERHAUL — Design token normalization layer
+   Applied FIRST so all downstream rules inherit the clean baseline.
+   Targets: font sizes → 4-size scale, spacing → 8px grid,
+   borders → minimal, surfaces → glass/subtle backgrounds.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Global font normalization ── */
+#social-view { font-size: var(--font-base); }
+#social-view * { box-sizing: border-box; }
+
+/* ── Card surfaces — glass morphism (adapted from luckyyyyy/blog MIT, PurpleLab AGPL) ── */
+#social-view .soc-card,
+#social-view .soc-content-card,
+#social-view .soc-skeleton-card,
+#social-view .soc-trend-card,
+#social-view .soc-gallery-item,
+#social-view .soc-generated-output,
+#social-view .soc-create-saved-picker,
+#social-view .soc-create-video-attach {
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  transition: background 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+#social-view .soc-card:hover,
+#social-view .soc-content-card:hover,
+#social-view .soc-trend-card:hover,
+#social-view .soc-gallery-item:hover {
+  background: var(--glass-hover);
+  box-shadow: var(--shadow-glow);
+  border-color: var(--glass-strong);
+  transform: translateY(-1px);
+}
+
+/* Draft cards — accent left strip, subtler surface */
+#social-view .soc-draft-card {
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+#social-view .soc-draft-card:hover {
+  background: var(--glass-hover);
+  box-shadow: var(--shadow-glow);
+  border-color: var(--glass-strong);
+  border-left-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+/* ── Tab bar — pill-style segmented control ── */
+#social-view .soc-tab-bar {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--glass-border);
+  padding: var(--sp-8) var(--sp-12);
+  gap: var(--sp-4);
+}
+
+#social-view .soc-tab-btn {
+  padding: var(--sp-8) var(--sp-16);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  border: none;
+  border-bottom: none;
+  transition: all 0.15s ease;
+}
+
+#social-view .soc-tab-btn:hover {
+  background: var(--glass);
+}
+
+#social-view .soc-tab-btn.active {
+  background: var(--glass-strong);
+  color: var(--text-primary);
+  border-bottom: none;
+}
+
+/* ── Sub-tabs (Discover views, Create panels) ── */
+#social-view .soc-discover-sub-tabs,
+#social-view .soc-sub-tabs {
+  display: inline-flex;
+  gap: var(--sp-2);
+  background: var(--glass);
+  border-radius: var(--radius-xs);
+  padding: 3px;
+  margin-bottom: var(--sp-16);
+}
+
+#social-view .soc-discover-sub-tab,
+#social-view .soc-sub-tab {
+  padding: 6px var(--sp-12);
+  border-radius: var(--sp-4);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  border: none;
+  border-bottom: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+#social-view .soc-discover-sub-tab:hover,
+#social-view .soc-sub-tab:hover {
+  color: var(--text-secondary);
+}
+
+#social-view .soc-discover-sub-tab.active,
+#social-view .soc-sub-tab.active {
+  background: var(--glass-strong);
+  color: var(--text-primary);
+  border-bottom: none;
+  border-bottom-color: transparent;
+}
+
+/* ── Buttons — clean, consistent ── */
+#social-view .soc-btn {
+  padding: 6px var(--sp-12);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-sm);
+  font-weight: 500;
+  background: var(--glass);
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+#social-view .soc-btn:hover {
+  background: var(--glass-hover);
+  color: var(--text-primary);
+}
+
+#social-view .soc-btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: transparent;
+}
+
+#social-view .soc-btn-primary:hover {
+  background: var(--accent-hover);
+  opacity: 1;
+}
+
+#social-view .soc-btn-sm {
+  padding: var(--sp-4) var(--sp-8);
+  font-size: var(--font-xs);
+}
+
+/* ── Form controls — subtle, consistent ── */
+#social-view .soc-form-group label {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--sp-4);
+}
+
+#social-view input,
+#social-view textarea,
+#social-view select {
+  background: var(--glass) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--radius-xs) !important;
+  font-size: var(--font-base) !important;
+  color: var(--text-primary) !important;
+  padding: var(--sp-8) var(--sp-12) !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+#social-view input:focus,
+#social-view textarea:focus,
+#social-view select:focus {
+  border-color: var(--accent) !important;
+  box-shadow: var(--shadow-focus) !important;
+  outline: none !important;
+}
+
+/* ── Platform badges — unified with color-mix, no borders ── */
+#social-view .platform-badge,
+#social-view .soc-draft-card__platform,
+#social-view .soc-repurpose-preview-card__platform,
+#social-view .soc-drafts-repurpose-ctx__platform {
+  padding: 2px var(--sp-8);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border: none;
+}
+
+/* ── Status badges — softer ── */
+#social-view .status-badge {
+  padding: 2px var(--sp-8);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-xs);
+  font-weight: 600;
+}
+
+/* ── Empty states — one design ── */
+#social-view .soc-empty-state,
+#social-view .soc-empty,
+#social-view .soc-drafts-empty {
+  text-align: center;
+  padding: var(--sp-32) var(--sp-16);
+  color: var(--text-muted);
+}
+
+#social-view .soc-empty-state__icon {
+  font-size: 28px;
+  margin-bottom: var(--sp-8);
+  opacity: 0.5;
+}
+
+#social-view .soc-empty-state__title {
+  font-size: var(--font-lg);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--sp-4);
+}
+
+#social-view .soc-empty-state__hint {
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ── Section titles ── */
+#social-view .soc-section-title {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ── Entry point cards ── */
+#social-view .soc-entry-points {
+  display: flex;
+  gap: var(--sp-8);
+  margin-bottom: var(--sp-16);
+}
+
+#social-view .soc-entry-card {
+  flex: 1;
+  padding: var(--sp-16) var(--sp-12);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-8);
+  text-align: center;
+}
+
+#social-view .soc-entry-card:hover {
+  background: var(--glass-hover);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+#social-view .soc-entry-card__icon {
+  font-size: 22px;
+}
+
+#social-view .soc-entry-card__label {
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* ── Card internals — consistent spacing ── */
+#social-view .soc-card-body,
+#social-view .soc-draft-card__body,
+/* content-card__body — card-level padding handles spacing, no extra needed */
+#social-view .soc-content-card__body {
+  padding: 0;
+}
+
+#social-view .soc-card-title,
+#social-view .soc-content-card__title {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--sp-4);
+}
+
+#social-view .soc-card-meta,
+#social-view .soc-content-card__meta,
+#social-view .soc-card-stats,
+#social-view .soc-content-card__stats {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+/* ── Draft card header — no harsh border ── */
+#social-view .soc-draft-card__header {
+  padding: var(--sp-12) var(--sp-16);
+  background: transparent;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+#social-view .soc-draft-card__header:hover {
+  background: var(--glass);
+}
+
+/* ── Textarea in drafts ── */
+#social-view .soc-draft-card__textarea {
+  background: var(--bg-primary) !important;
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--radius-xs) !important;
+  font-size: var(--font-base) !important;
+  line-height: 1.5;
+}
+
+/* ── Actions row in drafts ── */
+#social-view .soc-draft-card__actions {
+  border-top: 1px solid var(--glass-border);
+  padding-top: var(--sp-12);
+  margin-top: var(--sp-12);
+}
+
+/* ── Calendar improvements ── */
+#social-view .soc-calendar-header {
+  padding: var(--sp-12) var(--sp-16);
+}
+
+#social-view .soc-calendar-cell {
+  border-color: var(--glass-border);
+}
+
+/* ── Checkbox group ── */
+#social-view .soc-checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-8);
+}
+
+#social-view .soc-checkbox-group label {
+  font-size: var(--font-sm);
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+/* ── Search row ── */
+#social-view .soc-search-row {
+  gap: var(--sp-8);
+  margin-bottom: var(--sp-16);
+}
+
+/* ── Hint text ── */
+#social-view .soc-hint {
+  font-size: var(--font-xs);
+  color: var(--text-muted);
+}
+
+/* ── Generated output ── */
+#social-view .soc-generated-output {
+  background: var(--glass);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--sp-16);
+  font-size: var(--font-base);
+  line-height: 1.6;
+}
+
+/* ── Tab body spacing ── */
+#social-view .soc-tab-body {
+  padding: var(--sp-16);
+}
+
+/* ── Scrollbar ── */
+#social-view .soc-tab-body::-webkit-scrollbar { width: 5px; }
+#social-view .soc-tab-body::-webkit-scrollbar-track { background: transparent; }
+#social-view .soc-tab-body::-webkit-scrollbar-thumb { background: var(--glass-strong); border-radius: var(--radius-pill); }
+
+/* ── Modal overlay ── */
+#social-view .soc-modal-overlay {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+#social-view .soc-modal-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+/* ── Toast notifications — glass style ── */
+#social-view .soc-toast {
+  background: color-mix(in srgb, var(--bg-secondary) 90%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+/* ── Skeleton loading ── */
+#social-view .soc-skeleton {
+  background: linear-gradient(90deg, var(--glass) 25%, var(--glass-strong) 50%, var(--glass) 75%);
+  background-size: 200% 100%;
+  border-radius: var(--radius-xs);
+}
+
+/* ── Lightbox ── */
+#social-view .soc-lightbox {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+#social-view .soc-lightbox-content {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+/* ── Gallery items ── */
+#social-view .soc-gallery-item {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* ── Video dropzone ── */
+#social-view .soc-video-dropzone {
+  border: 2px dashed var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--glass);
+}
+
+#social-view .soc-video-dropzone.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+/* ── Icon button ── */
+#social-view .soc-icon-btn {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
+}
+
+#social-view .soc-icon-btn:hover {
+  background: var(--glass-hover);
+}
+
+/* ── Accounts modal ── */
+#social-view .soc-account-row {
+  background: var(--glass);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--sp-12);
+  margin-bottom: var(--sp-8);
+}
+
+/* ── Quick post (calendar) ── */
+#social-view .soc-quick-post {
+  background: var(--glass);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--sp-16);
+  border: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   END VISUAL OVERHAUL
+   ═══════════════════════════════════════════════════════════════════════ */
+
 #social-view {
   display: none;
   flex-direction: column;
@@ -16,8 +498,8 @@
 /* ─── Header ───────────────────────────────────────────────────────── */
 #social-view .soc-header {
   background: var(--bg-secondary);
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--border);
+  padding: var(--sp-8) var(--sp-16);
+  border-bottom: 1px solid var(--glass-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -26,7 +508,7 @@
 
 #social-view .soc-header h1 {
   font-family: 'Cal Sans', sans-serif;
-  font-size: 14px;
+  font-size: var(--font-lg);
   font-weight: 700;
   margin: 0;
   background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent) 100%);
@@ -37,70 +519,51 @@
 
 #social-view .soc-header-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--sp-8);
 }
 
 #social-view .soc-header-actions button {
-  padding: 6px 14px;
-  background: var(--bg-tertiary);
+  padding: var(--sp-4) var(--sp-12);
+  background: var(--glass);
   color: var(--text-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--font-sm);
   font-weight: 500;
   transition: all 0.15s;
 }
 
 #social-view .soc-header-actions button:hover {
-  background: var(--border);
+  background: var(--glass-hover);
   color: var(--text-primary);
 }
 
 #social-view .soc-header-gear {
-  padding: 6px 8px;
-  font-size: 15px;
+  padding: var(--sp-4) var(--sp-8);
+  font-size: var(--font-lg);
   line-height: 1;
 }
 
-/* ─── Tab Bar ──────────────────────────────────────────────────────── */
+/* ─── Tab Bar (base — overhaul layer handles visual) ──────────────── */
 #social-view .soc-tab-bar {
   display: flex;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  padding: 0 12px;
   flex-shrink: 0;
-  gap: 2px;
   overflow-x: auto;
 }
 
 #social-view .soc-tab-bar::-webkit-scrollbar { height: 0; }
 
 #social-view .soc-tab-btn {
-  padding: 10px 18px;
   background: none;
-  border: none;
   color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 500;
   cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: color 0.2s, border-color 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 5px;
   white-space: nowrap;
   flex: 1;
-}
-
-#social-view .soc-tab-btn:hover {
-  color: var(--text-secondary);
-}
-
-#social-view .soc-tab-btn.active {
-  color: var(--accent);
-  border-bottom-color: var(--accent);
 }
 
 /* ─── Tab Content ──────────────────────────────────────────────────── */
@@ -119,12 +582,12 @@
 #social-view .soc-tab-body {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 16px 20px;
 }
 
 #social-view .soc-tab-body::-webkit-scrollbar { width: 6px; }
 #social-view .soc-tab-body::-webkit-scrollbar-track { background: transparent; }
-#social-view .soc-tab-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+#social-view .soc-tab-body::-webkit-scrollbar-thumb { background: var(--glass-strong); border-radius: var(--radius-pill); }
 #social-view .soc-tab-body::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
 /* ─── Common Controls ──────────────────────────────────────────────── */
@@ -137,9 +600,9 @@
 #social-view .soc-search-row input {
   flex: 1;
   padding: 7px 11px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
   color: var(--text-primary);
   font-size: 13px;
   outline: none;
@@ -156,9 +619,9 @@
 
 #social-view .soc-search-row select {
   padding: 7px 11px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
   color: var(--text-primary);
   font-size: 13px;
   cursor: pointer;
@@ -166,78 +629,42 @@
   appearance: none;
 }
 
-/* ─── Buttons ──────────────────────────────────────────────────────── */
+/* ─── Buttons (base — overhaul layer handles visual) ──────────────── */
 #social-view .soc-btn {
-  padding: 7px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   white-space: nowrap;
 }
 
-#social-view .soc-btn-primary {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-
-#social-view .soc-btn-primary:hover {
-  background: var(--accent-hover, var(--accent));
-  opacity: 0.9;
-}
-
 #social-view .soc-btn-outline {
   background: transparent;
   color: var(--accent);
-  border-color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 #social-view .soc-btn-outline:hover {
-  background: var(--accent);
-  color: #fff;
-}
-
-#social-view .soc-btn-secondary {
-  background: transparent;
-  color: var(--text-secondary);
-  border-color: var(--border);
-}
-
-#social-view .soc-btn-secondary:hover {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
 }
 
 #social-view .soc-btn-accent {
   background: var(--accent);
   color: #fff;
-  border-color: var(--accent);
-  opacity: 0.85;
+  border-color: transparent;
 }
 
-#social-view .soc-btn-accent:hover {
-  opacity: 1;
-}
+#social-view .soc-btn-accent:hover { opacity: 0.9; }
 
 #social-view .soc-btn-danger {
   background: transparent;
   color: var(--error);
-  border-color: var(--error);
+  border-color: color-mix(in srgb, var(--error) 30%, transparent);
 }
 
 #social-view .soc-btn-danger:hover {
   background: rgba(239, 68, 68, 0.1);
-}
-
-#social-view .soc-btn-sm {
-  padding: 4px 10px;
-  font-size: 12px;
 }
 
 #social-view .soc-icon-btn {
@@ -247,49 +674,33 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: 6px;
   color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.15s;
-}
-
-#social-view .soc-icon-btn:hover {
-  background: var(--border);
-  color: var(--text-primary);
 }
 
 #social-view .soc-icon-btn.danger:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: var(--error);
+  background: rgba(239, 68, 68, 0.15);
   color: var(--error);
 }
 
 #social-view .soc-icon-btn svg { width: 13px; height: 13px; }
 
-/* ─── Platform Badges ──────────────────────────────────────────────── */
+/* ─── Platform Badges (overhaul handles base — colors only here) ──── */
 #social-view .platform-badge {
-  padding: 2px 7px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
   display: inline-flex;
   align-items: center;
   gap: 3px;
 }
 
-#social-view .platform-badge.tiktok   { background: rgba(34, 211, 238, 0.12); color: #22d3ee; border: 1px solid rgba(34, 211, 238, 0.25); }
-#social-view .platform-badge.youtube  { background: rgba(239, 68, 68, 0.12);  color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25); }
-#social-view .platform-badge.instagram { background: rgba(236, 72, 153, 0.12); color: #ec4899; border: 1px solid rgba(236, 72, 153, 0.25); }
+#social-view .platform-badge.tiktok   { background: rgba(34, 211, 238, 0.12); color: #22d3ee; }
+#social-view .platform-badge.youtube  { background: rgba(239, 68, 68, 0.12);  color: #ef4444; }
+#social-view .platform-badge.instagram { background: rgba(236, 72, 153, 0.12); color: #ec4899; }
 #social-view .platform-badge.twitter,
-#social-view .platform-badge.x        { background: rgba(96, 165, 250, 0.12); color: #60a5fa; border: 1px solid rgba(96, 165, 250, 0.25); }
-#social-view .platform-badge.linkedin  { background: rgba(59, 130, 246, 0.12); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.25); }
-#social-view .platform-badge.facebook  { background: rgba(59, 130, 246, 0.12); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.25); }
-#social-view .platform-badge.threads   { background: rgba(250, 250, 250, 0.08); color: #e5e5e5; border: 1px solid rgba(250, 250, 250, 0.15); }
-#social-view .platform-badge.pinterest { background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25); }
+#social-view .platform-badge.x        { background: rgba(96, 165, 250, 0.12); color: #60a5fa; }
+#social-view .platform-badge.linkedin  { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+#social-view .platform-badge.facebook  { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+#social-view .platform-badge.threads   { background: rgba(250, 250, 250, 0.06); color: #d4d4d4; }
+#social-view .platform-badge.pinterest { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
 
 /* ─── Status Badges ────────────────────────────────────────────────── */
 #social-view .status-badge {
@@ -309,26 +720,18 @@
 #social-view .soc-card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 12px;
+  gap: var(--sp-16);
 }
 
+/* .soc-card base — overhaul layer handles visual */
 #social-view .soc-card {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
   overflow: hidden;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-#social-view .soc-card:hover {
-  border-color: var(--accent);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
 }
 
 #social-view .soc-card-thumb {
   width: 100%;
   height: 120px;
-  background: var(--bg-tertiary);
+  background: var(--glass-hover);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -379,16 +782,16 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 7px 10px;
-  border-top: 1px solid var(--border);
+  padding: var(--sp-8) var(--sp-12);
+  border-top: 1px solid var(--glass-border);
 }
 
 /* ─── Skeleton Loading ─────────────────────────────────────────────── */
 #social-view .soc-skeleton {
-  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border) 50%, var(--bg-tertiary) 75%);
+  background: linear-gradient(90deg, var(--glass) 25%, var(--glass-strong) 50%, var(--glass) 75%);
   background-size: 200% 100%;
   animation: socSkeletonPulse 1.5s ease-in-out infinite;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
 }
 
 @keyframes socSkeletonPulse {
@@ -396,10 +799,8 @@
   100% { background-position: -200% 0; }
 }
 
+/* .soc-skeleton-card — overhaul layer handles visual */
 #social-view .soc-skeleton-card {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
@@ -408,159 +809,27 @@
 #social-view .soc-skeleton-card .soc-skeleton-line  { height: 11px; margin-bottom: 7px; border-radius: 4px; }
 #social-view .soc-skeleton-card .soc-skeleton-line:last-child { width: 55%; margin-bottom: 0; }
 
-/* ─── Form Controls ────────────────────────────────────────────────── */
-#social-view .soc-form-group { margin-bottom: 12px; }
-
-#social-view .soc-form-group label {
-  display: block;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 5px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
+/* ─── Form Controls (base — overhaul layer handles visual) ────────── */
+#social-view .soc-form-group { margin-bottom: var(--sp-12); }
+#social-view .soc-form-group label { display: block; }
 #social-view .soc-form-group input,
 #social-view .soc-form-group textarea,
-#social-view .soc-form-group select {
-  width: 100%;
-  padding: 7px 11px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-size: 13px;
-  font-family: inherit;
-  outline: none;
-  transition: border-color 0.2s;
-  box-sizing: border-box;
-}
-
-#social-view .soc-form-group input:focus,
-#social-view .soc-form-group textarea:focus,
-#social-view .soc-form-group select:focus { border-color: var(--accent); }
-
+#social-view .soc-form-group select { width: 100%; font-family: inherit; }
 #social-view .soc-form-group textarea { resize: vertical; min-height: 72px; }
-
-#social-view .soc-form-row { display: flex; gap: 10px; }
+#social-view .soc-form-row { display: flex; gap: var(--sp-12); }
 #social-view .soc-form-row .soc-form-group { flex: 1; }
 
-/* ─── Generated Output ─────────────────────────────────────────────── */
+/* ─── Generated Output (base — overhaul handles visual) ───────────── */
 #social-view .soc-generated-output {
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 14px;
-  margin-top: 10px;
+  margin-top: var(--sp-12);
   min-height: 80px;
   white-space: pre-wrap;
-  font-size: 13px;
   color: var(--text-secondary);
-  line-height: 1.6;
 }
 
-/* ─── Repurpose Preview Card ──────────────────────────────────────── */
-#social-view .soc-repurpose-preview-card {
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 14px;
-  margin-bottom: 12px;
-}
-
-#social-view .soc-repurpose-preview-card__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-#social-view .soc-repurpose-preview-card__platform {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  padding: 2px 8px;
-  border-radius: 3px;
-  background: var(--accent);
-  color: #fff;
-}
-#social-view .soc-repurpose-preview-card__platform.platform--tiktok { background: #ff0050; }
-#social-view .soc-repurpose-preview-card__platform.platform--youtube { background: #ff0000; }
-#social-view .soc-repurpose-preview-card__platform.platform--instagram { background: #c13584; }
-#social-view .soc-repurpose-preview-card__platform.platform--x,
-#social-view .soc-repurpose-preview-card__platform.platform--twitter { background: #1da1f2; }
-#social-view .soc-repurpose-preview-card__platform.platform--linkedin { background: #0077b5; }
-
-#social-view .soc-repurpose-preview-card__type {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  background: var(--bg-secondary);
-  padding: 2px 6px;
-  border-radius: 3px;
-}
-
-#social-view .soc-repurpose-preview-card__title {
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--text-primary);
-  margin-bottom: 6px;
-}
-
-#social-view .soc-repurpose-preview-card__stats {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-bottom: 4px;
-}
-
-#social-view .soc-repurpose-preview-card__creator {
-  font-size: 11px;
-  color: var(--accent);
-  margin-bottom: 6px;
-}
-
-#social-view .soc-repurpose-preview-card__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 8px;
-}
-
-#social-view .soc-repurpose-tag {
-  font-size: 10px;
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  padding: 2px 6px;
-  border-radius: 3px;
-}
-
-#social-view .soc-repurpose-preview-card__body {
-  font-size: 12px;
-  color: var(--text-secondary);
-  line-height: 1.5;
-  white-space: pre-wrap;
-  max-height: 100px;
-  overflow-y: auto;
-}
-
-/* ─── Draft Cards ─────────────────────────────────────────────────── */
-#social-view .soc-repurpose-drafts {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
+/* .soc-draft-card base — overhaul layer handles visual */
 #social-view .soc-draft-card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
   overflow: hidden;
-  background: var(--bg-secondary);
-  border-left: 3px solid var(--accent);
-  transition: box-shadow 0.15s, border-color 0.15s;
-}
-#social-view .soc-draft-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 #social-view .soc-draft-card[data-platform="tiktok"]  { border-left-color: rgba(0,242,234,0.7); }
 #social-view .soc-draft-card[data-platform="youtube"]  { border-left-color: #ff0000; }
@@ -576,18 +845,14 @@
   padding: 12px;
 }
 
+/* .soc-draft-card__header — overhaul layer handles visual */
 #social-view .soc-draft-card__header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
+  gap: var(--sp-8);
   cursor: pointer;
-  background: var(--bg-tertiary);
-  border-bottom: 1px solid var(--border);
   user-select: none;
 }
-
-#social-view .soc-draft-card__header:hover { background: color-mix(in srgb, var(--bg-tertiary) 80%, var(--accent)); }
 
 #social-view .soc-draft-card__platform {
   font-size: 10px;
@@ -625,8 +890,8 @@
   min-height: 80px;
   resize: vertical;
   background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
   padding: 10px;
   font-size: 13px;
   color: var(--text-primary);
@@ -648,11 +913,11 @@
   gap: 8px;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--glass-border);
 }
 
 #social-view .soc-draft-card__actions .soc-btn {
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   background: transparent;
   font-weight: 500;
 }
@@ -678,7 +943,7 @@
   gap: 5px;
   padding: 4px 10px;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   border-radius: 20px;
   font-size: 11px;
   color: var(--text-secondary);
@@ -701,19 +966,11 @@
   color: var(--text-tertiary);
 }
 
-/* ─── Drafts Empty State ─────────────────────────────────────────── */
-#social-view .soc-drafts-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-  text-align: center;
-  color: var(--text-muted);
-}
-#social-view .soc-drafts-empty svg { margin-bottom: 12px; opacity: 0.35; }
-#social-view .soc-drafts-empty p { font-size: 13px; margin: 0; }
-#social-view .soc-drafts-empty .hint { font-size: 11px; margin-top: 6px; opacity: 0.7; }
+/* ─── Drafts Empty State (base — overhaul handles visual) ────────── */
+#social-view .soc-drafts-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+#social-view .soc-drafts-empty svg { margin-bottom: var(--sp-12); opacity: 0.35; }
+#social-view .soc-drafts-empty p { font-size: var(--font-base); margin: 0; }
+#social-view .soc-drafts-empty .hint { font-size: var(--font-xs); margin-top: var(--sp-4); opacity: 0.7; }
 
 #social-view .soc-draft-card__scheduled-badge {
   display: inline-flex;
@@ -722,7 +979,7 @@
   padding: 4px 12px;
   background: var(--accent-secondary, #2d7a4f);
   color: #fff;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
   font-size: 0.85rem;
   font-weight: 600;
 }
@@ -733,14 +990,14 @@
   gap: 8px;
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--glass-border);
 }
 
 #social-view .soc-draft-card__datetime {
   flex: 1;
   background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
   padding: 6px 10px;
   font-size: 12px;
   color: var(--text-primary);
@@ -749,7 +1006,7 @@
 
 /* ─── Draft Card Inline Preview ─── */
 #social-view .soc-draft-card__preview {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--glass-border);
   padding: 16px;
   background: var(--bg-primary);
   overflow: hidden;
@@ -780,82 +1037,7 @@
 #social-view .soc-drafts-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-}
-
-/* ─── Drafts Repurpose Context ────────────────────────────────────── */
-#social-view .soc-drafts-repurpose-ctx {
-  background: var(--bg-secondary);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-sm);
-  padding: 0;
-  margin-bottom: 12px;
-  overflow: hidden;
-}
-
-#social-view .soc-drafts-repurpose-ctx__header {
-  display: flex;
-  align-items: center;
-  padding: 10px 14px;
-  cursor: pointer;
-  gap: 6px;
-}
-
-#social-view .soc-drafts-repurpose-ctx__header:hover {
-  background: rgba(255,255,255,0.03);
-}
-
-#social-view .soc-drafts-repurpose-ctx__chevron {
-  transition: transform 0.2s;
-  flex-shrink: 0;
-  color: var(--text-muted);
-}
-
-#social-view .soc-drafts-repurpose-ctx.collapsed .soc-drafts-repurpose-ctx__chevron {
-  transform: rotate(-90deg);
-}
-
-#social-view .soc-drafts-repurpose-ctx.collapsed .soc-drafts-repurpose-ctx__body {
-  display: none;
-}
-
-#social-view .soc-drafts-repurpose-ctx__body {
-  padding: 0 14px 14px;
-}
-
-#social-view .soc-drafts-repurpose-ctx__preview {
-  background: var(--bg-primary);
-  border-radius: var(--radius-sm);
-  padding: 10px;
-  font-size: 12px;
-}
-
-#social-view .soc-drafts-repurpose-ctx__platform {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 4px;
-  text-transform: uppercase;
-}
-
-#social-view .soc-drafts-repurpose-ctx__stats {
-  font-size: 11px;
-  color: var(--text-secondary);
-}
-
-#social-view .soc-drafts-repurpose-ctx__body-text {
-  color: var(--text-secondary);
-  font-size: 12px;
-  line-height: 1.4;
-  margin-top: 6px;
-  max-height: 80px;
-  overflow-y: auto;
-}
-
-#social-view .soc-repurpose-ctx__actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
+  gap: var(--sp-8);
 }
 
 #social-view .soc-create-from-video {
@@ -866,10 +1048,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 24px 16px;
-  border: 2px dashed var(--border);
-  border-radius: var(--radius-sm);
+  gap: var(--sp-8);
+  padding: var(--sp-24) var(--sp-16);
+  border: 2px dashed var(--glass-border);
+  border-radius: var(--radius-md);
   background: var(--bg-secondary);
   cursor: pointer;
   transition: border-color 0.2s, background 0.2s;
@@ -895,8 +1077,8 @@
 
 #social-view .soc-create-from-video__controls select {
   background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
   padding: 6px 10px;
   font-size: 12px;
   color: var(--text-primary);
@@ -912,11 +1094,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 24px;
-  padding: 14px;
-  margin-top: 10px;
+  gap: var(--sp-24);
+  padding: var(--sp-12);
+  margin-top: var(--sp-8);
   background: var(--bg-secondary);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 #social-view .soc-step {
@@ -968,7 +1150,7 @@
   padding: 4px 10px;
   background: rgba(34, 197, 94, 0.1);
   border: 1px solid rgba(34, 197, 94, 0.25);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
   font-size: 12px;
   color: var(--success, #22c55e);
 }
@@ -991,7 +1173,7 @@
 #social-view .soc-spinner-sm {
   width: 14px;
   height: 14px;
-  border: 2px solid var(--border);
+  border: 2px solid var(--glass-strong);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: soc-spin 0.6s linear infinite;
@@ -1027,7 +1209,7 @@
   left: 8px;
   width: 18px;
   height: 18px;
-  border: 2px solid var(--border);
+  border: 2px solid var(--glass-border);
   border-radius: 4px;
   background: var(--bg-primary);
   z-index: 2;
@@ -1065,7 +1247,7 @@
 #social-view .soc-batch-progress__bar {
   flex: 1;
   height: 6px;
-  background: var(--bg-tertiary);
+  background: var(--glass-strong);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -1086,7 +1268,7 @@
 
 #social-view .soc-batch-item-group {
   margin-top: 12px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--glass-border);
   padding-top: 10px;
 }
 
@@ -1122,45 +1304,8 @@
   accent-color: var(--accent);
 }
 
-/* ─── Entry Points (Create tab) ───────────────────────────────────── */
-#social-view .soc-entry-points {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-#social-view .soc-entry-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 24px 12px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all 0.15s;
-  color: var(--text-primary);
-}
-
-#social-view .soc-entry-card:hover {
-  background: var(--bg-tertiary);
-  border-color: var(--accent);
-  transform: translateY(-1px);
-}
-
-#social-view .soc-entry-card__icon {
-  font-size: 28px;
-  line-height: 1;
-}
-
-#social-view .soc-entry-card__label {
-  font-size: 13px;
-  font-weight: 600;
-  text-align: center;
-}
+/* ─── Entry Points (base — overhaul handles visual) ───────────────── */
+/* Entry card styling handled by overhaul layer */
 
 /* ─── Saved Content Picker ────────────────────────────────────────── */
 #social-view .soc-create-saved-picker {
@@ -1178,17 +1323,17 @@
 #social-view .soc-saved-picker-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  gap: var(--sp-8);
+  padding: var(--sp-8) var(--sp-12);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 #social-view .soc-saved-picker-item:hover {
-  background: var(--bg-tertiary);
+  background: var(--glass-hover);
   border-color: var(--accent);
 }
 
@@ -1223,56 +1368,36 @@
 #social-view .soc-create-video-attach__info {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px;
+  gap: var(--sp-8);
+  padding: var(--sp-12);
   background: var(--bg-secondary);
   border: 1px solid var(--accent);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: 13px;
 }
 
-/* ─── Create Sub-Tabs ──────────────────────────────────────────────── */
-#social-view .soc-sub-tabs {
-  display: flex;
-  gap: 2px;
-  margin-bottom: 14px;
-  border-bottom: 1px solid var(--border);
-}
-
-#social-view .soc-sub-tab {
-  padding: 7px 12px;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: color 0.2s, border-color 0.2s;
-}
-
-#social-view .soc-sub-tab:hover { color: var(--text-secondary); }
-#social-view .soc-sub-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+/* ─── Create Sub-Tabs (base — overhaul handles visual) ────────────── */
+/* Overhaul layer controls the segmented-control pill style */
 
 #social-view .soc-create-panel { display: none; }
 #social-view .soc-create-panel.active { display: block; }
 
 /* ─── Composer (Posts Tab) ─────────────────────────────────────────── */
 #social-view .soc-composer {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 14px;
-  margin-bottom: 14px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-16);
+  margin-bottom: var(--sp-16);
 }
 
 #social-view .soc-composer textarea {
   width: 100%;
   padding: 9px 11px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
   color: var(--text-primary);
   font-size: 13px;
   font-family: inherit;
@@ -1303,7 +1428,7 @@
 #social-view .soc-posts-table td {
   padding: 9px 11px;
   text-align: left;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--glass-border);
   font-size: 12px;
 }
 
@@ -1347,14 +1472,14 @@
 #social-view .soc-gallery-stat-pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 10px;
-  font-size: 11px;
+  gap: var(--sp-4);
+  padding: var(--sp-2) var(--sp-8);
+  font-size: var(--font-xs);
   font-weight: 500;
   color: var(--text-secondary);
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
 }
 
 /* ─── Gallery Filter Bar ──────────────────────────────────────────── */
@@ -1368,9 +1493,9 @@
 #social-view .soc-gallery-filter-bar input {
   flex: 1;
   padding: 7px 11px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
   color: var(--text-primary);
   font-size: 13px;
   outline: none;
@@ -1387,9 +1512,9 @@
 
 #social-view .soc-gallery-filter-bar select {
   padding: 7px 11px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
   color: var(--text-primary);
   font-size: 13px;
   cursor: pointer;
@@ -1401,10 +1526,10 @@
   font-size: 16px;
   line-height: 1;
   color: var(--text-muted);
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 5px 9px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
+  padding: var(--sp-4) var(--sp-8);
   cursor: pointer;
   transition: color 0.2s, border-color 0.2s;
 }
@@ -1419,22 +1544,14 @@
 #social-view .soc-gallery-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 10px;
+  gap: 12px;
+  padding: 4px;
 }
 
+/* Gallery item layout — visual properties handled by overhaul layer */
 #social-view .soc-gallery-item {
   position: relative;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
   cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-#social-view .soc-gallery-item:hover {
-  border-color: var(--accent);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
 }
 
 #social-view .soc-gallery-item-content {
@@ -1453,7 +1570,7 @@
 
 #social-view .soc-gallery-item-footer {
   padding: 7px 10px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--glass-border);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1475,11 +1592,11 @@
 
 /* ─── Gallery Select Mode ─────────────────────────────────────────── */
 #social-view .soc-gallery-select-btn {
-  font-size: 12px;
-  padding: 5px 12px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  padding: var(--sp-4) var(--sp-12);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
   color: var(--text-secondary);
   cursor: pointer;
   transition: background 0.2s, border-color 0.2s, color 0.2s;
@@ -1490,12 +1607,12 @@
 #social-view .soc-gallery-select-toolbar {
   display: none;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  padding: 8px 12px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  gap: var(--sp-8);
+  margin-bottom: var(--sp-8);
+  padding: var(--sp-8) var(--sp-12);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
   font-size: 12px;
   color: var(--text-secondary);
 }
@@ -1526,7 +1643,7 @@
   align-items: center;
   justify-content: center;
   background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   border-radius: 4px;
   cursor: pointer;
   color: var(--text-muted);
@@ -1552,8 +1669,8 @@
 
 #social-view .soc-lightbox-content {
   background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
   max-width: 600px;
   width: 100%;
   max-height: 80vh;
@@ -1575,7 +1692,7 @@
   transition: background 0.15s;
 }
 
-#social-view .soc-lightbox-close:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+#social-view .soc-lightbox-close:hover { background: var(--glass-hover); color: var(--text-primary); }
 #social-view .soc-lightbox-close svg  { width: 18px; height: 18px; }
 
 #social-view .soc-lightbox-body {
@@ -1588,7 +1705,7 @@
 #social-view .soc-lightbox-meta {
   margin-top: 14px;
   padding-top: 10px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--glass-border);
   font-size: 11px;
   color: var(--text-muted);
   display: flex;
@@ -1632,8 +1749,8 @@
 
 #social-view .soc-modal-panel {
   background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
   max-height: 85vh;
   overflow-y: auto;
   padding: 24px;
@@ -1680,12 +1797,12 @@
 #social-view .soc-account-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  margin-bottom: 7px;
+  gap: var(--sp-8);
+  padding: var(--sp-8) var(--sp-12);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--sp-8);
   transition: border-color 0.15s;
 }
 
@@ -1697,11 +1814,11 @@
 
 #social-view .soc-add-account-form,
 #social-view .soc-brand-form {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 14px;
-  margin-bottom: 20px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-16);
+  margin-bottom: var(--sp-16);
 }
 
 #social-view .soc-brand-form .soc-form-group input,
@@ -1709,26 +1826,17 @@
   background: var(--bg-primary);
 }
 
-/* ─── Empty State ──────────────────────────────────────────────────── */
-#social-view .soc-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 20px;
-  text-align: center;
-  color: var(--text-muted);
-}
-
-#social-view .soc-empty svg { margin-bottom: 10px; opacity: 0.4; }
-#social-view .soc-empty p  { font-size: 13px; }
-#social-view .soc-empty .hint { font-size: 11px; margin-top: 5px; opacity: 0.7; }
+/* ─── Empty State (base — overhaul handles visual) ───────────────── */
+#social-view .soc-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+#social-view .soc-empty svg { margin-bottom: var(--sp-8); opacity: 0.4; }
+#social-view .soc-empty p { font-size: var(--font-base); }
+#social-view .soc-empty .hint { font-size: var(--font-xs); margin-top: var(--sp-4); opacity: 0.7; }
 
 /* ─── Credential Groups ────────────────────────────────────────────── */
 #social-view .soc-cred-group {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--glass-border);
 }
 
 /* ─── Account Credential Status ────────────────────────────────────── */
@@ -1758,9 +1866,9 @@
 
 /* ─── Scraping Keys ────────────────────────────────────────────────── */
 #social-view .soc-scraping-keys {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
   overflow: hidden;
   margin-bottom: 20px;
 }
@@ -1770,7 +1878,7 @@
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--glass-border);
   flex-wrap: wrap;
 }
 
@@ -1807,9 +1915,9 @@
   flex: 1;
   min-width: 160px;
   padding: 6px 10px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
   color: var(--text-primary);
   font-size: 12px;
   outline: none;
@@ -1862,7 +1970,7 @@
 #social-view .soc-spinner {
   width: 36px;
   height: 36px;
-  border: 3px solid var(--border);
+  border: 3px solid var(--glass-strong);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: socSpin 0.8s linear infinite;
@@ -1897,12 +2005,12 @@
 }
 
 #social-view .soc-image-model-tag {
-  font-size: 11px;
+  font-size: var(--font-xs);
   color: var(--text-muted);
-  background: var(--bg-secondary);
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid var(--border);
+  background: var(--glass);
+  padding: var(--sp-2) var(--sp-8);
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--glass-border);
 }
 
 /* ─── Gallery Image Items ─────────────────────────────────────────── */
@@ -1918,28 +2026,8 @@
   opacity: 0.85;
 }
 
-/* ─── Discover Sub-Tabs ───────────────────────────────────────────── */
-#social-view .soc-discover-sub-tabs {
-  display: flex;
-  gap: 2px;
-  margin-bottom: 14px;
-  border-bottom: 1px solid var(--border);
-}
-
-#social-view .soc-discover-sub-tab {
-  padding: 7px 14px;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: color 0.2s, border-color 0.2s;
-}
-
-#social-view .soc-discover-sub-tab:hover { color: var(--text-secondary); }
-#social-view .soc-discover-sub-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+/* ─── Discover Sub-Tabs (base — overhaul handles visual) ──────────── */
+/* Overhaul layer controls display: inline-flex, background, radius etc. */
 
 #social-view .soc-discover-view { display: none; }
 #social-view .soc-discover-view.active { display: block; }
@@ -1947,8 +2035,8 @@
 /* ─── Content Type Filter ────────────────────────────────────────── */
 #social-view #soc-discover-type-filter {
   padding: 7px 11px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
   border-radius: 6px;
   color: var(--text-primary);
   font-size: 12px;
@@ -2012,9 +2100,9 @@
 
 #social-view .soc-saved-controls select {
   padding: 7px 11px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
   color: var(--text-primary);
   font-size: 13px;
   cursor: pointer;
@@ -2030,10 +2118,10 @@
 }
 
 #social-view .soc-trend-card {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 12px 14px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-12) var(--sp-16);
   cursor: pointer;
   transition: border-color 0.2s;
 }
@@ -2091,11 +2179,11 @@
 }
 
 #social-view .soc-trend-keyword {
-  font-size: 11px;
-  padding: 2px 8px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  font-size: var(--font-xs);
+  padding: var(--sp-2) var(--sp-8);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
   color: var(--text-secondary);
 }
 
@@ -2108,7 +2196,7 @@
 
 #social-view .soc-trend-card__samples {
   margin-top: 10px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--glass-border);
   padding-top: 8px;
 }
 
@@ -2119,26 +2207,19 @@
 }
 
 #social-view .soc-trend-sample-item {
-  font-size: 12px;
+  font-size: var(--font-sm);
   color: var(--text-secondary);
-  padding: 6px 8px;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-sm);
+  padding: var(--sp-4) var(--sp-8);
+  background: var(--glass);
+  border-radius: var(--radius-md);
   line-height: 1.4;
 }
 
 /* ─── Rich Content Cards (Discover + Saved) ──────────────────────── */
+/* Content card internals — compact layout, no internal borders */
 #social-view .soc-content-card {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-#social-view .soc-content-card:hover {
-  border-color: var(--accent);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  overflow: visible;
+  padding: var(--sp-16);
 }
 
 #social-view .soc-content-card--clickable {
@@ -2149,9 +2230,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
-  background: var(--bg-tertiary);
-  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--sp-8);
+  background: none;
+  padding: 0;
+  border-bottom: none;
 }
 
 /* ── Score badge wrap (badge + tier + tooltip) ── */
@@ -2242,17 +2324,15 @@
   font-weight: 500;
 }
 
-#social-view .soc-content-card__body {
-  padding: 12px;
-}
+/* content-card__body — overhaul layer handles padding */
 
 #social-view .soc-content-card__title {
-  font-size: 13px;
+  font-size: var(--font-base);
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 6px;
+  margin-bottom: var(--sp-4);
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   line-height: 1.45;
@@ -2273,20 +2353,17 @@
   font-weight: 500;
 }
 
-/* ─── 4-Column Stats Grid ────────────────────────────────────────── */
+/* ─── Stats — inline row, no border ───────────────────────────────── */
 #social-view .soc-content-card__stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  padding: 8px 0 4px;
-  border-top: 1px solid var(--border);
+  display: flex;
+  gap: var(--sp-12);
+  padding: var(--sp-8) 0 0;
 }
 
 #social-view .soc-stat-cell {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 1px;
+  gap: var(--sp-4);
 }
 
 #social-view .soc-stat-value {
@@ -2309,9 +2386,9 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  padding: 8px 12px;
-  border-top: 1px solid var(--border);
-  gap: 8px;
+  padding-top: var(--sp-8);
+  margin-top: var(--sp-8);
+  gap: var(--sp-8);
 }
 
 #social-view .soc-content-card__footer .soc-content-card__time {
@@ -2345,7 +2422,7 @@
 
 #social-view .soc-card-create-form {
   padding: 10px 12px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--glass-border);
   background: rgba(var(--accent-rgb, 99, 102, 241), 0.04);
 }
 
@@ -2451,7 +2528,7 @@
   font-weight: 600;
   color: var(--text-secondary);
   padding-bottom: 4px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--glass-border);
 }
 
 #social-view .soc-calendar-grid {
@@ -2468,7 +2545,7 @@
   position: relative;
   min-height: 72px;
   padding: 4px 6px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   border-radius: 4px;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
@@ -2476,7 +2553,7 @@
 }
 
 #social-view .soc-calendar-cell:hover {
-  background: var(--bg-tertiary);
+  background: var(--glass);
 }
 
 #social-view .soc-calendar-cell-empty {
@@ -2595,7 +2672,7 @@
 }
 
 #social-view .soc-calendar-chip:hover {
-  background: var(--bg-tertiary);
+  background: var(--glass);
 }
 
 /* Platform color left borders */
@@ -2700,7 +2777,7 @@
 #social-view .soc-calendar-sidebar.open {
   width: 260px;
   padding: 8px 12px;
-  border-left: 1px solid var(--border);
+  border-left: 1px solid var(--glass-border);
   opacity: 1;
 }
 
@@ -2709,7 +2786,7 @@
   justify-content: space-between;
   align-items: center;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--glass-border);
   margin-bottom: 8px;
 }
 
@@ -2731,7 +2808,7 @@
 }
 
 #social-view .soc-calendar-sidebar-close:hover {
-  background: var(--bg-tertiary);
+  background: var(--glass);
   color: var(--text-primary);
 }
 
@@ -2743,7 +2820,7 @@
 
 #social-view .soc-calendar-sidebar-posts::-webkit-scrollbar { width: 4px; }
 #social-view .soc-calendar-sidebar-posts::-webkit-scrollbar-track { background: transparent; }
-#social-view .soc-calendar-sidebar-posts::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+#social-view .soc-calendar-sidebar-posts::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 2px; }
 
 #social-view .soc-calendar-empty {
   color: var(--text-muted);
@@ -2757,7 +2834,7 @@
   padding: 8px;
   margin-bottom: 6px;
   background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   border-radius: 6px;
   transition: border-color 0.15s;
 }
@@ -2800,16 +2877,16 @@
 #social-view .soc-calendar-reschedule-picker {
   margin-top: 6px;
   padding: 6px;
-  background: var(--bg-tertiary);
+  background: var(--glass);
   border-radius: 6px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
 }
 
 #social-view .soc-calendar-reschedule-picker input[type="datetime-local"] {
   width: 100%;
   padding: 4px 6px;
   font-size: 0.8em;
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   border-radius: 4px;
   background: var(--bg-primary);
   color: var(--text-primary);
@@ -2825,9 +2902,9 @@
 #social-view .soc-calendar-quick-form {
   padding: 10px;
   margin-bottom: 10px;
-  background: var(--bg-tertiary);
+  background: var(--glass);
   border-radius: 8px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   animation: socCalSlideDown 0.2s ease;
 }
 
@@ -2852,7 +2929,7 @@
   width: 100%;
   padding: 6px 8px;
   font-size: 0.82em;
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   border-radius: 4px;
   background: var(--bg-primary);
   color: var(--text-primary);
@@ -2989,7 +3066,7 @@
 
 #social-view .soc-week-day-posts::-webkit-scrollbar { width: 3px; }
 #social-view .soc-week-day-posts::-webkit-scrollbar-track { background: transparent; }
-#social-view .soc-week-day-posts::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+#social-view .soc-week-day-posts::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 2px; }
 
 #social-view .soc-week-empty {
   font-size: 0.7rem;
@@ -3043,8 +3120,8 @@
 
 #social-view .soc-quick-post {
   margin-bottom: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
   background: var(--bg-secondary);
   overflow: hidden;
 }
@@ -3083,9 +3160,9 @@
 #social-view .soc-quick-post-body textarea {
   width: 100%;
   padding: 9px 11px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 6px);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xs);
   color: var(--text-primary);
   font-size: 13px;
   font-family: inherit;
@@ -3117,7 +3194,7 @@
 
 #social-view .soc-calendar-agenda-view::-webkit-scrollbar { width: 4px; }
 #social-view .soc-calendar-agenda-view::-webkit-scrollbar-track { background: transparent; }
-#social-view .soc-calendar-agenda-view::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+#social-view .soc-calendar-agenda-view::-webkit-scrollbar-thumb { background: var(--glass-border); border-radius: 2px; }
 
 #social-view .soc-agenda-empty {
   text-align: center;
@@ -3299,102 +3376,13 @@
 #social-view .soc-mt-12 { margin-top: 12px; }
 #social-view .soc-mb-12 { margin-bottom: 12px; }
 
-/* ─── Preview Tab ─────────────────────────────────────────────────── */
-
-#social-view .soc-preview-source {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-#social-view .soc-preview-or {
-  text-align: center;
-  font-size: 11px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-#social-view .soc-preview-meta-row {
-  display: flex;
-  gap: 8px;
-}
-
-#social-view .soc-preview-meta-row .soc-input-sm {
-  flex: 1;
-  padding: 6px 10px;
-  font-size: 12px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-primary);
-}
-
-#social-view .soc-preview-comparison-header {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  padding: 8px 12px;
-  margin-bottom: 8px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  border-left: 3px solid var(--accent);
-}
-
-#social-view .soc-preview-strip {
-  display: flex;
-  gap: 20px;
-  overflow-x: auto;
-  padding: 12px 4px 20px;
-  scroll-snap-type: x mandatory;
-  scroll-padding-left: 4px;
-  -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
-}
-
-#social-view .soc-preview-strip::-webkit-scrollbar {
-  height: 6px;
-}
-
-#social-view .soc-preview-strip::-webkit-scrollbar-track {
-  background: var(--bg-tertiary);
-  border-radius: 3px;
-}
-
-#social-view .soc-preview-strip::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
-
-#social-view .soc-preview-strip::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
-}
-
-#social-view .soc-preview-mockup {
-  flex: 0 0 auto;
-  scroll-snap-align: start;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-#social-view .soc-preview-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
 /* Base mockup frame */
 #social-view .soc-mockup {
   position: relative;
   border-radius: 12px;
   overflow: hidden;
   background: #000;
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -4188,7 +4176,7 @@
 .soc-schedule-preset-btn {
   padding: 5px 12px;
   font-size: 12px;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-xs);
   border: 1px solid var(--border, #333);
   background: transparent;
   color: var(--text-secondary, #999);
@@ -4630,7 +4618,7 @@
   padding: 3px 10px;
   font-size: 11px;
   border-radius: 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   background: var(--bg-secondary);
   color: var(--text-secondary);
   cursor: pointer;
@@ -4773,14 +4761,14 @@
 }
 .soc-session-picker__search {
   padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--glass-border);
 }
 .soc-session-picker__search input {
   width: 100%;
   padding: 8px 12px;
   font-size: 13px;
   border-radius: 6px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   background: var(--bg-primary);
   color: var(--text-primary);
   outline: none;
@@ -4809,7 +4797,7 @@
   cursor: pointer;
   transition: background 0.1s;
 }
-.soc-session-row:hover { background: var(--bg-tertiary); }
+.soc-session-row:hover { background: var(--glass); }
 .soc-session-row.active {
   background: rgba(var(--accent-rgb, 99, 102, 241), 0.1);
   border-left: 3px solid var(--accent);
@@ -4827,7 +4815,7 @@
   right: 16px;
   padding: 8px 14px;
   background: var(--bg-secondary);
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-border);
   border-radius: 8px;
   font-size: 12px;
   color: var(--text-muted);

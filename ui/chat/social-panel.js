@@ -533,7 +533,6 @@ var _socBubbleActionMap = {
   'content-browse': ['Find trending content', 'Search ideas for my niche'],
   'create': ['Rewrite this draft', 'Add hashtags', 'Make it shorter'],
   'calendar': ['Schedule all drafts', 'Best posting times'],
-  'preview': ['Compare all platforms']
 };
 
 function _socBubbleUpdateActions() {
@@ -949,106 +948,6 @@ function _socInitScheduleModal() {
   if (confirmBtn) confirmBtn.addEventListener('click', _socScheduleModalConfirm);
 }
 
-function _socShowRepurposePreview(root, item) {
-  var previewEl = root.querySelector('#soc-repurpose-preview');
-  if (!previewEl) return;
-
-  var platformEl = root.querySelector('#soc-repurpose-preview-platform');
-  var typeEl = root.querySelector('#soc-repurpose-preview-type');
-  var titleEl = root.querySelector('#soc-repurpose-preview-title');
-  var statsEl = root.querySelector('#soc-repurpose-preview-stats');
-  var creatorEl = root.querySelector('#soc-repurpose-preview-creator');
-  var tagsEl = root.querySelector('#soc-repurpose-preview-tags');
-  var bodyEl = root.querySelector('#soc-repurpose-preview-body');
-
-  if (platformEl) {
-    platformEl.textContent = (item.platform || 'unknown').toUpperCase();
-    platformEl.className = 'soc-repurpose-preview-card__platform platform--' + (item.platform || 'unknown');
-  }
-  if (typeEl) typeEl.textContent = item.content_type || '';
-  if (titleEl) titleEl.textContent = item.title || '(Untitled)';
-  if (statsEl) {
-    var parts = [];
-    if (item.views) parts.push(_socFormatNumber(item.views) + ' views');
-    if (item.likes) parts.push(_socFormatNumber(item.likes) + ' likes');
-    if (item.shares) parts.push(_socFormatNumber(item.shares) + ' shares');
-    if (item.comments) parts.push(_socFormatNumber(item.comments) + ' comments');
-    statsEl.textContent = parts.length ? parts.join(' · ') : '';
-    statsEl.style.display = parts.length ? '' : 'none';
-  }
-  if (creatorEl) {
-    creatorEl.textContent = item.source_author ? 'by @' + item.source_author : '';
-    creatorEl.style.display = item.source_author ? '' : 'none';
-  }
-  if (tagsEl) {
-    var tagList = item.hashtags || item.tags || '';
-    if (typeof tagList === 'string' && tagList) {
-      tagsEl.innerHTML = tagList.split(/[,\s]+/).filter(Boolean).slice(0, 8).map(function (t) {
-        return '<span class="soc-repurpose-tag">' + _socEscapeHtml(t.startsWith('#') ? t : '#' + t) + '</span>';
-      }).join('');
-      tagsEl.style.display = '';
-    } else {
-      tagsEl.style.display = 'none';
-    }
-  }
-  if (bodyEl) {
-    var text = item.transcript || item.body || '';
-    bodyEl.textContent = text.substring(0, 400) + (text.length > 400 ? '…' : '');
-    bodyEl.style.display = text ? '' : 'none';
-  }
-  previewEl.style.display = 'block';
-}
-
-// ─── Drafts Repurpose Context ─────────────────────────────────────────────
-
-function _socShowDraftsRepurposeCtx(item) {
-  var root = document.getElementById('social-view');
-  if (!root) return;
-
-  var ctxEl = root.querySelector('#soc-drafts-repurpose-ctx');
-  if (!ctxEl) return;
-
-  // Store source id
-  ctxEl.setAttribute('data-source-id', item.id);
-  ctxEl.classList.remove('collapsed');
-  ctxEl.style.display = '';
-
-  // Title in header
-  var titleEl = root.querySelector('#soc-drafts-repurpose-ctx-title');
-  if (titleEl) titleEl.textContent = item.title || item.source_url || '(Untitled)';
-
-  // Platform badge
-  var platEl = root.querySelector('#soc-drafts-repurpose-platform');
-  if (platEl) {
-    platEl.textContent = (item.platform || 'unknown').toUpperCase();
-    platEl.className = 'soc-drafts-repurpose-ctx__platform platform--' + (item.platform || 'unknown');
-  }
-
-  // Stats
-  var statsEl = root.querySelector('#soc-drafts-repurpose-stats');
-  if (statsEl) {
-    var parts = [];
-    if (item.views) parts.push(_socFormatNumber(item.views) + ' views');
-    if (item.likes) parts.push(_socFormatNumber(item.likes) + ' likes');
-    if (item.shares) parts.push(_socFormatNumber(item.shares) + ' shares');
-    if (item.comments) parts.push(_socFormatNumber(item.comments) + ' comments');
-    statsEl.textContent = parts.length ? parts.join(' · ') : '';
-  }
-
-  // Body preview
-  var bodyEl = root.querySelector('#soc-drafts-repurpose-body');
-  if (bodyEl) {
-    var text = item.transcript || item.body || '';
-    bodyEl.textContent = text.substring(0, 300) + (text.length > 300 ? '…' : '');
-    bodyEl.style.display = text ? '' : 'none';
-  }
-
-  // Reset checkboxes
-  root.querySelectorAll('#soc-drafts-repurpose-platforms input[type="checkbox"]').forEach(function (cb) {
-    cb.checked = false;
-  });
-}
-
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 function _socEscapeHtml(text) {
@@ -1201,13 +1100,6 @@ function _socRenderContentCard(item, opts) {
         ' Save' +
       '</button>';
   }
-  if (opts.showRepurpose) {
-    actionsHtml +=
-      '<button class="soc-btn soc-btn-sm soc-btn-accent" onclick="event.stopPropagation(); socPanelActions.repurposeSaved(\'' + item.id + '\')" title="Repurpose this content">' +
-        '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 1l4 4l-4 4"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4l4-4"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>' +
-        ' Repurpose' +
-      '</button>';
-  }
   if (opts.showCreatePost) {
     actionsHtml +=
       '<button class="soc-btn soc-btn-sm soc-btn-accent" onclick="event.stopPropagation(); socPanelActions.createFromSaved(\'' + item.id + '\')" title="Create a post from this content">' +
@@ -1308,82 +1200,7 @@ function _socSkeletonCards(count) {
   return html;
 }
 
-// ─── Repurpose Draft Rendering ────────────────────────────────────────────
-
 var _socPlatformCharLimits = { x: 280, tiktok: 2200, instagram: 2200, linkedin: 3000, youtube: 5000 };
-
-function _socRenderRepurposeDrafts(root, data, platforms, sourceId, draftIds) {
-  var draftsEl = root.querySelector('#soc-repurpose-drafts');
-  if (!draftsEl) return;
-
-  // Parse output: try JSON first, then split by platform headers
-  var drafts = {};
-  var output = data.output || '';
-  try {
-    var parsed = JSON.parse(output);
-    if (parsed && typeof parsed === 'object') {
-      platforms.forEach(function (p) {
-        if (parsed[p]) drafts[p] = parsed[p];
-      });
-    }
-  } catch (_e) {
-    // Fallback: split by platform name headers
-    platforms.forEach(function (p) {
-      var regex = new RegExp('(?:^|\\n)#+\\s*' + p + '[:\\s]*\\n([\\s\\S]*?)(?=\\n#+\\s|$)', 'i');
-      var match = output.match(regex);
-      drafts[p] = match ? match[1].trim() : output;
-    });
-  }
-
-  var html = '';
-  platforms.forEach(function (p) {
-    var draft = drafts[p] || '';
-    var draftObj = typeof draft === 'object' ? draft : { copy: draft };
-    var copy = draftObj.copy || draftObj.text || (typeof draft === 'string' ? draft : '');
-    var hashtags = draftObj.hashtags || '';
-    var charLimit = _socPlatformCharLimits[p] || 5000;
-    var charCount = copy.length;
-
-    var draftId = (draftIds && draftIds[p]) || '';
-    html +=
-      '<div class="soc-draft-card" data-platform="' + p + '" data-draft-id="' + draftId + '">' +
-        '<div class="soc-draft-card__header" onclick="_socToggleDraftCard(this)">' +
-          '<span class="soc-draft-card__platform platform--' + p + '">' + _socEscapeHtml(p.toUpperCase()) + '</span>' +
-          '<span class="soc-draft-card__char-count ' + (charCount > charLimit ? 'over' : '') + '">' + charCount + '/' + charLimit + '</span>' +
-          '<svg class="soc-draft-card__chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"/></svg>' +
-        '</div>' +
-        '<div class="soc-draft-card__body">' +
-          '<textarea class="soc-draft-card__textarea" data-platform="' + p + '" data-limit="' + charLimit + '">' + _socEscapeHtml(copy) + '</textarea>' +
-          (hashtags ? '<div class="soc-draft-card__hashtags">' + _socEscapeHtml(typeof hashtags === 'string' ? hashtags : hashtags.join(' ')) + '</div>' : '') +
-          '<div class="soc-draft-card__actions">' +
-            '<button class="soc-btn soc-btn-sm soc-btn-primary" onclick="_socScheduleDraft(this, \'' + p + '\', \'' + sourceId + '\')">Schedule</button>' +
-            '<button class="soc-btn soc-btn-sm soc-btn-secondary" onclick="_socCopyDraft(this)">Copy</button>' +
-            '<button class="soc-btn soc-btn-sm soc-btn-secondary" onclick="_socRegenerateDraft(this, \'' + p + '\', \'' + sourceId + '\')">Regenerate</button>' +
-          '</div>' +
-          '<div class="soc-draft-card__schedule" style="display:none">' +
-            '<input type="datetime-local" class="soc-draft-card__datetime">' +
-            '<button class="soc-btn soc-btn-sm soc-btn-accent" onclick="_socConfirmScheduleDraft(this, \'' + p + '\', \'' + sourceId + '\')">Confirm Schedule</button>' +
-            '<button class="soc-btn soc-btn-sm soc-btn-secondary" onclick="this.parentElement.style.display=\'none\'">Cancel</button>' +
-          '</div>' +
-        '</div>' +
-      '</div>';
-  });
-
-  draftsEl.innerHTML = html;
-
-  // Attach char count listeners
-  draftsEl.querySelectorAll('.soc-draft-card__textarea').forEach(function (ta) {
-    ta.addEventListener('input', function () {
-      var card = ta.closest('.soc-draft-card');
-      var countEl = card && card.querySelector('.soc-draft-card__char-count');
-      var limit = parseInt(ta.dataset.limit, 10) || 5000;
-      if (countEl) {
-        countEl.textContent = ta.value.length + '/' + limit;
-        countEl.classList.toggle('over', ta.value.length > limit);
-      }
-    });
-  });
-}
 
 function _socToggleDraftCard(headerEl) {
   var card = headerEl.closest('.soc-draft-card');
@@ -1557,90 +1374,8 @@ function _socUpdateSavedBatchCount() {
   var root = document.getElementById('social-view');
   var countEl = root && root.querySelector('#soc-saved-batch-count');
   if (countEl) countEl.textContent = _socSavedSelectedIds.size + ' selected';
-  var repBtn = root && root.querySelector('#soc-saved-batch-repurpose');
-  if (repBtn) repBtn.disabled = _socSavedSelectedIds.size === 0;
-}
-
-function _socBatchRepurpose() {
-  var social = _socAPI();
-  if (!social || _socSavedSelectedIds.size === 0) return;
-
-  // Navigate to Create → Repurpose
-  var root = document.getElementById('social-view');
-  if (!root) return;
-
-  // Get checked platforms from the repurpose panel
-  root.querySelectorAll('.soc-tab-btn').forEach(function (b) { b.classList.remove('active'); });
-  root.querySelectorAll('.soc-tab-content').forEach(function (c) { c.classList.remove('active'); });
-  var createBtn = root.querySelector('.soc-tab-btn[data-tab="create"]');
-  if (createBtn) createBtn.classList.add('active');
-  var createTab = root.querySelector('#soc-tab-create');
-  if (createTab) createTab.classList.add('active');
-
-  root.querySelectorAll('.soc-sub-tab').forEach(function (b) { b.classList.remove('active'); });
-  root.querySelectorAll('.soc-create-panel').forEach(function (p) { p.classList.remove('active'); });
-  var repurposeSubBtn = root.querySelector('.soc-sub-tab[data-panel="repurpose"]');
-  if (repurposeSubBtn) repurposeSubBtn.classList.add('active');
-  var repurposePanel = root.querySelector('#soc-panel-repurpose');
-  if (repurposePanel) repurposePanel.classList.add('active');
-
-  var checks = root.querySelectorAll('#soc-repurpose-platforms input[type="checkbox"]:checked');
-  var targetPlatforms = [];
-  checks.forEach(function (cb) { targetPlatforms.push(cb.value); });
-  if (targetPlatforms.length === 0) {
-    _socShowToast('Check target platforms in the Repurpose panel first', 'error');
-    return;
-  }
-
-  var ids = Array.from(_socSavedSelectedIds);
-  var draftsEl = root.querySelector('#soc-repurpose-drafts');
-  if (!draftsEl) return;
-
-  var total = ids.length;
-  var done = 0;
-  draftsEl.innerHTML = '<div class="soc-batch-progress"><div class="soc-batch-progress__bar"><div class="soc-batch-progress__fill" id="soc-batch-fill"></div></div><span id="soc-batch-status">Processing 0/' + total + '…</span></div>';
-
-  function processNext() {
-    if (done >= total) {
-      _socShowToast('Batch repurpose complete! ' + total + ' items processed', 'success');
-      var statusEl = root.querySelector('#soc-batch-status');
-      if (statusEl) statusEl.textContent = 'Done! ' + total + '/' + total;
-      return;
-    }
-    var id = ids[done];
-    var item = _socSavedCache ? _socSavedCache.find(function (i) { return i.id === id; }) : null;
-    var statusEl = root.querySelector('#soc-batch-status');
-    if (statusEl) statusEl.textContent = 'Processing ' + (done + 1) + '/' + total + (item ? ' — ' + (item.title || '').substring(0, 30) : '') + '…';
-
-    social.generateContent({
-      content_type: 'repurpose',
-      source_content_id: id,
-      target_platforms: targetPlatforms,
-    }).then(function (result) {
-      done++;
-      var fillEl = root.querySelector('#soc-batch-fill');
-      if (fillEl) fillEl.style.width = Math.round((done / total) * 100) + '%';
-      if (result.success && result.data) {
-        // Append draft cards for this item
-        var wrapper = document.createElement('div');
-        wrapper.className = 'soc-batch-item-group';
-        wrapper.innerHTML = '<div class="soc-batch-item-label">' + _socEscapeHtml((item && item.title) || id) + '</div>';
-        draftsEl.appendChild(wrapper);
-        var tempRoot = document.createElement('div');
-        tempRoot.innerHTML = '<div id="soc-repurpose-drafts"></div>';
-        _socRenderRepurposeDrafts(tempRoot, result.data, targetPlatforms, id, result.draftIds);
-        var rendered = tempRoot.querySelector('#soc-repurpose-drafts');
-        if (rendered) wrapper.innerHTML += rendered.innerHTML;
-      }
-      processNext();
-    }).catch(function () {
-      done++;
-      var fillEl = root.querySelector('#soc-batch-fill');
-      if (fillEl) fillEl.style.width = Math.round((done / total) * 100) + '%';
-      processNext();
-    });
-  }
-  processNext();
+  var createBtn = root && root.querySelector('#soc-saved-batch-create');
+  if (createBtn) createBtn.disabled = _socSavedSelectedIds.size === 0;
 }
 
 // ─── Init ──────────────────────────────────────────────────────────────────
@@ -1662,7 +1397,6 @@ function _socInit() {
       // Lazy-load each tab's data
       if (target === 'content-browse') { _socLoadDiscovered(); _socMaybeAutoDetectTrends(); }
       if (target === 'calendar') showCalendarPanel();
-      if (target === 'preview')  _socInitPreviewTab();
       if (target === 'create') {
         var filterEl = root.querySelector('#soc-drafts-filter');
         if (filterEl) filterEl.value = _socDraftsFilterValue;
@@ -1796,8 +1530,6 @@ function _socInit() {
   if (savedBatchSelectAll) savedBatchSelectAll.addEventListener('click', _socSelectAllSaved);
   const savedBatchDeselect = root.querySelector('#soc-saved-batch-deselect');
   if (savedBatchDeselect) savedBatchDeselect.addEventListener('click', _socDeselectAllSaved);
-  const savedBatchRepurpose = root.querySelector('#soc-saved-batch-repurpose');
-  if (savedBatchRepurpose) savedBatchRepurpose.addEventListener('click', _socBatchRepurpose);
 
   // ── Drafts filter ──
   var draftsFilter = root.querySelector('#soc-drafts-filter');
@@ -1864,158 +1596,6 @@ function _socInit() {
     });
   }
 
-  // ── Repurpose ──
-  // Populate the source content dropdown
-  const repurposeSourceEl = root.querySelector('#soc-repurpose-source');
-  if (repurposeSourceEl) {
-    const social = _socAPI();
-    if (social) {
-      social.getDiscovered(50).then(function (items) {
-        items.forEach(function (item) {
-          var opt = document.createElement('option');
-          opt.value = item.id;
-          var label = (item.title || item.body || '').substring(0, 60);
-          if (!label) label = item.source_url || item.id;
-          var badge = (item.platform || '?').toUpperCase();
-          var tag = item.content_type ? ' · ' + item.content_type : '';
-          opt.textContent = '[' + badge + tag + '] ' + label;
-          repurposeSourceEl.appendChild(opt);
-        });
-      });
-    }
-    // Show preview when selection changes
-    repurposeSourceEl.addEventListener('change', function () {
-      var previewEl = root.querySelector('#soc-repurpose-preview');
-      var draftsEl = root.querySelector('#soc-repurpose-drafts');
-      if (!repurposeSourceEl.value) {
-        if (previewEl) previewEl.style.display = 'none';
-        if (draftsEl) draftsEl.innerHTML = '';
-        return;
-      }
-      var item = null;
-      if (_socSavedCache) item = _socSavedCache.find(function (i) { return i.id === repurposeSourceEl.value; });
-      if (!item && social) {
-        social.getDiscovered(200).then(function (all) {
-          item = all.find(function (i) { return i.id === repurposeSourceEl.value; });
-          if (item) _socShowRepurposePreview(root, item);
-        });
-      } else if (item) {
-        _socShowRepurposePreview(root, item);
-      }
-    });
-  }
-
-  const repurposeGenBtn = root.querySelector('#soc-repurpose-generate-btn');
-  if (repurposeGenBtn) {
-    repurposeGenBtn.addEventListener('click', () => {
-      const social = _socAPI();
-      if (!social) return;
-      const sourceEl = root.querySelector('#soc-repurpose-source');
-      const draftsEl = root.querySelector('#soc-repurpose-drafts');
-      if (!sourceEl || !sourceEl.value) { _socShowToast('Select source content', 'error'); return; }
-
-      var checks = root.querySelectorAll('#soc-repurpose-platforms input[type="checkbox"]:checked');
-      var targetPlatforms = [];
-      checks.forEach(function (cb) { targetPlatforms.push(cb.value); });
-      if (targetPlatforms.length === 0) { _socShowToast('Select at least one target platform', 'error'); return; }
-
-      // Show skeleton loading with shimmer
-      if (draftsEl) {
-        draftsEl.innerHTML = targetPlatforms.map(function (p) {
-          return '<div class="soc-draft-card soc-draft-card--loading soc-draft-card--generating">' +
-            '<div class="soc-draft-card__header"><span class="soc-draft-card__platform">' + _socEscapeHtml(p.toUpperCase()) + '</span></div>' +
-            '<div class="soc-skeleton" style="height:60px;border-radius:4px"></div>' +
-          '</div>';
-        }).join('');
-      }
-      repurposeGenBtn.disabled = true;
-
-      social.generateContent({
-        content_type: 'repurpose',
-        source_content_id: sourceEl.value,
-        target_platforms: targetPlatforms,
-      })
-        .then(result => {
-          if (result.success && result.data) {
-            _socRenderRepurposeDrafts(root, result.data, targetPlatforms, sourceEl.value, result.draftIds);
-            _socShowToast('Drafts generated!', 'success');
-          } else {
-            if (draftsEl) draftsEl.innerHTML = '<div class="soc-empty"><p>' + _socEscapeHtml(result.error || 'Generation failed') + '</p></div>';
-            _socShowToast('Generation failed', 'error');
-          }
-        })
-        .catch(err => {
-          console.error('[Social] Repurpose failed:', err);
-          if (draftsEl) draftsEl.innerHTML = '<div class="soc-empty"><p>Error generating drafts</p></div>';
-          _socShowToast('Repurpose error', 'error');
-        })
-        .finally(() => { repurposeGenBtn.disabled = false; });
-    });
-  }
-
-  // ── Drafts tab: repurpose context generate ──
-  const draftsRepurposeGenBtn = root.querySelector('#soc-drafts-repurpose-gen-btn');
-  if (draftsRepurposeGenBtn) {
-    draftsRepurposeGenBtn.addEventListener('click', () => {
-      const social = _socAPI();
-      if (!social) return;
-      const ctxEl = root.querySelector('#soc-drafts-repurpose-ctx');
-      const sourceId = ctxEl ? ctxEl.getAttribute('data-source-id') : null;
-      if (!sourceId) { _socShowToast('No source content selected', 'error'); return; }
-
-      var checks = root.querySelectorAll('#soc-drafts-repurpose-platforms input[type="checkbox"]:checked');
-      var targetPlatforms = [];
-      checks.forEach(function (cb) { targetPlatforms.push(cb.value); });
-      if (targetPlatforms.length === 0) { _socShowToast('Select at least one target platform', 'error'); return; }
-
-      draftsRepurposeGenBtn.disabled = true;
-      draftsRepurposeGenBtn.textContent = 'Generating…';
-
-      social.generateContent({
-        content_type: 'repurpose',
-        source_content_id: sourceId,
-        target_platforms: targetPlatforms,
-      })
-        .then(result => {
-          if (result.success) {
-            _socShowToast('Drafts generated!', 'success');
-            // Reload drafts list to show the new drafts
-            _socLoadDrafts();
-          } else {
-            _socShowToast(result.error || 'Generation failed', 'error');
-          }
-        })
-        .catch(err => {
-          console.error('[Social] Drafts repurpose failed:', err);
-          _socShowToast('Repurpose error', 'error');
-        })
-        .finally(() => {
-          draftsRepurposeGenBtn.disabled = false;
-          draftsRepurposeGenBtn.textContent = 'Generate Drafts';
-        });
-    });
-  }
-
-  // ── Drafts tab: "Preview All" — navigate to Preview tab with source pre-selected ──
-  const previewAllBtn = root.querySelector('#soc-drafts-repurpose-preview-all-btn');
-  if (previewAllBtn) {
-    previewAllBtn.addEventListener('click', () => {
-      const ctxEl = root.querySelector('#soc-drafts-repurpose-ctx');
-      const sourceId = ctxEl ? ctxEl.getAttribute('data-source-id') : null;
-      if (!sourceId) { _socShowToast('No source content selected', 'error'); return; }
-
-      // Switch to Preview tab
-      root.querySelectorAll('.soc-tab-btn').forEach(b => b.classList.remove('active'));
-      root.querySelectorAll('.soc-tab-content').forEach(c => c.classList.remove('active'));
-      var previewBtn = root.querySelector('.soc-tab-btn[data-tab="preview"]');
-      var previewTab = root.querySelector('#soc-tab-preview');
-      if (previewBtn) previewBtn.classList.add('active');
-      if (previewTab) previewTab.classList.add('active');
-
-      // Initialize preview tab with source pre-selected
-      _socInitPreviewTab(sourceId);
-    });
-  }
 
   // ── Image generate (Kie.ai) ──
   const imageGenBtn = root.querySelector('#soc-image-gen-btn');
@@ -2523,7 +2103,16 @@ function _socInit() {
   if (discoverTypeFilter) {
     discoverTypeFilter.addEventListener('change', () => {
       _socDiscoverTypeFilter = discoverTypeFilter.value;
-      // Re-render from cache
+      if (_socDiscoverCache) {
+        _socRenderDiscoverResults(_socDiscoverCache);
+      }
+    });
+  }
+
+  // ── Platform filter (also filters displayed results, not just search) ──
+  const discoverPlatformFilter = root.querySelector('#soc-discover-platform');
+  if (discoverPlatformFilter) {
+    discoverPlatformFilter.addEventListener('change', () => {
       if (_socDiscoverCache) {
         _socRenderDiscoverResults(_socDiscoverCache);
       }
@@ -2768,21 +2357,36 @@ function _socFilterDiscoverByType(items) {
   });
 }
 
+function _socFilterDiscoverByPlatform(items) {
+  var root = document.getElementById('social-view');
+  var platformEl = root && root.querySelector('#soc-discover-platform');
+  var plat = platformEl ? platformEl.value : '';
+  if (!plat) return items;
+  return (items || []).filter(function (item) {
+    return (item.platform || '').toLowerCase() === plat.toLowerCase();
+  });
+}
+
+var _socDiscoverPageSize = 12;
+var _socDiscoverShown = 12;
+
 function _socRenderDiscoverResults(items) {
   const root    = document.getElementById('social-view');
   const results = root && root.querySelector('#soc-discover-results');
   if (!results) return;
 
+  // Reset page count on new results
+  _socDiscoverShown = _socDiscoverPageSize;
+
   // Compute and render distribution from full (unfiltered) set
   _socRenderDistribution(items);
 
-  // Apply content type filter
-  var filtered = _socFilterDiscoverByType(items);
+  // Apply platform + content type filters
+  var filtered = _socFilterDiscoverByPlatform(_socFilterDiscoverByType(items));
 
   if (!items || items.length === 0) {
     results.innerHTML =
       '<div class="soc-empty">' +
-      '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m17 17l4 4m-2-10a8 8 0 1 0-16 0a8 8 0 0 0 16 0"/></svg>' +
       '<p>No content discovered yet</p>' +
       '<p class="hint">Search for content or let your agent discover trending posts</p>' +
       '</div>';
@@ -2810,12 +2414,35 @@ function _socRenderDiscoverResults(items) {
     return;
   }
 
-  let html = hintHtml + '<div class="soc-card-grid">';
-  filtered.forEach(function (item) {
+  _socRenderDiscoverPage(results, filtered, isSearch, hintHtml);
+}
+
+function _socRenderDiscoverPage(results, filtered, isSearch, hintHtml) {
+  var visible = filtered.slice(0, _socDiscoverShown);
+  var remaining = filtered.length - visible.length;
+
+  var html = hintHtml + '<div class="soc-card-grid">';
+  visible.forEach(function (item) {
     html += _socRenderContentCard(item, { showSave: isSearch });
   });
   html += '</div>';
+
+  if (remaining > 0) {
+    html += '<div style="text-align:center;padding:var(--sp-16,16px) 0">' +
+      '<button class="soc-btn soc-btn-secondary" id="soc-discover-load-more">' +
+      'Show more (' + remaining + ' remaining)</button></div>';
+  }
+
   results.innerHTML = html;
+
+  // Wire up load-more button
+  var loadMoreBtn = results.querySelector('#soc-discover-load-more');
+  if (loadMoreBtn) {
+    loadMoreBtn.addEventListener('click', function () {
+      _socDiscoverShown += _socDiscoverPageSize;
+      _socRenderDiscoverPage(results, filtered, isSearch, hintHtml);
+    });
+  }
 }
 
 // ─── Saved Content (Discover → Saved sub-tab) ─────────────────────────────
@@ -2892,18 +2519,33 @@ function _socRenderSavedResults() {
   // Load drafts to check which saved items have existing drafts
   var social = _socAPI();
   var draftSourceIds = new Set();
+  var _socSavedShown = _socDiscoverPageSize;
   var renderCards = function () {
+    var visible = sorted.slice(0, _socSavedShown);
+    var remaining = sorted.length - visible.length;
     var html2 = '<div class="soc-card-grid">';
-    sorted.forEach(function (item) {
+    visible.forEach(function (item) {
       html2 += _socRenderContentCard(item, {
         showDelete: true,
-        showRepurpose: true,
         showCreatePost: true,
         showViewDrafts: draftSourceIds.has(item.id),
       });
     });
     html2 += '</div>';
+    if (remaining > 0) {
+      html2 += '<div style="text-align:center;padding:16px 0">' +
+        '<button class="soc-btn soc-btn-secondary" id="soc-saved-load-more">' +
+        'Show more (' + remaining + ' remaining)</button></div>';
+    }
     results.innerHTML = html2;
+
+    var loadMoreBtn = results.querySelector('#soc-saved-load-more');
+    if (loadMoreBtn) {
+      loadMoreBtn.addEventListener('click', function () {
+        _socSavedShown += _socDiscoverPageSize;
+        renderCards();
+      });
+    }
 
     // Apply select mode state if active
     if (_socSavedSelectMode) {
@@ -3207,17 +2849,22 @@ function _socRenderSavedPickerItems(listEl, items) {
     '</div>';
   }).join('');
 
-  // Wire click → repurpose flow
+  // Wire click → pre-fill generate form with saved content as source
   listEl.querySelectorAll('.soc-saved-picker-item').forEach(function (el) {
     el.addEventListener('click', function () {
       var id = el.dataset.id;
       var item = _socSavedCache && _socSavedCache.find(function (i) { return i.id === id; });
       if (!item) return;
-      // Hide picker, show repurpose context
       var picker = document.getElementById('soc-create-saved-picker');
       if (picker) picker.style.display = 'none';
-      _socShowDraftsRepurposeCtx(item);
-      _socShowToast('Content loaded — select target platforms and generate', 'success');
+      // Pre-fill the generate textarea with source content
+      var root = document.getElementById('social-view');
+      var genPrompt = root && root.querySelector('#soc-gen-prompt');
+      if (genPrompt) {
+        var text = item.transcript || item.body || item.title || '';
+        genPrompt.value = text.substring(0, 2000);
+      }
+      _socShowToast('Content loaded into generator', 'success');
     });
   });
 }
@@ -3267,7 +2914,30 @@ function _socRenderDraftsList(drafts) {
     return;
   }
 
-  listEl.innerHTML = drafts.map(function (draft) {
+  // Sort: scheduled first (by scheduled_at), then drafts (by created_at desc)
+  var scheduled = drafts.filter(function (d) { return d.status === 'scheduled'; });
+  var draftItems = drafts.filter(function (d) { return d.status !== 'scheduled'; });
+  scheduled.sort(function (a, b) {
+    return new Date(a.scheduled_at || 0).getTime() - new Date(b.scheduled_at || 0).getTime();
+  });
+  draftItems.sort(function (a, b) {
+    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+  });
+
+  var html = '';
+  if (scheduled.length > 0) {
+    html += '<div class="soc-section-title" style="margin-bottom:8px;font-size:var(--font-sm,12px);color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em">Scheduled (' + scheduled.length + ')</div>';
+  }
+  var sortedAll = scheduled.concat(draftItems);
+  var showedDraftHeader = false;
+
+  listEl.innerHTML = sortedAll.map(function (draft, idx) {
+    var groupHtml = '';
+    if (!showedDraftHeader && draft.status !== 'scheduled' && scheduled.length > 0) {
+      showedDraftHeader = true;
+      groupHtml = '<div class="soc-section-title" style="margin:16px 0 8px;font-size:var(--font-sm,12px);color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em">Drafts (' + draftItems.length + ')</div>';
+    }
+
     var p = draft.platform || 'unknown';
     var charLimit = _socPlatformCharLimits[p] || 5000;
     var content = draft.content || '';
@@ -3317,7 +2987,7 @@ function _socRenderDraftsList(drafts) {
         '</div>';
     }
 
-    return '<div class="soc-draft-card" data-draft-id="' + draft.id + '" data-platform="' + p + '">' +
+    return groupHtml + '<div class="soc-draft-card collapsed" data-draft-id="' + draft.id + '" data-platform="' + p + '">' +
       '<div class="soc-draft-card__header" onclick="_socToggleDraftCard(this)">' +
         '<span class="soc-draft-card__platform platform--' + p + '">' + _socEscapeHtml(p.toUpperCase()) + '</span>' +
         '<span style="flex:1;font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + headerPreview + '</span>' +
@@ -3457,7 +3127,6 @@ function _socRenderDraftsList(drafts) {
       previewEl.innerHTML =
         '<div style="display:flex;flex-direction:column;align-items:center">' +
           '<div class="' + mockupClass + '" id="soc-draft-mockup-' + draftId + '"></div>' +
-          '<button class="soc-btn soc-btn-sm soc-btn-secondary soc-draft-open-full-preview" data-draft-id="' + draftId + '" style="margin-top:12px">Open Full Preview \u2192</button>' +
         '</div>';
 
       // Render mockup using existing renderer
@@ -3468,17 +3137,6 @@ function _socRenderDraftsList(drafts) {
         else if (platform === 'twitter') _socRenderTWMockup(mockupEl, mockupData);
         else if (platform === 'facebook') _socRenderFBMockup(mockupEl, mockupData);
         else if (platform === 'linkedin') _socRenderLIMockup(mockupEl, mockupData);
-      }
-
-      // Wire "Open Full Preview" to switch to preview tab
-      var fullBtn = previewEl.querySelector('.soc-draft-open-full-preview');
-      if (fullBtn) {
-        fullBtn.addEventListener('click', function () {
-          var root = document.getElementById('social-view');
-          if (!root) return;
-          var previewTabBtn = root.querySelector('.soc-tab-btn[data-tab="preview"]');
-          if (previewTabBtn) previewTabBtn.click();
-        });
       }
 
       previewEl.style.display = 'block';
@@ -5106,41 +4764,6 @@ window.socPanelActions = {
     }
   },
 
-  repurposeSaved(id) {
-    // Find the saved item from cache
-    var item = null;
-    if (_socSavedCache) {
-      item = _socSavedCache.find(function (i) { return i.id === id; });
-    }
-    if (!item) return;
-
-    // Navigate to Create tab (repurpose context lives there now)
-    navigateToSocialTab('create');
-
-    // Populate and show the repurpose context card
-    _socShowDraftsRepurposeCtx(item);
-
-    _socShowToast('Content loaded — select target platforms and generate', 'success');
-  },
-
-  toggleRepurposeCtx() {
-    var ctxEl = document.querySelector('#soc-drafts-repurpose-ctx');
-    if (ctxEl) ctxEl.classList.toggle('collapsed');
-  },
-
-  dismissRepurposeCtx() {
-    var ctxEl = document.querySelector('#soc-drafts-repurpose-ctx');
-    if (ctxEl) {
-      ctxEl.style.display = 'none';
-      ctxEl.removeAttribute('data-source-id');
-    }
-    // OW3: Clear pre-filled platform checkboxes
-    var platContainer = document.querySelector('#soc-drafts-repurpose-platforms');
-    if (platContainer) {
-      platContainer.querySelectorAll('input[type="checkbox"]').forEach(function(cb) { cb.checked = false; });
-    }
-  },
-
   deletePost(id) {
     var social = _socAPI();
     if (!social || !confirm('Delete this post?')) return;
@@ -5751,236 +5374,4 @@ function _socRenderLIMockup(el, data) {
     '</div>';
 }
 
-// Platform key to mockup suffix mapping
-var _socPlatformMockupMap = {
-  instagram: 'ig', tiktok: 'tt', twitter: 'tw', x: 'tw', facebook: 'fb', linkedin: 'li'
-};
-
-// Master render — updates all 5 mockups from current input fields or repurposed set
-function _socRenderAllPreviews(setPosts) {
-  var root = document.getElementById('social-view');
-  if (!root) return;
-
-  var strip = root.querySelector('#soc-preview-strip');
-  var header = root.querySelector('#soc-preview-comparison-header');
-  var allMockups = root.querySelectorAll('.soc-preview-mockup');
-
-  // If rendering a repurposed set, show only relevant platforms with per-platform content
-  if (setPosts && setPosts.length) {
-    var activePlatforms = new Set();
-    var sourceTitle = (setPosts[0].content || '').slice(0, 60) || 'Untitled';
-
-    // Show comparison header
-    if (header) {
-      header.textContent = 'Comparing ' + setPosts.length + ' platform' + (setPosts.length > 1 ? 's' : '') + ' for: ' + sourceTitle;
-      header.style.display = 'block';
-    }
-
-    // Hide all mockups first, then show + render relevant ones
-    allMockups.forEach(function(m) { m.style.display = 'none'; });
-
-    setPosts.forEach(function(post) {
-      var suffix = _socPlatformMockupMap[post.platform] || post.platform;
-      activePlatforms.add(suffix);
-      var mockupEl = root.querySelector('#soc-mockup-' + suffix);
-      var wrapperEl = root.querySelector('.soc-preview-mockup[data-platform="' + (post.platform === 'x' ? 'twitter' : post.platform) + '"]');
-      if (wrapperEl) wrapperEl.style.display = '';
-
-      var data = {
-        caption: post.content || '',
-        username: post.author || 'youraccount',
-        imageUrl: null,
-        likes: 1234, comments: 89, shares: 45
-      };
-      // Try to extract image from post metadata
-      if (post.media_urls) {
-        try {
-          var urls = JSON.parse(post.media_urls);
-          if (Array.isArray(urls) && urls.length) data.imageUrl = urls[0];
-        } catch(e) { data.imageUrl = post.media_urls; }
-      }
-
-      if (mockupEl && suffix === 'ig') _socRenderIGMockup(mockupEl, data);
-      if (mockupEl && suffix === 'tt') _socRenderTTMockup(mockupEl, data);
-      if (mockupEl && suffix === 'tw') _socRenderTWMockup(mockupEl, data);
-      if (mockupEl && suffix === 'fb') _socRenderFBMockup(mockupEl, data);
-      if (mockupEl && suffix === 'li') _socRenderLIMockup(mockupEl, data);
-    });
-    return;
-  }
-
-  // Default: show all mockups with shared input fields
-  allMockups.forEach(function(m) { m.style.display = ''; });
-  if (header) header.style.display = 'none';
-
-  var caption = (root.querySelector('#soc-preview-caption') || {}).value || '';
-  var username = (root.querySelector('#soc-preview-username') || {}).value || 'youraccount';
-  var imageUrl = (root.querySelector('#soc-preview-image-url') || {}).value || '';
-
-  var data = { caption: caption, username: username, imageUrl: imageUrl || null, likes: 1234, comments: 89, shares: 45 };
-
-  var igEl = root.querySelector('#soc-mockup-ig');
-  var ttEl = root.querySelector('#soc-mockup-tt');
-  var twEl = root.querySelector('#soc-mockup-tw');
-  var fbEl = root.querySelector('#soc-mockup-fb');
-  var liEl = root.querySelector('#soc-mockup-li');
-
-  if (igEl) _socRenderIGMockup(igEl, data);
-  if (ttEl) _socRenderTTMockup(ttEl, data);
-  if (twEl) _socRenderTWMockup(twEl, data);
-  if (fbEl) _socRenderFBMockup(fbEl, data);
-  if (liEl) _socRenderLIMockup(liEl, data);
-}
-
-// Load posts into the source selector dropdown, grouped by source_content_id for repurposed sets
-function _socPreviewLoadSources(preselectSourceId) {
-  var select = document.querySelector('#soc-preview-source-select');
-  if (!select) return;
-  var social = _socAPI();
-
-  // Load from scheduled/draft posts
-  Promise.all([
-    social && social.listPosts ? social.listPosts() : Promise.resolve([]),
-    social && social.getDiscovered ? social.getDiscovered(50) : Promise.resolve([]),
-  ]).then(function(results) {
-    var posts = results[0] || [];
-    var discovered = results[1] || [];
-    var html = '<option value="">-- Select a draft or scheduled post --</option>';
-
-    // Group posts by source_content_id to identify repurposed sets
-    var grouped = {};
-    var ungrouped = [];
-    posts.forEach(function(p) {
-      if (p.source_content_id) {
-        if (!grouped[p.source_content_id]) grouped[p.source_content_id] = [];
-        grouped[p.source_content_id].push(p);
-      } else {
-        ungrouped.push(p);
-      }
-    });
-
-    // Repurposed sets (multiple platforms from same source)
-    var sourceIds = Object.keys(grouped);
-    if (sourceIds.length) {
-      html += '<optgroup label="Repurposed Sets">';
-      sourceIds.forEach(function(srcId) {
-        var set = grouped[srcId];
-        var platforms = set.map(function(p) { return (p.platform || '?').toUpperCase(); }).join(', ');
-        var preview = (set[0].content || '').slice(0, 50);
-        var label = '[' + platforms + '] ' + preview;
-        html += '<option value="set:' + srcId + '" data-type="set">' + _socEscHtml(label) + '</option>';
-      });
-      html += '</optgroup>';
-    }
-
-    // Individual posts (not part of a repurposed set)
-    if (ungrouped.length) {
-      html += '<optgroup label="Individual Posts">';
-      ungrouped.forEach(function(p) {
-        var label = '[' + (p.platform || '?').toUpperCase() + '] ' + (p.content || '').slice(0, 60);
-        html += '<option value="post:' + p.id + '" data-type="post">' + _socEscHtml(label) + '</option>';
-      });
-      html += '</optgroup>';
-    }
-
-    if (discovered.length) {
-      html += '<optgroup label="Saved Content">';
-      discovered.forEach(function(d) {
-        var label = '[' + (d.platform || '?').toUpperCase() + '] ' + (d.title || d.body || '').slice(0, 60);
-        html += '<option value="discovered:' + d.id + '" data-type="discovered">' + _socEscHtml(label) + '</option>';
-      });
-      html += '</optgroup>';
-    }
-
-    select.innerHTML = html;
-
-    // Pre-select source if navigating from "Preview All"
-    if (preselectSourceId) {
-      var optVal = 'set:' + preselectSourceId;
-      var opt = select.querySelector('option[value="' + optVal + '"]');
-      if (opt) {
-        select.value = optVal;
-        select.dispatchEvent(new Event('change'));
-      }
-    }
-
-    // Store posts for later lookups
-    select._socPostsCache = posts;
-  }).catch(function() {});
-}
-
-// Wire up preview tab interactivity
-function _socInitPreviewTab(preselectSourceId) {
-  var root = document.getElementById('social-view');
-  if (!root) return;
-
-  var captionEl = root.querySelector('#soc-preview-caption');
-  var usernameEl = root.querySelector('#soc-preview-username');
-  var imageUrlEl = root.querySelector('#soc-preview-image-url');
-  var selectEl = root.querySelector('#soc-preview-source-select');
-
-  // Live preview on input
-  var debounceTimer;
-  function onInput() {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(function() { _socRenderAllPreviews(); }, 150);
-  }
-
-  if (captionEl) captionEl.addEventListener('input', onInput);
-  if (usernameEl) usernameEl.addEventListener('input', onInput);
-  if (imageUrlEl) imageUrlEl.addEventListener('input', onInput);
-
-  // Source selector
-  if (selectEl) {
-    selectEl.addEventListener('change', function() {
-      var val = selectEl.value;
-      if (!val) {
-        _socRenderAllPreviews();
-        return;
-      }
-      var social = _socAPI();
-      var parts = val.split(':');
-      var type = parts[0];
-      var id = parts.slice(1).join(':');
-
-      if (type === 'set' && social && social.listPosts) {
-        // Load all posts for this repurposed set
-        social.listPosts().then(function(posts) {
-          var setPosts = posts.filter(function(p) { return p.source_content_id === id; });
-          if (!setPosts.length) return;
-          // Fill caption with first post's content for reference
-          if (captionEl) captionEl.value = setPosts[0].content || '';
-          _socRenderAllPreviews(setPosts);
-        });
-      } else if (type === 'post' && social && social.listPosts) {
-        social.listPosts().then(function(posts) {
-          var p = posts.find(function(x) { return x.id === id; });
-          if (!p) return;
-          if (captionEl) captionEl.value = p.content || '';
-          _socRenderAllPreviews();
-        });
-      } else if (type === 'discovered' && social && social.getDiscovered) {
-        social.getDiscovered(100).then(function(items) {
-          var d = items.find(function(x) { return x.id === id; });
-          if (!d) return;
-          if (captionEl) captionEl.value = d.body || d.title || '';
-          if (usernameEl && d.source_author) usernameEl.value = d.source_author;
-          if (imageUrlEl && d.media_urls) {
-            try {
-              var urls = JSON.parse(d.media_urls);
-              if (Array.isArray(urls) && urls.length) imageUrlEl.value = urls[0];
-            } catch(e) {
-              imageUrlEl.value = d.media_urls;
-            }
-          }
-          _socRenderAllPreviews();
-        });
-      }
-    });
-  }
-
-  // Initial render
-  _socRenderAllPreviews();
-  _socPreviewLoadSources(preselectSourceId);
-}
 

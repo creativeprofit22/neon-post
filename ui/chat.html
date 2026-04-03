@@ -1001,10 +1001,9 @@
 
     <!-- Tab Bar -->
     <div class="soc-tab-bar">
-      <button class="soc-tab-btn active" data-tab="content-browse">🔍 Discover</button>
-      <button class="soc-tab-btn" data-tab="create">✨ Create</button>
-      <button class="soc-tab-btn" data-tab="calendar">📅 Calendar</button>
-      <button class="soc-tab-btn" data-tab="preview">👁 Preview Posts</button>
+      <button class="soc-tab-btn active" data-tab="content-browse">Discover</button>
+      <button class="soc-tab-btn" data-tab="create">Drafts</button>
+      <button class="soc-tab-btn" data-tab="calendar">Calendar</button>
     </div>
 
     <!-- Discover Tab -->
@@ -1074,7 +1073,7 @@
             <span id="soc-saved-batch-count">0 selected</span>
             <button class="soc-btn soc-btn-sm soc-btn-secondary" id="soc-saved-batch-select-all">Select All</button>
             <button class="soc-btn soc-btn-sm soc-btn-secondary" id="soc-saved-batch-deselect">Deselect All</button>
-            <button class="soc-btn soc-btn-sm soc-btn-accent" id="soc-saved-batch-repurpose" disabled>Repurpose All</button>
+            <button class="soc-btn soc-btn-sm soc-btn-accent" id="soc-saved-batch-create" disabled>Create Posts</button>
           </div>
           <div id="soc-saved-results"></div>
         </div>
@@ -1174,7 +1173,6 @@
         <div id="soc-create-scratch-panel" style="display:none">
           <div class="soc-sub-tabs">
             <button class="soc-sub-tab active" data-panel="generate">Generate</button>
-            <button class="soc-sub-tab" data-panel="repurpose">Adapt</button>
             <button class="soc-sub-tab" data-panel="image">Image</button>
           </div>
 
@@ -1215,39 +1213,6 @@
                 <div class="soc-empty-state__hint">Pick a content type and platform, describe your topic, then click Generate</div>
               </div>
             </div>
-          </div>
-
-          <!-- Repurpose Panel -->
-          <div class="soc-create-panel" id="soc-panel-repurpose">
-            <div class="soc-form-group">
-              <label>Source Content</label>
-              <select id="soc-repurpose-source" style="width:100%">
-                <option value="">Select saved content to repurpose…</option>
-              </select>
-            </div>
-            <div id="soc-repurpose-preview" class="soc-repurpose-preview-card" style="display:none">
-              <div class="soc-repurpose-preview-card__header">
-                <span class="soc-repurpose-preview-card__platform" id="soc-repurpose-preview-platform"></span>
-                <span class="soc-repurpose-preview-card__type" id="soc-repurpose-preview-type"></span>
-              </div>
-              <div class="soc-repurpose-preview-card__title" id="soc-repurpose-preview-title"></div>
-              <div class="soc-repurpose-preview-card__stats" id="soc-repurpose-preview-stats"></div>
-              <div class="soc-repurpose-preview-card__creator" id="soc-repurpose-preview-creator"></div>
-              <div class="soc-repurpose-preview-card__tags" id="soc-repurpose-preview-tags"></div>
-              <div class="soc-repurpose-preview-card__body" id="soc-repurpose-preview-body"></div>
-            </div>
-            <div class="soc-form-group">
-              <label>Target Platforms</label>
-              <div class="soc-checkbox-group" id="soc-repurpose-platforms">
-                <label><input type="checkbox" value="tiktok"> TikTok</label>
-                <label><input type="checkbox" value="youtube"> YouTube</label>
-                <label><input type="checkbox" value="instagram"> Instagram</label>
-                <label><input type="checkbox" value="x"> X / Twitter</label>
-                <label><input type="checkbox" value="linkedin"> LinkedIn</label>
-              </div>
-            </div>
-            <button class="soc-btn soc-btn-primary" id="soc-repurpose-generate-btn">Generate Drafts</button>
-            <div id="soc-repurpose-drafts" class="soc-repurpose-drafts"></div>
           </div>
 
           <!-- Image Panel -->
@@ -1300,39 +1265,6 @@
                   <div class="soc-empty-state__hint">Describe the image you want and click Generate. Takes ~30-60 seconds.</div>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Repurpose Context (shown when repurposing from Discover/Saved) -->
-        <div id="soc-drafts-repurpose-ctx" class="soc-drafts-repurpose-ctx" style="display:none">
-          <div class="soc-drafts-repurpose-ctx__header" onclick="socPanelActions.toggleRepurposeCtx()">
-            <span class="soc-section-title">Repurposing from:</span>
-            <span id="soc-drafts-repurpose-ctx-title" class="soc-hint" style="flex:1;margin-left:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
-            <button class="soc-btn-icon" onclick="event.stopPropagation();socPanelActions.dismissRepurposeCtx()" title="Dismiss">&times;</button>
-            <svg class="soc-drafts-repurpose-ctx__chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"/></svg>
-          </div>
-          <div class="soc-drafts-repurpose-ctx__body">
-            <div class="soc-drafts-repurpose-ctx__preview">
-              <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
-                <span class="soc-drafts-repurpose-ctx__platform" id="soc-drafts-repurpose-platform"></span>
-                <span class="soc-drafts-repurpose-ctx__stats" id="soc-drafts-repurpose-stats"></span>
-              </div>
-              <div class="soc-drafts-repurpose-ctx__body-text" id="soc-drafts-repurpose-body"></div>
-            </div>
-            <div class="soc-form-group" style="margin-top:10px">
-              <label>Target Platforms</label>
-              <div class="soc-checkbox-group" id="soc-drafts-repurpose-platforms">
-                <label><input type="checkbox" value="tiktok"> TikTok</label>
-                <label><input type="checkbox" value="youtube"> YouTube</label>
-                <label><input type="checkbox" value="instagram"> Instagram</label>
-                <label><input type="checkbox" value="x"> X / Twitter</label>
-                <label><input type="checkbox" value="linkedin"> LinkedIn</label>
-              </div>
-            </div>
-            <div class="soc-repurpose-ctx__actions">
-              <button class="soc-btn soc-btn-primary" id="soc-drafts-repurpose-gen-btn">Generate Drafts</button>
-              <button class="soc-btn soc-btn-outline" id="soc-drafts-repurpose-preview-all-btn" title="Compare all platform mockups side by side">Preview All</button>
             </div>
           </div>
         </div>
@@ -1434,60 +1366,6 @@
       </div>
     </div>
 
-
-    <!-- Preview Tab -->
-    <div class="soc-tab-content" id="soc-tab-preview">
-      <div class="soc-tab-body">
-        <span class="soc-section-title">Post Preview</span>
-        <p class="soc-hint">See how your post will look on each platform before publishing.</p>
-
-        <!-- Source selector -->
-        <div class="soc-preview-source">
-          <label class="soc-label">Content Source</label>
-          <select id="soc-preview-source-select" class="soc-select">
-            <option value="">-- Select a draft or scheduled post --</option>
-          </select>
-          <div class="soc-preview-or">or paste content below</div>
-          <textarea id="soc-preview-caption" class="soc-textarea" rows="3" placeholder="Write your caption / post text..."></textarea>
-          <div class="soc-preview-meta-row">
-            <input type="text" id="soc-preview-username" class="soc-input soc-input-sm" placeholder="@username" value="youraccount">
-            <input type="text" id="soc-preview-image-url" class="soc-input soc-input-sm" placeholder="Image URL (optional)">
-          </div>
-        </div>
-
-        <!-- Comparison header (shown when viewing a repurposed set) -->
-        <div class="soc-preview-comparison-header" id="soc-preview-comparison-header" style="display:none"></div>
-
-        <!-- Platform mockup strip -->
-        <div class="soc-preview-strip" id="soc-preview-strip">
-          <div class="soc-empty-state soc-empty-state--wide">
-            <div class="soc-empty-state__icon">&#x1F441;</div>
-            <div class="soc-empty-state__title">Preview Posts</div>
-            <div class="soc-empty-state__hint">Select a draft above or paste content to see how it looks on each platform</div>
-          </div>
-          <div class="soc-preview-mockup" data-platform="instagram">
-            <div class="soc-preview-label">Instagram</div>
-            <div class="soc-mockup soc-mockup-ig" id="soc-mockup-ig"></div>
-          </div>
-          <div class="soc-preview-mockup" data-platform="tiktok">
-            <div class="soc-preview-label">TikTok</div>
-            <div class="soc-mockup soc-mockup-tt" id="soc-mockup-tt"></div>
-          </div>
-          <div class="soc-preview-mockup" data-platform="twitter">
-            <div class="soc-preview-label">X / Twitter</div>
-            <div class="soc-mockup soc-mockup-tw" id="soc-mockup-tw"></div>
-          </div>
-          <div class="soc-preview-mockup" data-platform="facebook">
-            <div class="soc-preview-label">Facebook</div>
-            <div class="soc-mockup soc-mockup-fb" id="soc-mockup-fb"></div>
-          </div>
-          <div class="soc-preview-mockup" data-platform="linkedin">
-            <div class="soc-preview-label">LinkedIn</div>
-            <div class="soc-mockup soc-mockup-li" id="soc-mockup-li"></div>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- Accounts Modal (opened via gear icon) -->
     <div class="soc-modal-overlay" id="soc-accounts-modal" style="display:none">
