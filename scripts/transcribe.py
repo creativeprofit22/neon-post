@@ -49,26 +49,9 @@ def main():
 
     try:
         config = aai.TranscriptionConfig(
-            speech_model=aai.SpeechModel.nano,  # Universal v3 — fast + accurate
             language_detection=True,
+            speech_model=aai.SpeechModel.universal,
         )
-
-        # Try to use best model available
-        try:
-            config = aai.TranscriptionConfig(
-                speech_model=aai.SpeechModel.best,
-                language_detection=True,
-            )
-        except (AttributeError, ValueError):
-            # SDK version may not have .best — fall back to explicit v3 string
-            try:
-                config = aai.TranscriptionConfig(
-                    speech_model="assemblyai_v3",
-                    language_detection=True,
-                )
-            except Exception:
-                # Absolute fallback — just use default (still v3 on new accounts)
-                config = aai.TranscriptionConfig(language_detection=True)
 
         transcriber = aai.Transcriber(config=config)
 

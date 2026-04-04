@@ -185,7 +185,7 @@ async function transcribeViaHTTP(filePathOrUrl: string): Promise<TranscriptionRe
     method: 'POST',
     body: JSON.stringify({
       audio_url: audioUrl,
-      speech_model: 'assemblyai_v3',
+      speech_models: ['universal-2'],
       language_detection: true,
     }),
   });
@@ -288,6 +288,8 @@ export async function transcribeContent(filePathOrUrl: string): Promise<Transcri
     console.warn(`${LOG_PREFIX} No AssemblyAI key — skipping to fallbacks`);
   }
 
+  const errors: string[] = [];
+
   // 1. Python CLI (primary — uses SDK, supports future video editing features)
   if (hasKey) {
     try {
@@ -296,6 +298,7 @@ export async function transcribeContent(filePathOrUrl: string): Promise<Transcri
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn(`${LOG_PREFIX} CLI failed: ${msg}`);
+      errors.push(`CLI: ${msg}`);
     }
 
     // 2. Node HTTP fallback (no python needed)
@@ -305,6 +308,7 @@ export async function transcribeContent(filePathOrUrl: string): Promise<Transcri
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn(`${LOG_PREFIX} HTTP fallback failed: ${msg}`);
+      errors.push(`HTTP: ${msg}`);
     }
   }
 
@@ -316,12 +320,14 @@ export async function transcribeContent(filePathOrUrl: string): Promise<Transcri
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn(`${LOG_PREFIX} Whisper fallback failed: ${msg}`);
+      errors.push(`Whisper: ${msg}`);
     }
+  } else {
+    errors.push('Whisper: no OpenAI key configured');
   }
 
   throw new Error(
-    'Transcription failed: no working method available. ' +
-    (hasKey ? 'AssemblyAI key is set but all methods failed.' : 'Set your AssemblyAI key in Social Panel > Accounts.') +
-    ' Check the console logs for details.'
+    'Transcription failed — all methods exhausted. ' +
+    errors.join(' | ')
   );
 }

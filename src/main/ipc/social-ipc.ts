@@ -983,8 +983,11 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
           if (meta.transcript) {
             transcript = meta.transcript;
           } else if (
-            ['video', 'reel', 'slideshow'].includes((source.content_type ?? '').toLowerCase()) &&
-            (source.media_urls || source.source_url)
+            (source.media_urls || source.source_url) &&
+            (
+              ['video', 'reel', 'slideshow'].includes((source.content_type ?? '').toLowerCase()) ||
+              /tiktok\.com|youtube\.com|youtu\.be|instagram\.com\/reel/i.test(source.source_url ?? '')
+            )
           ) {
             try {
               // Extract direct video URL from media_urls (CDN links from scraper)
@@ -997,12 +1000,28 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
                 } catch { /* malformed JSON — fall through */ }
               }
 
-              // Download video locally first — CDN URLs expire and page URLs
-              // (source_url) are not direct media files that AssemblyAI can ingest
-              const downloadUrl = videoUrl || source.source_url!;
+              // Try CDN URL first, then fall back to page URL (yt-dlp handles pages)
+              // CDN URLs expire fast — source_url is stable and yt-dlp can extract from it
               const videoDir = path.join(app.getPath('userData'), 'videos', 'repurpose');
-              console.log(`[SocialIPC] Downloading video for transcription: ${downloadUrl}`);
-              const localPath = await downloadVideo(downloadUrl, videoDir);
+              let localPath: string | undefined;
+
+              if (videoUrl) {
+                try {
+                  console.log(`[SocialIPC] Downloading video (CDN): ${videoUrl}`);
+                  localPath = await downloadVideo(videoUrl, videoDir);
+                } catch (dlErr) {
+                  console.warn(`[SocialIPC] CDN download failed (will try page URL): ${dlErr instanceof Error ? dlErr.message : dlErr}`);
+                }
+              }
+
+              if (!localPath && source.source_url) {
+                console.log(`[SocialIPC] Downloading video (page URL via yt-dlp): ${source.source_url}`);
+                localPath = await downloadVideo(source.source_url, videoDir);
+              }
+
+              if (!localPath) {
+                throw new Error('No downloadable video URL available');
+              }
 
               const result = await transcribeContent(localPath);
               transcript = result.text;
@@ -1010,7 +1029,10 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
               memory.discoveredContent.update(source.id, { metadata: JSON.stringify(meta) });
               console.log(`[SocialIPC] Transcribed video for repurpose: ${source.id}`);
             } catch (err) {
-              console.warn(`[SocialIPC] Transcription failed (non-fatal): ${err instanceof Error ? err.message : err}`);
+              const errMsg = err instanceof Error ? err.message : String(err);
+              console.warn(`[SocialIPC] Video transcription failed: ${errMsg}`);
+              // Surface the error to the caller so the UI can notify the user
+              return { success: false, error: `Video transcription failed: ${errMsg}` };
             }
           }
 

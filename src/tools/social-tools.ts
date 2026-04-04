@@ -888,8 +888,23 @@ async function handleTranscribeVideo(input: unknown): Promise<string> {
 
   console.log(`[TranscribeVideo] Starting transcription: ${input_path}`);
 
-  // Verify file exists if it's a local path
-  if (!input_path.startsWith('http')) {
+  let filePath = input_path;
+
+  if (input_path.startsWith('http')) {
+    // Page URLs (TikTok, YouTube, Instagram) need to be downloaded first —
+    // AssemblyAI only accepts direct media file URLs, not page URLs.
+    try {
+      console.log(`[TranscribeVideo] Downloading video from URL: ${input_path}`);
+      const videoDir = join(app.getPath('userData'), 'videos', 'transcribe');
+      filePath = await downloadVideo(input_path, videoDir);
+      console.log(`[TranscribeVideo] Downloaded to: ${filePath}`);
+    } catch (dlErr) {
+      const dlMsg = dlErr instanceof Error ? dlErr.message : String(dlErr);
+      console.error(`[TranscribeVideo] Download failed: ${dlMsg}`);
+      return JSON.stringify({ error: `Failed to download video: ${dlMsg}` });
+    }
+  } else {
+    // Verify file exists if it's a local path
     try {
       const fs = await import('node:fs');
       if (!fs.existsSync(input_path)) {
@@ -905,7 +920,7 @@ async function handleTranscribeVideo(input: unknown): Promise<string> {
 
   try {
     // Primary: AssemblyAI (CLI script → HTTP fallback → Whisper API fallback)
-    const result = await transcribeContent(input_path);
+    const result = await transcribeContent(filePath);
 
     console.log(`[TranscribeVideo] Success: ${result.text.length} chars, ${result.segments.length} segments`);
     return JSON.stringify({
@@ -1609,24 +1624,48 @@ async function handleRepurposeContent(input: unknown): Promise<string> {
 
   if (metadata.transcript) {
     transcript = metadata.transcript;
-  } else if (
-    content.content_type === 'video' &&
-    content.source_url
-  ) {
-    try {
-      socialToolEvents.emit('repurpose:progress', { stage: 'Fetching transcript...' });
-      const result = await transcribeContent(content.source_url);
-      transcript = result.text;
-      // Store transcript in metadata for future use
-      metadata.transcript = transcript;
-      memoryManager.discoveredContent.update(content.id, {
-        metadata: JSON.stringify(metadata),
-      });
-      console.log(`[RepurposeContent] Transcribed video content: ${content.id}`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.warn(`[RepurposeContent] Transcription failed: ${msg}`);
-      // Continue without transcript — not fatal
+  } else if (content.source_url) {
+    // Detect video content by content_type OR by media_urls containing video files
+    const mediaUrls: string[] = content.media_urls ? (() => { try { return JSON.parse(content.media_urls!) as string[]; } catch { return []; } })() : [];
+    const videoTypes = ['video', 'reel', 'slideshow'];
+    const isVideoType = videoTypes.includes((content.content_type ?? '').toLowerCase());
+    const hasVideoUrl = mediaUrls.some((u) => /\.(mp4|webm|m3u8|mov)/i.test(u)) ||
+      /tiktok\.com|youtube\.com|youtu\.be|instagram\.com\/reel/i.test(content.source_url);
+
+    if (isVideoType || hasVideoUrl) {
+      try {
+        socialToolEvents.emit('repurpose:progress', { stage: 'Downloading video...' });
+
+        // Download the video first — page URLs can't be passed directly to AssemblyAI
+        let localPath: string | undefined;
+        const cdnUrl = mediaUrls.find((u) => /\.(mp4|webm|m3u8|mov)/i.test(u)) ?? (isVideoType ? mediaUrls[0] : undefined);
+        const videoDir = join(app.getPath('userData'), 'videos', 'repurpose');
+
+        if (cdnUrl) {
+          try {
+            localPath = await downloadVideo(cdnUrl, videoDir);
+          } catch {
+            console.warn(`[RepurposeContent] CDN download failed, trying page URL`);
+          }
+        }
+        if (!localPath) {
+          localPath = await downloadVideo(content.source_url, videoDir);
+        }
+
+        socialToolEvents.emit('repurpose:progress', { stage: 'Transcribing video...' });
+        const result = await transcribeContent(localPath);
+        transcript = result.text;
+        // Store transcript in metadata for future use
+        metadata.transcript = transcript;
+        memoryManager.discoveredContent.update(content.id, {
+          metadata: JSON.stringify(metadata),
+        });
+        console.log(`[RepurposeContent] Transcribed video content: ${content.id}`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[RepurposeContent] Transcription failed: ${msg}`);
+        // Continue without transcript — not fatal
+      }
     }
   }
 
