@@ -311,10 +311,17 @@ export async function downloadVideo(url: string, outputDir: string): Promise<str
   try {
     const { execFile } = await import('node:child_process');
     const outTemplate = path.join(outputDir, '%(id)s.%(ext)s');
+    const dlpArgs = ['--no-playlist', '-o', outTemplate, '--print', 'after_move:filepath', url];
+
+    // On Windows, yt-dlp is typically installed as a Python module
+    const isWin = process.platform === 'win32';
+    const cmd = isWin ? 'python' : 'yt-dlp';
+    const args = isWin ? ['-m', 'yt_dlp', ...dlpArgs] : dlpArgs;
+
     const filePath = await new Promise<string>((resolve, reject) => {
       execFile(
-        'yt-dlp',
-        ['--no-playlist', '-o', outTemplate, '--print', 'after_move:filepath', url],
+        cmd,
+        args,
         { timeout: 120_000 },
         (error, stdout, stderr) => {
           if (error) {
