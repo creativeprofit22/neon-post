@@ -850,6 +850,11 @@
             <input type="password" id="glm-key-oauth" placeholder="...">
             <p class="hint">Get from <a href="https://z.ai/manage-apikey/apikey-list" target="_blank">z.ai</a></p>
           </div>
+          <div class="form-group">
+            <label>OpenRouter API Key</label>
+            <input type="password" id="openrouter-key-oauth" placeholder="sk-or-...">
+            <p class="hint">Get from <a href="https://openrouter.ai/settings/keys" target="_blank">openrouter.ai</a></p>
+          </div>
         </div>
       </div>
     </div>
@@ -879,6 +884,12 @@
         <label>GLM (Z.AI) API Key</label>
         <input type="password" id="glm-key-api" placeholder="...">
         <p class="hint">Get from <a href="https://z.ai/manage-apikey/apikey-list" target="_blank">z.ai</a></p>
+      </div>
+
+      <div class="form-group">
+        <label>OpenRouter API Key</label>
+        <input type="password" id="openrouter-key-api" placeholder="sk-or-...">
+        <p class="hint">Get from <a href="https://openrouter.ai/settings/keys" target="_blank">openrouter.ai</a></p>
       </div>
 
       <div class="button-row">
@@ -1235,6 +1246,12 @@
             await window.pocketAgent.settings.set('glm.apiKey', glmKey);
           }
 
+          // Save OpenRouter key if provided
+          const orKey = document.getElementById('openrouter-key-oauth').value.trim();
+          if (orKey) {
+            await window.pocketAgent.settings.set('openrouter.apiKey', orKey);
+          }
+
           showStep('step-success');
         } else {
           statusDiv.innerHTML = `
@@ -1274,10 +1291,11 @@
       const anthropicKey = document.getElementById('anthropic-key').value.trim();
       const kimiKey = document.getElementById('kimi-key-api').value.trim();
       const glmKey = document.getElementById('glm-key-api').value.trim();
+      const openrouterKey = document.getElementById('openrouter-key-api').value.trim();
       const statusDiv = document.getElementById('api-status');
       const btn = document.getElementById('api-btn');
 
-      if (!anthropicKey && !kimiKey && !glmKey) {
+      if (!anthropicKey && !kimiKey && !glmKey && !openrouterKey) {
         statusDiv.innerHTML = `
           <div class="status error">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M18 6L6 18m12 0L6 6"/></svg>
@@ -1331,6 +1349,9 @@
         if (glmKey) {
           await window.pocketAgent.settings.set('glm.apiKey', glmKey);
         }
+        if (openrouterKey) {
+          await window.pocketAgent.settings.set('openrouter.apiKey', openrouterKey);
+        }
 
         // Auto-select a model matching the first available provider key
         // so the agent doesn't start with a mismatched default model
@@ -1338,7 +1359,9 @@
         const isAnthropicModel = !currentModel || currentModel.startsWith('claude-');
         if (isAnthropicModel && !anthropicKey) {
           // Default model is Anthropic but user didn't provide an Anthropic key
-          if (kimiKey) {
+          if (openrouterKey) {
+            await window.pocketAgent.settings.set('agent.model', 'moonshotai/kimi-k2.5');
+          } else if (kimiKey) {
             await window.pocketAgent.settings.set('agent.model', 'kimi-k2.5');
           } else if (glmKey) {
             await window.pocketAgent.settings.set('agent.model', 'glm-4.7');

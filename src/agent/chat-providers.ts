@@ -25,6 +25,15 @@ export async function getStreamConfig(model: string): Promise<StreamConfig> {
   const providerType = getProviderForModel(model);
   const config = PROVIDER_CONFIGS[providerType];
 
+  if (providerType === 'openrouter') {
+    const apiKey = SettingsManager.get('openrouter.apiKey');
+    if (!apiKey) {
+      throw new Error('OpenRouter API key not configured. Please add your key in Settings > LLM.');
+    }
+    // OpenRouter is OpenAI-compatible — use the 'openai' gg-ai provider with custom baseUrl
+    return { provider: 'openai', apiKey, baseUrl: config.baseUrl };
+  }
+
   if (providerType === 'moonshot') {
     const apiKey = SettingsManager.get('moonshot.apiKey');
     if (!apiKey) {

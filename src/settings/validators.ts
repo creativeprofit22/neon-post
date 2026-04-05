@@ -138,6 +138,20 @@ export async function validateMoonshotKey(apiKey: string): Promise<ValidationRes
 }
 
 /**
+ * Validate an OpenRouter API key by listing models
+ */
+export async function validateOpenRouterKey(apiKey: string): Promise<ValidationResult> {
+  return validateApiKey({
+    url: 'https://openrouter.ai/api/v1/models',
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+    isSuccess: (response) => response.ok,
+  });
+}
+
+/**
  * Validate a Z.AI GLM API key by making a test call
  */
 export async function validateGlmKey(apiKey: string): Promise<ValidationResult> {

@@ -4,7 +4,7 @@
  * and general/chat mode (chat-providers.ts).
  */
 
-export type ProviderType = 'anthropic' | 'moonshot' | 'glm';
+export type ProviderType = 'anthropic' | 'moonshot' | 'glm' | 'openrouter';
 
 export interface ProviderConfig {
   /** OpenAI-compatible base URL (used by gg-ai chat engine in General mode) */
@@ -28,6 +28,10 @@ export const PROVIDER_CONFIGS: Record<ProviderType, ProviderConfig> = {
     baseUrl: 'https://api.z.ai/api/paas/v4',
     sdkBaseUrl: 'https://api.z.ai/api/anthropic',
   },
+  openrouter: {
+    // OpenAI-compatible API — General mode only (no Coder mode support)
+    baseUrl: 'https://openrouter.ai/api/v1',
+  },
 };
 
 // Model to provider mapping
@@ -43,6 +47,8 @@ export const MODEL_PROVIDERS: Record<string, ProviderType> = {
   'glm-5-turbo': 'glm',
   'glm-5': 'glm',
   'glm-4.7': 'glm',
+  // OpenRouter models
+  'moonshotai/kimi-k2.5': 'openrouter',
 };
 
 export function getProviderForModel(model: string): ProviderType {

@@ -16,6 +16,7 @@ import {
   validateTelegramToken,
   validateMoonshotKey,
   validateGlmKey,
+  validateOpenRouterKey,
 } from './validators';
 
 // Re-export types and schema so external consumers aren't broken
@@ -296,7 +297,8 @@ class SettingsManagerClass {
     const anthropicKey = this.get('anthropic.apiKey');
     const moonshotKey = this.get('moonshot.apiKey');
     const glmKey = this.get('glm.apiKey');
-    return !!anthropicKey || !!moonshotKey || !!glmKey;
+    const openrouterKey = this.get('openrouter.apiKey');
+    return !!anthropicKey || !!moonshotKey || !!glmKey || !!openrouterKey;
   }
 
   /**
@@ -474,6 +476,10 @@ class SettingsManagerClass {
 
   async validateGlmKey(apiKey: string): Promise<{ valid: boolean; error?: string }> {
     return validateGlmKey(apiKey);
+  }
+
+  async validateOpenRouterKey(apiKey: string): Promise<{ valid: boolean; error?: string }> {
+    return validateOpenRouterKey(apiKey);
   }
 
   /**

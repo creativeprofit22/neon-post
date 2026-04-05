@@ -1046,6 +1046,21 @@
           </div>
         </div>
 
+        <h3 class="subsection-title" style="margin-top: 24px; margin-bottom: 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary);">OpenRouter</h3>
+        <div class="keys-table" id="openrouter-api-key-section">
+          <div class="key-row">
+            <div class="key-info">
+              <span class="key-name">API Key</span>
+              <a href="https://openrouter.ai/settings/keys" target="_blank" class="key-link">openrouter.ai</a>
+            </div>
+            <div class="key-input">
+              <input type="password" id="openrouter.apiKey" placeholder="sk-or-...">
+              <button class="delete-btn" id="openrouter.apiKey-delete" onclick="playNormalClick(); deleteKey('openrouter.apiKey')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" d="m19.5 5.5l-.62 10.025c-.158 2.561-.237 3.842-.88 4.763a4 4 0 0 1-1.2 1.128c-.957.584-2.24.584-4.806.584c-2.57 0-3.855 0-4.814-.585a4 4 0 0 1-1.2-1.13c-.642-.922-.72-2.205-.874-4.77L4.5 5.5M3 5.5h18m-4.944 0l-.683-1.408c-.453-.936-.68-1.403-1.071-1.695a2 2 0 0 0-.275-.172C13.594 2 13.074 2 12.035 2c-1.066 0-1.599 0-2.04.234a2 2 0 0 0-.278.18c-.395.303-.616.788-1.058 1.757L8.053 5.5"/></svg></button>
+              <button onclick="playNormalClick(); validateKey('openrouter')">Test</button>
+            </div>
+          </div>
+        </div>
+
         <h3 class="subsection-title" style="margin-top: 24px; margin-bottom: 12px; font-size: 14px; font-weight: 600; color: var(--text-secondary);">Kimi (Moonshot)</h3>
         <div class="keys-table" id="kimi-api-key-section">
           <div class="key-row">
@@ -1565,6 +1580,19 @@
           dropdown.appendChild(group);
         }
 
+        const openrouterModels = models.filter(m => m.provider === 'openrouter');
+        if (openrouterModels.length > 0) {
+          const group = document.createElement('optgroup');
+          group.label = 'OpenRouter';
+          for (const model of openrouterModels) {
+            const option = document.createElement('option');
+            option.value = model.id;
+            option.textContent = model.name;
+            group.appendChild(option);
+          }
+          dropdown.appendChild(group);
+        }
+
         // Restore saved selection if still valid for current API keys
         const isValidSelection = models.some(m => m.id === savedModel);
         if (isValidSelection) {
@@ -1710,7 +1738,7 @@
     function setupAutoSave() {
       // Exclude API key inputs, auth inputs, and fields with manual save buttons from auto-save
       const excludedIds = [
-        'anthropic.apiKey', 'openai.apiKey', 'moonshot.apiKey', 'glm.apiKey',
+        'anthropic.apiKey', 'openai.apiKey', 'moonshot.apiKey', 'glm.apiKey', 'openrouter.apiKey',
         'auth-api-key', 'oauth-code',
         'telegram.botToken', 'telegram.allowedUserIds', 'telegram.defaultChatId',
         'chat.adminKey'
@@ -1765,6 +1793,10 @@
         pattern: /^.{10,}$/,
         hint: 'Enter your Z.AI API key'
       },
+      'openrouter.apiKey': {
+        pattern: /^sk-or-[A-Za-z0-9_-]{40,}$/,
+        hint: 'OpenRouter keys start with "sk-or-"'
+      },
       'telegram.botToken': {
         pattern: /^\d{6,}:[A-Za-z0-9_-]{30,}$/,
         hint: 'Telegram tokens are in format "123456789:ABC..."'
@@ -1817,7 +1849,7 @@
     function updateDeleteButtons() {
       const keyIds = [
         'anthropic.apiKey', 'openai.apiKey',
-        'moonshot.apiKey', 'glm.apiKey', 'telegram.botToken'
+        'moonshot.apiKey', 'glm.apiKey', 'openrouter.apiKey', 'telegram.botToken'
       ];
 
       for (const keyId of keyIds) {
@@ -1859,7 +1891,7 @@
         showToast('Key removed!', 'success');
 
         // Refresh model dropdown if this affects available models
-        if (keyId === 'anthropic.apiKey' || keyId === 'moonshot.apiKey' || keyId === 'glm.apiKey') {
+        if (keyId === 'anthropic.apiKey' || keyId === 'moonshot.apiKey' || keyId === 'glm.apiKey' || keyId === 'openrouter.apiKey') {
           await refreshModelDropdown();
           activateReboot();
         }
@@ -2078,6 +2110,8 @@
           result = await window.pocketAgent.validate.moonshotKey(key);
         } else if (provider === 'glm') {
           result = await window.pocketAgent.validate.glmKey(key);
+        } else if (provider === 'openrouter') {
+          result = await window.pocketAgent.validate.openRouterKey(key);
         } else if (provider === 'telegram') {
           result = await window.pocketAgent.validate.telegramToken(key);
         }
@@ -2246,7 +2280,8 @@
       }
 
       // Connected if any LLM provider is configured
-      const isConnected = (authMethod === 'oauth' && hasOAuth) || hasApiKey || hasMoonshotKey || hasGlmKey;
+      const hasOpenRouterKey = settings['openrouter.apiKey'];
+      const isConnected = (authMethod === 'oauth' && hasOAuth) || hasApiKey || hasMoonshotKey || hasGlmKey || hasOpenRouterKey;
 
       if (authMethod === 'oauth' && hasOAuth) {
         // Show checking state while validating token

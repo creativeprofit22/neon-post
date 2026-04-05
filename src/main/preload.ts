@@ -158,6 +158,7 @@ contextBridge.exposeInMainWorld('pocketAgent', {
     openAIKey: (key: string) => ipcRenderer.invoke('settings:validateOpenAI', key),
     moonshotKey: (key: string) => ipcRenderer.invoke('settings:validateMoonshot', key),
     glmKey: (key: string) => ipcRenderer.invoke('settings:validateGlm', key),
+    openRouterKey: (key: string) => ipcRenderer.invoke('settings:validateOpenRouter', key),
     telegramToken: (token: string) => ipcRenderer.invoke('settings:validateTelegram', token),
   },
 
@@ -780,6 +781,7 @@ declare global {
         openAIKey: (key: string) => Promise<{ valid: boolean; error?: string }>;
         moonshotKey: (key: string) => Promise<{ valid: boolean; error?: string }>;
         glmKey: (key: string) => Promise<{ valid: boolean; error?: string }>;
+        openRouterKey: (key: string) => Promise<{ valid: boolean; error?: string }>;
         telegramToken: (
           token: string
         ) => Promise<{ valid: boolean; error?: string; botInfo?: unknown }>;

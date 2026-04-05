@@ -177,7 +177,7 @@ async function _stgRefreshModelDropdown() {
       return;
     }
 
-    const groups = { anthropic: 'Anthropic', moonshot: 'Kimi (Moonshot)', glm: 'GLM (Z.AI)' };
+    const groups = { anthropic: 'Anthropic', moonshot: 'Kimi (Moonshot)', glm: 'GLM (Z.AI)', openrouter: 'OpenRouter' };
     for (const [provider, label] of Object.entries(groups)) {
       const providerModels = models.filter(m => m.provider === provider);
       if (providerModels.length > 0) {
@@ -301,7 +301,7 @@ function _stgSetupAutoSave() {
   const root = _stgRoot();
   if (!root) return;
   const excludedIds = [
-    'anthropic.apiKey', 'openai.apiKey', 'moonshot.apiKey', 'glm.apiKey',
+    'anthropic.apiKey', 'openai.apiKey', 'moonshot.apiKey', 'glm.apiKey', 'openrouter.apiKey',
     'auth-api-key', 'oauth-code',
     'telegram.botToken', 'telegram.allowedUserIds', 'telegram.defaultChatId',
     'chat.adminKey'
@@ -339,6 +339,7 @@ const _stgKeyValidators = {
   'openai.apiKey': { pattern: /^sk-[A-Za-z0-9_-]{40,}$/, hint: 'OpenAI keys start with "sk-"' },
   'moonshot.apiKey': { pattern: /^sk-[A-Za-z0-9_-]{40,}$/, hint: 'Moonshot keys start with "sk-"' },
   'glm.apiKey': { pattern: /^.{10,}$/, hint: 'Enter your Z.AI API key' },
+  'openrouter.apiKey': { pattern: /^sk-or-[A-Za-z0-9_-]{40,}$/, hint: 'OpenRouter keys start with "sk-or-"' },
   'telegram.botToken': { pattern: /^\d{6,}:[A-Za-z0-9_-]{30,}$/, hint: 'Telegram tokens are in format "123456789:ABC..."' }
 };
 
@@ -371,7 +372,7 @@ async function stgSaveKey(inputId) {
 }
 
 function _stgUpdateDeleteButtons() {
-  const keyIds = ['anthropic.apiKey', 'openai.apiKey', 'moonshot.apiKey', 'glm.apiKey', 'telegram.botToken'];
+  const keyIds = ['anthropic.apiKey', 'openai.apiKey', 'moonshot.apiKey', 'glm.apiKey', 'openrouter.apiKey', 'telegram.botToken'];
   for (const keyId of keyIds) {
     const deleteBtn = document.getElementById(`${keyId}-delete`);
     if (deleteBtn) {
@@ -396,7 +397,7 @@ async function stgDeleteKey(keyId, inputId) {
     const deleteBtn = document.getElementById(`${actualInputId}-delete`);
     if (deleteBtn) deleteBtn.classList.remove('visible');
     _stgShowToast('Key removed!', 'success');
-    if (['anthropic.apiKey', 'moonshot.apiKey', 'glm.apiKey'].includes(keyId)) {
+    if (['anthropic.apiKey', 'moonshot.apiKey', 'glm.apiKey', 'openrouter.apiKey'].includes(keyId)) {
       await _stgRefreshModelDropdown();
       _stgActivateReboot();
     }
@@ -440,6 +441,7 @@ async function stgValidateKey(provider) {
     else if (provider === 'openai') result = await window.pocketAgent.validate.openAIKey(key);
     else if (provider === 'moonshot') result = await window.pocketAgent.validate.moonshotKey(key);
     else if (provider === 'glm') result = await window.pocketAgent.validate.glmKey(key);
+    else if (provider === 'openrouter') result = await window.pocketAgent.validate.openRouterKey(key);
     else if (provider === 'telegram') result = await window.pocketAgent.validate.telegramToken(key);
 
     if (result.valid) {

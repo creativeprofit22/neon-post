@@ -667,9 +667,12 @@ class AgentManagerClass extends EventEmitter {
     }
 
     // Route by per-session mode engine type (chat vs sdk)
+    // OpenRouter models must always use the chat engine (no SDK support)
     const sessionMode = this.memory.getSessionMode(sessionId);
     const sessionModeConfig = getModeConfig(sessionMode);
-    if (sessionModeConfig.engine === 'chat' && this.chatEngine) {
+    const provider = getProviderForModel(this.model);
+    const forceChatEngine = provider === 'openrouter';
+    if ((sessionModeConfig.engine === 'chat' || forceChatEngine) && this.chatEngine) {
       const result = await this.chatEngine.processMessage(
         userMessage,
         channel,

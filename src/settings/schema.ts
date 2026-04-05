@@ -101,6 +101,15 @@ export const SETTINGS_SCHEMA: SettingDefinition[] = [
     type: 'password',
   },
   {
+    key: 'openrouter.apiKey',
+    defaultValue: '',
+    encrypted: true,
+    category: 'api_keys',
+    label: 'OpenRouter API Key',
+    description: 'Your OpenRouter API key for Kimi, MiniMax, Gemini, Mistral, etc.',
+    type: 'password',
+  },
+  {
     key: 'kie.apiKey',
     defaultValue: '',
     encrypted: true,

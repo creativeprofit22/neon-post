@@ -279,6 +279,8 @@ async function obCompleteOAuth() {
       if (kimiKey) await window.pocketAgent.settings.set('moonshot.apiKey', kimiKey);
       const glmKey = document.getElementById('ob-glm-key-oauth').value.trim();
       if (glmKey) await window.pocketAgent.settings.set('glm.apiKey', glmKey);
+      const orKey = document.getElementById('ob-openrouter-key-oauth').value.trim();
+      if (orKey) await window.pocketAgent.settings.set('openrouter.apiKey', orKey);
       obShowStep('ob-step-name');
     } else {
       _obToast(result.error || 'Invalid code. Please try again.', 'error');
@@ -305,9 +307,10 @@ async function obValidateAndSave() {
   const anthropicKey = document.getElementById('ob-anthropic-key').value.trim();
   const kimiKey = document.getElementById('ob-kimi-key-api').value.trim();
   const glmKey = document.getElementById('ob-glm-key-api').value.trim();
+  const openrouterKey = document.getElementById('ob-openrouter-key-api').value.trim();
   const btn = document.getElementById('ob-api-btn');
 
-  if (!anthropicKey && !kimiKey && !glmKey) {
+  if (!anthropicKey && !kimiKey && !glmKey && !openrouterKey) {
     _obToast('Please enter at least one API key', 'error');
     return;
   }
@@ -335,12 +338,15 @@ async function obValidateAndSave() {
     if (anthropicKey) await window.pocketAgent.settings.set('anthropic.apiKey', anthropicKey);
     if (kimiKey) await window.pocketAgent.settings.set('moonshot.apiKey', kimiKey);
     if (glmKey) await window.pocketAgent.settings.set('glm.apiKey', glmKey);
+    if (openrouterKey) await window.pocketAgent.settings.set('openrouter.apiKey', openrouterKey);
 
     // Auto-select matching model if default doesn't match available keys
     const currentModel = await window.pocketAgent.settings.get('agent.model');
     const isAnthropicModel = !currentModel || currentModel.startsWith('claude-');
     if (isAnthropicModel && !anthropicKey) {
-      if (kimiKey) {
+      if (openrouterKey) {
+        await window.pocketAgent.settings.set('agent.model', 'moonshotai/kimi-k2.5');
+      } else if (kimiKey) {
         await window.pocketAgent.settings.set('agent.model', 'kimi-k2.5');
       } else if (glmKey) {
         await window.pocketAgent.settings.set('agent.model', 'glm-4.7');

@@ -35,6 +35,12 @@ export function getAvailableModels(): Array<{ id: string; name: string; provider
       { id: 'glm-4.7', name: 'GLM 4.7', provider: 'glm' }
     );
   }
+  const hasOpenRouterKey = SettingsManager.get('openrouter.apiKey');
+  if (hasOpenRouterKey) {
+    models.push(
+      { id: 'moonshotai/kimi-k2.5', name: 'Kimi K2.5', provider: 'openrouter' }
+    );
+  }
 
   return models;
 }
@@ -199,6 +205,10 @@ export function registerSettingsIPC(deps: IPCDependencies): void {
 
   ipcMain.handle('settings:validateGlm', async (_, key: string) => {
     return SettingsManager.validateGlmKey(key);
+  });
+
+  ipcMain.handle('settings:validateOpenRouter', async (_, key: string) => {
+    return SettingsManager.validateOpenRouterKey(key);
   });
 
   ipcMain.handle('settings:getAvailableModels', async () => {
