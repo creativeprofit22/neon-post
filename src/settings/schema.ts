@@ -148,6 +148,26 @@ export const SETTINGS_SCHEMA: SettingDefinition[] = [
     type: 'password',
   },
 
+  // Stock image API keys
+  {
+    key: 'pexels.apiKey',
+    defaultValue: '',
+    encrypted: true,
+    category: 'api_keys',
+    label: 'Pexels API Key',
+    description: 'Free API key from pexels.com/api — used for background images',
+    type: 'password',
+  },
+  {
+    key: 'unsplash.apiKey',
+    defaultValue: '',
+    encrypted: true,
+    category: 'api_keys',
+    label: 'Unsplash API Key',
+    description: 'Access key from unsplash.com/developers — used for background images',
+    type: 'password',
+  },
+
   // Agent settings
   {
     key: 'agent.model',

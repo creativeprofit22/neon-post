@@ -9,7 +9,7 @@ const path = require('path');
 exports.default = async function(context) {
   const appOutDir = context.appOutDir;
   const arch = context.arch === 1 ? 'x64' : 'arm64'; // 1 = x64, 3 = arm64
-  const platform = process.platform;
+  const platform = context.electronPlatformName || process.platform;
 
   console.log(`[afterPack] Cleaning up for ${platform}-${arch}...`);
 

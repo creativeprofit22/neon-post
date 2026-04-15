@@ -7,3 +7,4 @@ export { registerCronIPC } from './cron-ipc';
 export { registerIosIPC, wireIosChannelHandlers } from './ios-ipc';
 export { registerMiscIPC } from './misc-ipc';
 export { registerSocialIpc } from './social-ipc';
+export { registerCompositorIpc } from './compositor-ipc';

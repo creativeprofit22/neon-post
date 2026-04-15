@@ -29,6 +29,7 @@ import {
   registerIosIPC,
   registerMiscIPC,
   registerSocialIpc,
+  registerCompositorIpc,
   wireIosChannelHandlers,
 } from './ipc';
 import type { IPCDependencies } from './ipc';
@@ -584,6 +585,7 @@ function setupIPC(): void {
   registerIosIPC(deps);
   registerMiscIPC(deps);
   registerSocialIpc(deps, imageTracker);
+  registerCompositorIpc(deps);
 }
 
 // ============ Agent Lifecycle ============

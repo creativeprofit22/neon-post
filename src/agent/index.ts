@@ -3,6 +3,7 @@ import {
   setMemoryManager,
   setSoulMemoryManager,
   setSocialMemoryManager,
+  setCompositorMemoryManager,
   ToolsConfig,
   validateToolsConfig,
   getCurrentSessionId,
@@ -513,6 +514,7 @@ class AgentManagerClass extends EventEmitter {
     setMemoryManager(this.memory);
     setSoulMemoryManager(this.memory);
     setSocialMemoryManager(this.memory);
+    setCompositorMemoryManager(this.memory);
 
     // Set up safety status emitter for UI feedback on blocked tools
     setStatusEmitter((status) => {

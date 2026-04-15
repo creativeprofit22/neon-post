@@ -18,6 +18,7 @@ import { getNotifyToolDefinition, handleNotifyTool } from './macos';
 import { getProjectTools } from './project-tools';
 import { getSwitchAgentTool } from './agent-mode-tools';
 import { getSocialTools } from './social-tools';
+import { getCompositorTools } from './compositor-tools';
 import { wrapToolHandler, getToolTimeout, logActiveToolsStatus } from './diagnostics';
 import { getModeConfig } from '../agent/agent-modes';
 import type { AgentModeId } from '../agent/agent-modes';
@@ -32,8 +33,10 @@ setInterval(() => {
 export { setMemoryManager } from './memory-tools';
 export { setSoulMemoryManager } from './soul-tools';
 export { setSocialMemoryManager, setImageJobTracker, socialToolEvents } from './social-tools';
+export { setCompositorMemoryManager } from './compositor-tools';
 export { getSchedulerTools } from './scheduler-tools';
 export { getSocialTools } from './social-tools';
+export { getCompositorTools } from './compositor-tools';
 export { showNotification } from './macos';
 export { setCurrentSessionId, getCurrentSessionId, runWithSessionId } from './session-context';
 
@@ -341,6 +344,37 @@ export async function buildSdkMcpServers(
       tools.push(sdkTool);
     }
 
+    // Compositor tools (always registered - generates post images locally)
+    const compositorToolDefs = getCompositorTools();
+    for (const compTool of compositorToolDefs) {
+      const wrappedHandler = wrapToolHandler(
+        compTool.name,
+        compTool.handler,
+        getToolTimeout(compTool.name)
+      );
+      const sdkTool = tool(
+        compTool.name,
+        compTool.description,
+        Object.fromEntries(
+          Object.entries(compTool.input_schema.properties || {}).map(
+            ([key, value]: [string, unknown]) => {
+              const prop = value as { type?: string; items?: unknown };
+              if (prop.type === 'string') return [key, z.string().optional()];
+              if (prop.type === 'number') return [key, z.number().optional()];
+              if (prop.type === 'boolean') return [key, z.boolean().optional()];
+              if (prop.type === 'array') return [key, z.array(z.any()).optional()];
+              return [key, z.any().optional()];
+            }
+          )
+        ),
+        async (args) => {
+          const result = await wrappedHandler(args);
+          return { content: [{ type: 'text', text: result }] };
+        }
+      );
+      tools.push(sdkTool);
+    }
+
     // Project tools (with diagnostics wrapper)
     const projectTools = getProjectTools();
     for (const projTool of projectTools) {
@@ -468,6 +502,17 @@ export function getCustomTools(config: ToolsConfig): Array<{
   // Social tools (always enabled - API availability checked at runtime)
   const socialTools = getSocialTools();
   for (const tool of socialTools) {
+    tools.push({
+      name: tool.name,
+      description: tool.description,
+      input_schema: tool.input_schema as Record<string, unknown>,
+      handler: tool.handler,
+    });
+  }
+
+  // Compositor tools (always enabled - generates post images locally)
+  const compositorTools = getCompositorTools();
+  for (const tool of compositorTools) {
     tools.push({
       name: tool.name,
       description: tool.description,
