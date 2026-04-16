@@ -1647,8 +1647,9 @@ class AgentManagerClass extends EventEmitter {
   }
 
   /**
-   * Extract screenshot file paths from tool result blocks.
+   * Extract screenshot and compositor file paths from tool result blocks.
    * The browser tool saves full-res screenshots and includes the path in its result JSON.
+   * Compositor tools (render_post_image, render_carousel) return JSON with file_path/file_paths.
    */
   private extractScreenshotPaths(block: unknown, sessionId: string): void {
     try {
@@ -1660,6 +1661,34 @@ class AgentManagerClass extends EventEmitter {
         this.pendingMediaBySession.set(sessionId, pendingMedia);
       }
 
+      // Helper: try to extract compositor paths from a JSON text string
+      const extractCompositorPaths = (text: string): void => {
+        try {
+          const parsed = JSON.parse(text);
+          if (!parsed.success) return;
+          // Single image: file_path
+          if (parsed.file_path && fs.existsSync(parsed.file_path)) {
+            if (!pendingMedia.some((m) => m.filePath === parsed.file_path)) {
+              pendingMedia.push({ type: 'image', filePath: parsed.file_path, mimeType: 'image/png' });
+              console.log(`[AgentManager] Found compositor image: ${parsed.file_path}`);
+            }
+          }
+          // Carousel: file_paths array
+          if (Array.isArray(parsed.file_paths)) {
+            for (const fp of parsed.file_paths) {
+              if (typeof fp === 'string' && fs.existsSync(fp)) {
+                if (!pendingMedia.some((m) => m.filePath === fp)) {
+                  pendingMedia.push({ type: 'image', filePath: fp, mimeType: 'image/png' });
+                  console.log(`[AgentManager] Found carousel slide: ${fp}`);
+                }
+              }
+            }
+          }
+        } catch {
+          // Not valid JSON — ignore
+        }
+      };
+
       if (Array.isArray(b.content)) {
         // Extract image blocks from tool result content (e.g. computer_use screenshots)
         this.extractImageBlocks(b.content, sessionId);
@@ -1668,6 +1697,7 @@ class AgentManagerClass extends EventEmitter {
         for (const part of b.content) {
           const p = part as { type?: string; text?: string };
           if (p.type === 'text' && p.text) {
+            // Screenshot paths
             const match = p.text.match(/saved to (\/[^\s"]+\/screenshot-\d+\.png)/);
             if (match && fs.existsSync(match[1])) {
               if (!pendingMedia.some((m) => m.filePath === match[1])) {
@@ -1675,6 +1705,8 @@ class AgentManagerClass extends EventEmitter {
                 console.log(`[AgentManager] Found screenshot in tool result: ${match[1]}`);
               }
             }
+            // Compositor tool results (JSON with file_path or file_paths)
+            extractCompositorPaths(p.text);
           }
         }
       } else if (typeof b.content === 'string') {
@@ -1685,6 +1717,8 @@ class AgentManagerClass extends EventEmitter {
             console.log(`[AgentManager] Found screenshot in tool result: ${match[1]}`);
           }
         }
+        // Compositor tool results
+        extractCompositorPaths(b.content);
       }
     } catch {
       // Ignore parsing errors

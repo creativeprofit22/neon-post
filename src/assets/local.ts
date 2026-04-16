@@ -38,8 +38,8 @@ export async function scanLocalFolder(
   const assets: FetchedAsset[] = [];
 
   for (const entry of sorted) {
-    let width = 0;
-    let height = 0;
+    let width = 0; // eslint-disable-line no-useless-assignment
+    let height = 0; // eslint-disable-line no-useless-assignment
     try {
       const img = await loadImage(entry.path);
       width = img.width;

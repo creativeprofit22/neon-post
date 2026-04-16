@@ -76,7 +76,7 @@ export function registerMiscIPC(deps: IPCDependencies): void {
   });
 
   ipcMain.handle('app:openPath', async (_, filePath: string) => {
-    // Security: only allow opening paths within the Neon-post documents directory
+    // Security: only allow opening paths within the Neon-post media directory
     const allowedDir = path.join(app.getPath('documents'), 'Neon-post');
     const resolvedPath = path.resolve(filePath);
     if (!resolvedPath.startsWith(allowedDir)) {

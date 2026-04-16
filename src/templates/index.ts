@@ -1,37 +1,47 @@
 import { GlobalFonts } from '@napi-rs/canvas';
+import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import type { TemplateDefinition } from '../compositor/types';
 
-import headlineCenter from './presets/headline-center.json';
-import headlineBottom from './presets/headline-bottom.json';
-import splitCard from './presets/split-card.json';
-import carouselSlide from './presets/carousel-slide.json';
-import bottomBar from './presets/bottom-bar.json';
-import socialEmbed from './presets/social-embed.json';
-
 // ---------------------------------------------------------------------------
-// Template registry
+// Template registry — loaded from JSON at runtime to avoid
+// ERR_IMPORT_ATTRIBUTE_MISSING in Node 22+ / Electron 40+
 // ---------------------------------------------------------------------------
 
-const PRESETS: Map<string, TemplateDefinition> = new Map([
-  ['headline-center', headlineCenter as TemplateDefinition],
-  ['headline-bottom', headlineBottom as TemplateDefinition],
-  ['split-card', splitCard as TemplateDefinition],
-  ['carousel-slide', carouselSlide as TemplateDefinition],
-  ['bottom-bar', bottomBar as TemplateDefinition],
-  ['social-embed', socialEmbed as TemplateDefinition],
-]);
+function loadPreset(name: string): TemplateDefinition {
+  // Resolve relative to this file's directory (works in both dev and packaged)
+  const thisDir = path.dirname(fileURLToPath(import.meta.url));
+  const filePath = path.join(thisDir, 'presets', `${name}.json`);
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as TemplateDefinition;
+}
+
+let _presets: Map<string, TemplateDefinition> | null = null;
+
+function getPresets(): Map<string, TemplateDefinition> {
+  if (!_presets) {
+    _presets = new Map([
+      ['headline-center', loadPreset('headline-center')],
+      ['headline-bottom', loadPreset('headline-bottom')],
+      ['split-card', loadPreset('split-card')],
+      ['carousel-slide', loadPreset('carousel-slide')],
+      ['bottom-bar', loadPreset('bottom-bar')],
+      ['social-embed', loadPreset('social-embed')],
+    ]);
+  }
+  return _presets;
+}
 
 export function getTemplate(id: string): TemplateDefinition | null {
-  return PRESETS.get(id) ?? null;
+  return getPresets().get(id) ?? null;
 }
 
 export function listTemplates(): TemplateDefinition[] {
-  return [...PRESETS.values()];
+  return [...getPresets().values()];
 }
 
 export function listTemplateIds(): string[] {
-  return [...PRESETS.keys()];
+  return [...getPresets().keys()];
 }
 
 // ---------------------------------------------------------------------------

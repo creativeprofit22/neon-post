@@ -356,6 +356,8 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
         metadata?: string | null;
         source_content_id?: string | null;
         video_path?: string | null;
+        generated_content_id?: string | null;
+        media_items?: string | null;
       }
     ) => {
       try {
@@ -948,6 +950,104 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
     }
   });
 
+  // ============ Gallery Grouped Query ============
+
+  ipcMain.handle('social:getGalleryGrouped', async () => {
+    try {
+      const memory = getMemory();
+      if (!memory) return [];
+      const all = memory.generatedContent.getAll();
+
+      // Group carousel items by group_id, leave others as singles
+      const groupMap = new Map<string, typeof all>();
+      const result: Array<
+        | { type: 'single'; item: (typeof all)[0] }
+        | { type: 'carousel'; group_id: string; slides: typeof all; item: (typeof all)[0] }
+      > = [];
+      const seenGroups = new Set<string>();
+
+      for (const item of all) {
+        if (item.group_id) {
+          if (!groupMap.has(item.group_id)) {
+            groupMap.set(item.group_id, []);
+          }
+          groupMap.get(item.group_id)!.push(item);
+        } else {
+          result.push({ type: 'single', item });
+        }
+      }
+
+      // Insert carousel groups at the position of their first slide (by created_at DESC order)
+      // Re-walk to preserve ordering
+      const finalResult: typeof result = [];
+      for (const item of all) {
+        if (item.group_id) {
+          if (!seenGroups.has(item.group_id)) {
+            seenGroups.add(item.group_id);
+            const slides = groupMap.get(item.group_id)!;
+            finalResult.push({
+              type: 'carousel',
+              group_id: item.group_id,
+              slides,
+              item: slides[0],
+            });
+          }
+        } else {
+          finalResult.push({ type: 'single', item });
+        }
+      }
+
+      return finalResult;
+    } catch (err) {
+      console.error('[SocialIPC] getGalleryGrouped error:', err);
+      return [];
+    }
+  });
+
+  // ============ Carousel Zip Download ============
+
+  ipcMain.handle('social:downloadCarousel', async (_, groupId: string) => {
+    try {
+      const memory = getMemory();
+      if (!memory) return { success: false, error: 'Memory not initialized' };
+
+      const slides = memory.generatedContent.getByGroup(groupId);
+      if (slides.length === 0) return { success: false, error: 'No slides found for group' };
+
+      const { canceled, filePath: savePath } = await dialog.showSaveDialog({
+        title: 'Save Carousel',
+        defaultPath: path.join(app.getPath('downloads'), `carousel-${groupId.slice(0, 8)}.zip`),
+        filters: [{ name: 'ZIP Archive', extensions: ['zip'] }],
+      });
+
+      if (canceled || !savePath) return { success: false, error: 'Cancelled' };
+
+      // Build zip using raw zip format (no external deps)
+      const files: Array<{ name: string; data: Buffer }> = [];
+      for (let i = 0; i < slides.length; i++) {
+        const mediaPath = slides[i].media_url;
+        if (!mediaPath || !fs.existsSync(mediaPath)) continue;
+        const ext = path.extname(mediaPath) || '.png';
+        files.push({
+          name: `slide-${String(i + 1).padStart(2, '0')}${ext}`,
+          data: fs.readFileSync(mediaPath),
+        });
+      }
+
+      if (files.length === 0) return { success: false, error: 'No slide files found on disk' };
+
+      // Minimal ZIP archive (store, no compression — images are already compressed)
+      const zipBuffer = buildZipArchive(files);
+      fs.writeFileSync(savePath, zipBuffer);
+
+      return { success: true, filePath: savePath, slides: files.length };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[SocialIPC] downloadCarousel error:', err);
+      return { success: false, error: message };
+    }
+  });
+
   ipcMain.handle(
     'social:generateContent',
     async (
@@ -1314,4 +1414,93 @@ export function registerSocialIpc(deps: IPCDependencies, tracker?: ImageJobTrack
       return { success: false, error: message };
     }
   });
+}
+
+// ---------------------------------------------------------------------------
+// Minimal ZIP archive builder (store mode, no compression — images are already compressed)
+// ---------------------------------------------------------------------------
+
+function buildZipArchive(files: Array<{ name: string; data: Buffer }>): Buffer {
+  const chunks: Buffer[] = [];
+  const centralDir: Buffer[] = [];
+  let offset = 0;
+
+  for (const file of files) {
+    const nameBuffer = Buffer.from(file.name, 'utf8');
+    const data = file.data;
+
+    // Local file header (30 bytes + name)
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0); // signature
+    local.writeUInt16LE(20, 4); // version needed
+    local.writeUInt16LE(0, 6); // flags
+    local.writeUInt16LE(0, 8); // compression: store
+    local.writeUInt16LE(0, 10); // mod time
+    local.writeUInt16LE(0, 12); // mod date
+    local.writeUInt32LE(crc32(data), 14); // crc-32
+    local.writeUInt32LE(data.length, 18); // compressed size
+    local.writeUInt32LE(data.length, 22); // uncompressed size
+    local.writeUInt16LE(nameBuffer.length, 26); // name length
+    local.writeUInt16LE(0, 28); // extra length
+
+    chunks.push(local, nameBuffer, data);
+
+    // Central directory header (46 bytes + name)
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0); // signature
+    central.writeUInt16LE(20, 4); // version made by
+    central.writeUInt16LE(20, 6); // version needed
+    central.writeUInt16LE(0, 8); // flags
+    central.writeUInt16LE(0, 10); // compression: store
+    central.writeUInt16LE(0, 12); // mod time
+    central.writeUInt16LE(0, 14); // mod date
+    central.writeUInt32LE(crc32(data), 16); // crc-32
+    central.writeUInt32LE(data.length, 20); // compressed size
+    central.writeUInt32LE(data.length, 24); // uncompressed size
+    central.writeUInt16LE(nameBuffer.length, 28); // name length
+    central.writeUInt16LE(0, 30); // extra length
+    central.writeUInt16LE(0, 32); // comment length
+    central.writeUInt16LE(0, 34); // disk number start
+    central.writeUInt16LE(0, 36); // internal attrs
+    central.writeUInt32LE(0, 38); // external attrs
+    central.writeUInt32LE(offset, 42); // local header offset
+    centralDir.push(central, nameBuffer);
+
+    offset += 30 + nameBuffer.length + data.length;
+  }
+
+  const centralDirBuf = Buffer.concat(centralDir);
+  const centralDirOffset = offset;
+
+  // End of central directory (22 bytes)
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0); // signature
+  eocd.writeUInt16LE(0, 4); // disk number
+  eocd.writeUInt16LE(0, 6); // disk with central dir
+  eocd.writeUInt16LE(files.length, 8); // entries on this disk
+  eocd.writeUInt16LE(files.length, 10); // total entries
+  eocd.writeUInt32LE(centralDirBuf.length, 12); // central dir size
+  eocd.writeUInt32LE(centralDirOffset, 16); // central dir offset
+  eocd.writeUInt16LE(0, 20); // comment length
+
+  chunks.push(centralDirBuf, eocd);
+  return Buffer.concat(chunks);
+}
+
+// CRC-32 lookup table
+const CRC_TABLE = new Uint32Array(256);
+for (let i = 0; i < 256; i++) {
+  let c = i;
+  for (let j = 0; j < 8; j++) {
+    c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  }
+  CRC_TABLE[i] = c;
+}
+
+function crc32(buf: Buffer): number {
+  let crc = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) {
+    crc = CRC_TABLE[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
 }

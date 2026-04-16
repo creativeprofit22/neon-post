@@ -10,14 +10,10 @@ let _socDiscoverSearchCache = null; // cached raw search results (ContentResult[
 let _socSavedCache = null;          // cached saved/bookmarked content from DB
 let _socTrendsCache = null;          // cached trends for Discover → Trends sub-tab
 let _socTrendsLastDetect = 0;        // timestamp of last detectTrends call
-let _socGalleryCache = null;        // cached gallery items for client-side filtering
-let _socGalleryFavOnly = false;     // favorites-only toggle state
-let _socLightboxItems = [];         // current lightbox items array
-let _socLightboxIndex = -1;         // current lightbox item index
-let _socSelectMode = false;         // gallery multi-select mode
+// Gallery state moved to gallery-panel.js
 let _socCalendarInitialized = false; // calendar lazy-init flag
 let _socDiscoverTypeFilter = '';     // content type filter for Discover Search
-const _socSelectedIds = new Set();  // currently selected gallery item IDs
+// _socSelectedIds moved to gallery-panel.js
 let _socScheduleModalDraftId = null; // draft id for schedule modal
 let _socScheduleModalMode = 'schedule'; // current toggle mode: 'now' | 'schedule' | 'queue'
 let _socDraftsFilterValue = '';          // persisted drafts filter value across tab switches
@@ -97,23 +93,14 @@ function navigateToSocialTab(tab, subTab) {
     localStorage.setItem('soc-calendar-view', 'posts');
   }
 
-  // For hidden tabs (gallery), show them directly without tab bar highlight
-  var hiddenTabs = ['gallery'];
-  if (hiddenTabs.indexOf(resolvedTab) !== -1) {
+  // Activate the top-level tab
+  var tabBtn = root.querySelector('.soc-tab-btn[data-tab="' + resolvedTab + '"]');
+  if (tabBtn) {
     root.querySelectorAll('.soc-tab-btn').forEach(function (b) { b.classList.remove('active'); });
     root.querySelectorAll('.soc-tab-content').forEach(function (c) { c.classList.remove('active'); });
-    var hiddenEl = root.querySelector('#soc-tab-' + resolvedTab);
-    if (hiddenEl) { hiddenEl.style.display = ''; hiddenEl.classList.add('active'); }
-  } else {
-    // Activate the top-level tab
-    var tabBtn = root.querySelector('.soc-tab-btn[data-tab="' + resolvedTab + '"]');
-    if (tabBtn) {
-      root.querySelectorAll('.soc-tab-btn').forEach(function (b) { b.classList.remove('active'); });
-      root.querySelectorAll('.soc-tab-content').forEach(function (c) { c.classList.remove('active'); });
-      tabBtn.classList.add('active');
-      var el = root.querySelector('#soc-tab-' + resolvedTab);
-      if (el) el.classList.add('active');
-    }
+    tabBtn.classList.add('active');
+    var el = root.querySelector('#soc-tab-' + resolvedTab);
+    if (el) el.classList.add('active');
   }
 
   // Activate sub-tab if specified (e.g. "search" or "saved" within Content)
@@ -124,11 +111,11 @@ function navigateToSocialTab(tab, subTab) {
     if (subBtn) subBtn.classList.add('active');
     var subEl = root.querySelector('#soc-discover-view-' + subTab);
     if (subEl) subEl.classList.add('active');
-    if (subTab === 'gallery') _socLoadGallery();
   }
 
   // Refresh the tab data
   if (resolvedTab === 'content-browse') _socLoadDiscovered();
+  if (resolvedTab === 'gallery') galPanelLoad();
   if (resolvedTab === 'calendar') showCalendarPanel();
   if (resolvedTab === 'create') _socLoadDrafts();
 }
@@ -1394,8 +1381,12 @@ function _socInit() {
       const el = root.querySelector('#soc-tab-' + target);
       if (el) el.classList.add('active');
 
+      // Reset gallery select mode when switching away
+      if (target !== 'gallery') galPanelResetSelect();
+
       // Lazy-load each tab's data
       if (target === 'content-browse') { _socLoadDiscovered(); _socMaybeAutoDetectTrends(); }
+      if (target === 'gallery') galPanelLoad();
       if (target === 'calendar') showCalendarPanel();
       if (target === 'create') {
         var filterEl = root.querySelector('#soc-drafts-filter');
@@ -1439,29 +1430,8 @@ function _socInit() {
   // ── Entry point buttons ──
   _socInitEntryPoints(root);
 
-  // ── Gallery filter bar ──
-  const galSearch    = root.querySelector('#soc-gallery-search');
-  const galTypeFilter = root.querySelector('#soc-gallery-type-filter');
-  const galFavToggle = root.querySelector('#soc-gallery-fav-toggle');
-  const galSort      = root.querySelector('#soc-gallery-sort');
-  if (galSearch)     galSearch.addEventListener('input', _socApplyGalleryFilters);
-  if (galTypeFilter) galTypeFilter.addEventListener('change', _socApplyGalleryFilters);
-  if (galSort)       galSort.addEventListener('change', _socApplyGalleryFilters);
-  if (galFavToggle)  galFavToggle.addEventListener('click', () => {
-    _socGalleryFavOnly = !_socGalleryFavOnly;
-    galFavToggle.classList.toggle('active', _socGalleryFavOnly);
-    _socApplyGalleryFilters();
-  });
-
-  // ── Gallery select mode ──
-  const galSelectToggle = root.querySelector('#soc-gallery-select-toggle');
-  if (galSelectToggle) galSelectToggle.addEventListener('click', _socToggleSelectMode);
-  const galSelectAll = root.querySelector('#soc-gallery-select-all');
-  if (galSelectAll) galSelectAll.addEventListener('click', _socSelectAll);
-  const galDeselectAll = root.querySelector('#soc-gallery-deselect-all');
-  if (galDeselectAll) galDeselectAll.addEventListener('click', _socDeselectAll);
-  const galDeleteSelected = root.querySelector('#soc-gallery-delete-selected');
-  if (galDeleteSelected) galDeleteSelected.addEventListener('click', _socDeleteSelected);
+  // ── Gallery (delegated to gallery-panel.js) ──
+  galPanelInit(root);
 
   // ── Discover sub-tab switching (Search / Saved) ──
   root.querySelectorAll('.soc-discover-sub-tab').forEach(btn => {
@@ -1473,22 +1443,9 @@ function _socInit() {
       const el = root.querySelector('#soc-discover-view-' + target);
       if (el) el.classList.add('active');
 
-      // OW2: Reset gallery select mode when switching away from gallery
-      if (target !== 'gallery') {
-        _socSelectMode = false;
-        _socSelectedIds.clear();
-        var toolbar = root.querySelector('#soc-gallery-select-toolbar');
-        if (toolbar) toolbar.style.display = 'none';
-        var toggleBtn = root.querySelector('#soc-gallery-select-toggle');
-        if (toggleBtn) toggleBtn.classList.remove('active');
-        root.querySelectorAll('.soc-gallery-item.selected').forEach(function(el) { el.classList.remove('selected'); });
-      }
-
       // Search cache persists until user clears it or app restarts
-
       if (target === 'saved') _socLoadSavedContent();
       if (target === 'trends') _socLoadTrends();
-      if (target === 'gallery') _socLoadGallery();
     });
   });
 
@@ -1637,8 +1594,8 @@ function _socInit() {
                   '<span class="soc-image-model-tag">' + _socEscapeHtml(model) + ' · ' + _socEscapeHtml(aspectRatio) + '</span>' +
                 '</div>';
             }
-            _socGalleryCache = null;
-            var galleryTab = root.querySelector('.soc-discover-sub-tab[data-discover-view="gallery"].active');
+            galPanelRefresh();
+            var galleryTab = root.querySelector('.soc-tab-btn[data-tab="gallery"].active');
             if (!galleryTab) {
               _socShowToast('Image ready — check Gallery tab', 'success');
             } else {
@@ -1713,20 +1670,7 @@ function _socInit() {
   if (postsFilter) postsFilter.addEventListener('change', _socLoadPosts);
 
   // ── Lightbox ──
-  const lightbox      = root.querySelector('#soc-lightbox');
-  const lightboxClose = root.querySelector('#soc-lightbox-close');
-  const lightboxPrev  = root.querySelector('#soc-lightbox-prev');
-  const lightboxNext  = root.querySelector('#soc-lightbox-next');
-  if (lightboxClose) lightboxClose.addEventListener('click', () => { lightbox.classList.remove('active'); _socLightboxItems = []; _socLightboxIndex = -1; });
-  if (lightbox) lightbox.addEventListener('click', e => { if (e.target === lightbox) { lightbox.classList.remove('active'); _socLightboxItems = []; _socLightboxIndex = -1; } });
-  if (lightboxPrev) lightboxPrev.addEventListener('click', () => _socLightboxNavigate(-1));
-  if (lightboxNext) lightboxNext.addEventListener('click', () => _socLightboxNavigate(1));
-  document.addEventListener('keydown', e => {
-    if (!lightbox || !lightbox.classList.contains('active')) return;
-    if (e.key === 'Escape') { lightbox.classList.remove('active'); _socLightboxItems = []; _socLightboxIndex = -1; }
-    else if (e.key === 'ArrowLeft') _socLightboxNavigate(-1);
-    else if (e.key === 'ArrowRight') _socLightboxNavigate(1);
-  });
+  // Lightbox event binding moved to gallery-panel.js (galPanelInit)
 
   // ── Save brand ──
   const saveBrandBtn = root.querySelector('#soc-save-brand-btn');
@@ -4294,200 +4238,9 @@ function _socRenderAgendaView() {
   });
 }
 
-// ─── Gallery Tab ───────────────────────────────────────────────────────────
+// ─── Gallery Tab — delegated to gallery-panel.js ─────────────────────────
 
-function _socLoadGallery() {
-  const social = _socAPI();
-  const root   = document.getElementById('social-view');
-  const grid   = root && root.querySelector('#soc-gallery-grid');
-  if (!grid) return;
-
-  grid.className = '';
-  grid.innerHTML = _socSkeletonCards(8);
-
-  if (!social) { grid.innerHTML = '<div class="soc-empty" style="grid-column:1/-1"><p>Social API unavailable</p></div>'; return; }
-
-  social.getGenerated(100)
-    .then(items => {
-      _socGalleryCache = items || [];
-      _socApplyGalleryFilters();
-    })
-    .catch(err => {
-      console.error('[Social] Failed to load gallery:', err);
-      grid.innerHTML = '<div class="soc-empty" style="grid-column:1/-1"><p>Failed to load gallery</p></div>';
-    });
-}
-
-function _socUpdateGalleryStats(root) {
-  const statsEl = root && root.querySelector('#soc-gallery-stats');
-  if (!statsEl || !_socGalleryCache) return;
-
-  const total  = _socGalleryCache.length;
-  const images = _socGalleryCache.filter(i => i.content_type === 'image' || i.media_url || _socIsImageItem(i)).length;
-  const favs   = _socGalleryCache.filter(i => i.rating && i.rating > 0).length;
-
-  statsEl.innerHTML =
-    '<span class="soc-gallery-stat-pill">' +
-      '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"/></svg>' +
-      total + ' Total</span>' +
-    '<span class="soc-gallery-stat-pill">' +
-      '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2 6h4m0 0v12m0-12l4 12m4-12h4m0 0v12m0-12l4 12"/></svg>' +
-      images + ' Images</span>' +
-    '<span class="soc-gallery-stat-pill">' +
-      '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="' + (favs > 0 ? 'var(--warning)' : 'none') + '" stroke="currentColor" stroke-width="1.5" d="m12 3.5l2.713 5.497L20.7 9.91l-3.85 3.75l.909 5.298L12 16.183l-5.758 2.776l.909-5.298L3.3 9.91l5.987-.914z"/></svg>' +
-      favs + ' Favorites</span>';
-}
-
-function _socApplyGalleryFilters() {
-  const root = document.getElementById('social-view');
-  const grid = root && root.querySelector('#soc-gallery-grid');
-  if (!grid || !_socGalleryCache) return;
-
-  _socUpdateGalleryStats(root);
-
-  const searchVal  = (root.querySelector('#soc-gallery-search') || {}).value || '';
-  const typeVal    = (root.querySelector('#soc-gallery-type-filter') || {}).value || '';
-  const sortVal    = (root.querySelector('#soc-gallery-sort') || {}).value || 'newest';
-  const searchLow  = searchVal.toLowerCase();
-
-  let filtered = _socGalleryCache.filter(item => {
-    if (searchLow && !(item.prompt_used || '').toLowerCase().includes(searchLow) &&
-        !(item.output || '').toLowerCase().includes(searchLow)) return false;
-    if (typeVal && item.content_type !== typeVal) return false;
-    if (_socGalleryFavOnly && !(item.rating && item.rating > 0)) return false;
-    return true;
-  });
-
-  if (sortVal === 'oldest') {
-    filtered.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-  } else if (sortVal === 'top_rated') {
-    filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-  } else {
-    filtered.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-  }
-
-  if (filtered.length === 0) {
-    grid.className = '';
-    grid.innerHTML =
-      '<div class="soc-empty" style="grid-column:1/-1">' +
-      '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12S6.477 2 12 2s10 4.477 10 10"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m14.5 9.5l-5 5m0-5l5 5"/></svg>' +
-      '<p>' + (_socGalleryCache.length === 0 ? 'No generated content yet' : 'No items match filters') + '</p>' +
-      (_socGalleryCache.length === 0 ? '<p class="hint">Use the Create tab to generate copy, images, and more</p>' : '') +
-      '</div>';
-    return;
-  }
-
-  grid.className = 'soc-gallery-grid';
-  grid.innerHTML = filtered.map(item => {
-    const isFav = item.rating && item.rating > 0;
-    const imageUrl = item.media_url || (_socIsImageItem(item) ? item.output : null);
-    const isImage = !!imageUrl;
-    const isSelected = _socSelectedIds.has(item.id);
-    const clickAction = _socSelectMode
-      ? 'socPanelActions.toggleSelectItem(\'' + item.id + '\')'
-      : 'socPanelActions.openLightbox(\'' + item.id + '\')';
-    return (
-      '<div class="soc-gallery-item' + (isImage ? ' soc-gallery-image-item' : '') + (isSelected ? ' selected' : '') + '" data-id="' + item.id + '">' +
-        (_socSelectMode ? '<div class="soc-gallery-checkbox' + (isSelected ? ' checked' : '') + '" onclick="socPanelActions.toggleSelectItem(\'' + item.id + '\')">' +
-          '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path fill="' + (isSelected ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="2" d="M4 3h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/>' +
-          (isSelected ? '<path fill="none" stroke="var(--bg-primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M7 13l3 3l7-7"/>' : '') +
-          '</svg></div>' : '') +
-        (isImage
-          ? '<img class="soc-gallery-item-media" src="' + _socEscapeHtml(imageUrl) + '" onclick="' + clickAction + '" />'
-          : '<div class="soc-gallery-item-content" onclick="' + clickAction + '">' + _socEscapeHtml(item.output) + '</div>') +
-        '<div class="soc-gallery-item-footer">' +
-          '<span>' + _socMakePlatformBadge(item.platform || item.content_type) + ' · ' + _socTimeAgo(item.created_at) + '</span>' +
-          '<div class="soc-gallery-item-actions">' +
-            (isImage ? '<button class="soc-icon-btn" onclick="socPanelActions.copyImageUrl(\'' + _socEscapeHtml(imageUrl) + '\')" title="Copy URL">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>' +
-            '</button>' : '') +
-            (isImage ? '<button class="soc-icon-btn" onclick="socPanelActions.downloadImage(\'' + item.id + '\')" title="Download">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 3v13m0 0l-4-4m4 4l4-4M4 21h16"/></svg>' +
-            '</button>' : '') +
-            '<button class="soc-icon-btn soc-favorite-btn' + (isFav ? ' active' : '') + '" data-id="' + item.id + '" onclick="socPanelActions.toggleFavorite(\'' + item.id + '\',' + (isFav ? '0' : '5') + ')" title="Favorite">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"><path fill="' + (isFav ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="1.5" d="m12 3.5l2.713 5.497L20.7 9.91l-3.85 3.75l.909 5.298L12 16.183l-5.758 2.776l.909-5.298L3.3 9.91l5.987-.914z"/></svg>' +
-            '</button>' +
-            '<button class="soc-icon-btn danger" onclick="socPanelActions.deleteGenerated(\'' + item.id + '\')" title="Delete">' +
-              '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" d="m19.5 5.5l-.62 10.025c-.158 2.561-.237 3.842-.88 4.763a4 4 0 0 1-1.2 1.128c-.957.584-2.24.584-4.806.584c-2.57 0-3.855 0-4.814-.585a4 4 0 0 1-1.2-1.13c-.642-.922-.72-2.205-.874-4.77L4.5 5.5M3 5.5h18m-4.944 0l-.683-1.408c-.453-.936-.68-1.403-1.071-1.695a2 2 0 0 0-.275-.172C13.594 2 13.074 2 12.035 2c-1.066 0-1.599 0-2.04.234a2 2 0 0 0-.278.18c-.395.303-.616.788-1.058 1.757L8.053 5.5"/></svg>' +
-            '</button>' +
-          '</div>' +
-        '</div>' +
-      '</div>'
-    );
-  }).join('');
-  if (_socSelectMode) _socUpdateSelectCount();
-}
-
-// ─── Gallery Select Mode ──────────────────────────────────────────────────
-
-function _socToggleSelectMode() {
-  _socSelectMode = !_socSelectMode;
-  _socSelectedIds.clear();
-  const root = document.getElementById('social-view');
-  if (!root) return;
-  const toggle = root.querySelector('#soc-gallery-select-toggle');
-  if (toggle) toggle.classList.toggle('active', _socSelectMode);
-  const toolbar = root.querySelector('#soc-gallery-select-toolbar');
-  if (toolbar) toolbar.classList.toggle('active', _socSelectMode);
-  _socApplyGalleryFilters();
-}
-
-function _socSelectAll() {
-  const root = document.getElementById('social-view');
-  if (!root) return;
-  root.querySelectorAll('.soc-gallery-item[data-id]').forEach(el => {
-    const id = el.dataset.id;
-    if (id) { _socSelectedIds.add(id); el.classList.add('selected'); }
-  });
-  _socUpdateSelectCount();
-}
-
-function _socDeselectAll() {
-  _socSelectedIds.clear();
-  const root = document.getElementById('social-view');
-  if (!root) return;
-  root.querySelectorAll('.soc-gallery-item.selected').forEach(el => el.classList.remove('selected'));
-  _socUpdateSelectCount();
-}
-
-function _socToggleSelectItem(id) {
-  const root = document.getElementById('social-view');
-  const el = root && root.querySelector('.soc-gallery-item[data-id="' + id + '"]');
-  if (_socSelectedIds.has(id)) {
-    _socSelectedIds.delete(id);
-    if (el) el.classList.remove('selected');
-  } else {
-    _socSelectedIds.add(id);
-    if (el) el.classList.add('selected');
-  }
-  _socUpdateSelectCount();
-}
-
-function _socUpdateSelectCount() {
-  const root = document.getElementById('social-view');
-  const countEl = root && root.querySelector('#soc-gallery-select-count');
-  if (countEl) countEl.textContent = _socSelectedIds.size + ' selected';
-  const deleteBtn = root && root.querySelector('#soc-gallery-delete-selected');
-  if (deleteBtn) deleteBtn.disabled = _socSelectedIds.size === 0;
-}
-
-function _socDeleteSelected() {
-  const social = _socAPI();
-  if (!social || _socSelectedIds.size === 0) return;
-  if (!confirm('Delete ' + _socSelectedIds.size + ' selected items?')) return;
-  const ids = Array.from(_socSelectedIds);
-  social.bulkDeleteGenerated(ids)
-    .then(result => {
-      if (result.success) {
-        _socShowToast('Deleted ' + (result.deleted || ids.length) + ' items', 'success');
-        _socSelectedIds.clear();
-        _socLoadGallery();
-      } else {
-        _socShowToast('Failed to delete: ' + (result.error || 'Unknown error'), 'error');
-      }
-    })
-    .catch(() => _socShowToast('Failed to delete selected items', 'error'));
-}
+// Gallery functions (stats, filters, select mode) moved to gallery-panel.js
 
 // ─── Accounts Modal ───────────────────────────────────────────────────────
 
@@ -4572,53 +4325,12 @@ function _socLoadBrand() {
 
 // ─── Lightbox Navigation Helper ─────────────────────────────────────────────
 
-function _socLightboxShowItem(item) {
-  const root    = document.getElementById('social-view');
-  const lbBody  = root && root.querySelector('#soc-lightbox-body');
-  const lbMeta  = root && root.querySelector('#soc-lightbox-meta');
-  if (!lbBody) return;
-
-  const imageUrl = item.media_url || (_socIsImageItem(item) ? item.output : null);
-  if (imageUrl) {
-    lbBody.innerHTML = '<img src="' + _socEscapeHtml(imageUrl) + '" style="max-width:100%;border-radius:8px;" />';
-  } else {
-    lbBody.textContent = item.output || '';
-  }
-
-  if (lbMeta) {
-    const copyUrlBtn = imageUrl
-      ? '<button class="soc-icon-btn" onclick="socPanelActions.copyImageUrl(\'' + _socEscapeHtml(imageUrl) + '\')" title="Copy URL" style="margin-left:auto">' +
-        '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>' +
-        '</button>'
-      : '';
-    const downloadBtn = imageUrl
-      ? '<button class="soc-icon-btn" onclick="socPanelActions.downloadImage(\'' + item.id + '\')" title="Download">' +
-        '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 3v13m0 0l-4-4m4 4l4-4M4 21h16"/></svg>' +
-        '</button>'
-      : '';
-    lbMeta.innerHTML =
-      '<span>' + _socMakePlatformBadge(item.platform || item.content_type) + '</span>' +
-      (item.prompt_used ? '<span style="opacity:0.7;font-style:italic">' + _socEscapeHtml(item.prompt_used) + '</span>' : '') +
-      '<span>' + _socTimeAgo(item.created_at) + '</span>' +
-      copyUrlBtn + downloadBtn;
-  }
-}
-
-function _socLightboxNavigate(dir) {
-  if (_socLightboxItems.length === 0) return;
-  _socLightboxIndex = (_socLightboxIndex + dir + _socLightboxItems.length) % _socLightboxItems.length;
-  _socLightboxShowItem(_socLightboxItems[_socLightboxIndex]);
-}
+// Lightbox functions moved to gallery-panel.js
 
 // ─── Global Actions (callable from inline onclick) ─────────────────────────
 
 window.socPanelActions = {
-  copyImageUrl(url) {
-    if (!url) return;
-    navigator.clipboard.writeText(url)
-      .then(function() { _socShowToast('Image URL copied!', 'success'); })
-      .catch(function() { _socShowToast('Copy failed', 'error'); });
-  },
+  copyImageUrl(url) { galActions.copyImageUrl(url); },
 
   saveDiscovered(id) {
     const social = _socAPI();
@@ -4864,62 +4576,10 @@ window.socPanelActions = {
       .catch(function () { _socShowToast('Failed to delete post', 'error'); });
   },
 
-  deleteGenerated(id) {
-    const social = _socAPI();
-    if (!social || !confirm('Delete this item?')) return;
-    social.deleteGenerated(id)
-      .then(result => {
-        if (result.success) {
-          if (_socGalleryCache) {
-            _socGalleryCache = _socGalleryCache.filter(function(i) { return i.id !== id; });
-          }
-          const el = document.querySelector('#social-view .soc-gallery-item[data-id="' + id + '"]');
-          if (el) el.remove();
-          _socShowToast('Deleted', 'success');
-        } else {
-          _socShowToast('Failed to delete', 'error');
-        }
-      })
-      .catch(() => _socShowToast('Failed to delete', 'error'));
-  },
-
-  toggleSelectItem(id) {
-    _socToggleSelectItem(id);
-  },
-
-  toggleFavorite(id, rating) {
-    const social = _socAPI();
-    if (!social) return;
-    const btn = document.querySelector('.soc-favorite-btn[data-id="' + id + '"]');
-    if (btn) {
-      const willBeActive = rating > 0;
-      btn.classList.toggle('active', willBeActive);
-      const path = btn.querySelector('path');
-      if (path) path.setAttribute('fill', willBeActive ? 'currentColor' : 'none');
-      btn.classList.remove('soc-fav-pop');
-      void btn.offsetWidth;
-      btn.classList.add('soc-fav-pop');
-    }
-    social.favoriteGenerated(id, rating)
-      .then(result => {
-        if (result.success) {
-          _socShowToast(rating > 0 ? 'Favorited ⭐' : 'Unfavorited', 'success');
-          _socLoadGallery();
-        } else if (btn) {
-          btn.classList.toggle('active', !rating);
-          const path = btn.querySelector('path');
-          if (path) path.setAttribute('fill', rating ? 'none' : 'currentColor');
-        }
-      })
-      .catch(() => {
-        if (btn) {
-          btn.classList.toggle('active', !rating);
-          const path = btn.querySelector('path');
-          if (path) path.setAttribute('fill', rating ? 'none' : 'currentColor');
-        }
-        _socShowToast('Failed to update', 'error');
-      });
-  },
+  // Gallery actions delegated to galActions (gallery-panel.js)
+  deleteGenerated(id) { galActions.deleteGenerated(id); },
+  toggleSelectItem(id) { galActions.toggleSelectItem(id); },
+  toggleFavorite(id, rating) { galActions.toggleFavorite(id, rating); },
 
   editAccount(id) {
     const social = _socAPI();
@@ -4992,38 +4652,8 @@ window.socPanelActions = {
       .catch(() => _socShowToast('Failed to remove', 'error'));
   },
 
-  downloadImage(id) {
-    const social = _socAPI();
-    if (!social) return;
-    social.downloadImage(id)
-      .then(result => {
-        if (result.success) {
-          _socShowToast('Image saved', 'success');
-        } else if (result.error !== 'Cancelled') {
-          _socShowToast(result.error || 'Download failed', 'error');
-        }
-      })
-      .catch(() => _socShowToast('Download failed', 'error'));
-  },
-
-  openLightbox(id) {
-    const social    = _socAPI();
-    const root      = document.getElementById('social-view');
-    const lightbox  = root && root.querySelector('#soc-lightbox');
-    if (!social || !lightbox) return;
-
-    social.getGenerated(100)
-      .then(items => {
-        const idx = items.findIndex(i => i.id === id);
-        if (idx === -1) return;
-
-        _socLightboxItems = items;
-        _socLightboxIndex = idx;
-        _socLightboxShowItem(items[idx]);
-        lightbox.classList.add('active');
-      })
-      .catch(function() { _socShowToast('Failed to load gallery', 'error'); });
-  },
+  downloadImage(id) { galActions.downloadImage(id); },
+  openLightbox(id) { galActions.openLightbox(id); },
 
   // ── Draft actions ──
 

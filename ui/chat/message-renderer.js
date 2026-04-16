@@ -78,28 +78,111 @@ function addMessage(role, content, animate = true, attachments = [], timestamp =
 
   // Add response media images (from agent screenshots/tools)
   if (media && media.length > 0) {
-    const mediaDiv = document.createElement('div');
-    mediaDiv.className = 'message-media';
+    const imageItems = media.filter(m => m.type === 'image');
+    const isCarousel = imageItems.length >= 3;
 
-    for (const item of media) {
-      if (item.type === 'image') {
+    if (isCarousel) {
+      // Render as a scrollable carousel with arrows and dots
+      const carousel = document.createElement('div');
+      carousel.className = 'message-media message-carousel';
+
+      const track = document.createElement('div');
+      track.className = 'message-carousel-track';
+
+      let currentSlide = 0;
+
+      for (const item of imageItems) {
+        const slide = document.createElement('div');
+        slide.className = 'message-carousel-slide';
+
+        const img = document.createElement('img');
+        img.alt = 'Carousel slide';
+        img.loading = 'lazy';
+
+        if (item.dataUri) {
+          img.src = item.dataUri;
+        } else if (item.filePath) {
+          window.pocketAgent.agent.readMedia(item.filePath).then(dataUri => {
+            if (dataUri) img.src = dataUri;
+          });
+        }
+
+        if (item.filePath) {
+          img.title = 'Click to open';
+          img.addEventListener('click', () => {
+            window.pocketAgent.app.openImage(item.filePath);
+          });
+        }
+
+        slide.appendChild(img);
+        track.appendChild(slide);
+      }
+
+      carousel.appendChild(track);
+
+      // Navigation arrows
+      const prevBtn = document.createElement('button');
+      prevBtn.className = 'message-carousel-arrow message-carousel-prev';
+      prevBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6"/></svg>';
+      carousel.appendChild(prevBtn);
+
+      const nextBtn = document.createElement('button');
+      nextBtn.className = 'message-carousel-arrow message-carousel-next';
+      nextBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/></svg>';
+      carousel.appendChild(nextBtn);
+
+      // Dots + counter
+      const footer = document.createElement('div');
+      footer.className = 'message-carousel-footer';
+
+      const dots = document.createElement('div');
+      dots.className = 'message-carousel-dots';
+      for (let i = 0; i < imageItems.length; i++) {
+        const dot = document.createElement('span');
+        dot.className = 'message-carousel-dot' + (i === 0 ? ' active' : '');
+        dot.addEventListener('click', () => goToSlide(i));
+        dots.appendChild(dot);
+      }
+      footer.appendChild(dots);
+
+      const counter = document.createElement('span');
+      counter.className = 'message-carousel-counter';
+      counter.textContent = '1 / ' + imageItems.length;
+      footer.appendChild(counter);
+
+      carousel.appendChild(footer);
+
+      function goToSlide(idx) {
+        currentSlide = Math.max(0, Math.min(idx, imageItems.length - 1));
+        track.style.transform = 'translateX(-' + (currentSlide * 100) + '%)';
+        dots.querySelectorAll('.message-carousel-dot').forEach((d, i) => {
+          d.classList.toggle('active', i === currentSlide);
+        });
+        counter.textContent = (currentSlide + 1) + ' / ' + imageItems.length;
+      }
+
+      prevBtn.addEventListener('click', () => goToSlide(currentSlide - 1));
+      nextBtn.addEventListener('click', () => goToSlide(currentSlide + 1));
+
+      div.appendChild(carousel);
+    } else {
+      // Regular media display (1-2 images)
+      const mediaDiv = document.createElement('div');
+      mediaDiv.className = 'message-media';
+
+      for (const item of imageItems) {
         const img = document.createElement('img');
         img.alt = 'Agent image';
         img.loading = 'lazy';
 
-        // If it's already a data URI, use directly; otherwise load via IPC
         if (item.dataUri) {
           img.src = item.dataUri;
         } else if (item.filePath) {
-          // Load image via IPC to get data URI
           window.pocketAgent.agent.readMedia(item.filePath).then(dataUri => {
-            if (dataUri) {
-              img.src = dataUri;
-            }
+            if (dataUri) img.src = dataUri;
           });
         }
 
-        // Click to open in default image viewer
         if (item.filePath) {
           img.title = 'Click to open';
           img.addEventListener('click', () => {
@@ -109,9 +192,9 @@ function addMessage(role, content, animate = true, attachments = [], timestamp =
 
         mediaDiv.appendChild(img);
       }
-    }
 
-    div.appendChild(mediaDiv);
+      div.appendChild(mediaDiv);
+    }
   }
 
   // Add footer with copy button and timestamp

@@ -57,7 +57,43 @@ exports.default = async function(context) {
     }
   }
 
-  // 3. Remove unnecessary files from node_modules
+  // 3. Ensure correct platform-specific @napi-rs/canvas binding exists
+  const napirsDir = path.join(appPath, 'node_modules', '@napi-rs');
+  if (fs.existsSync(napirsDir)) {
+    const bindingMap = {
+      'win32-x64': 'canvas-win32-x64-msvc',
+      'win32-arm64': 'canvas-win32-arm64-msvc',
+      'darwin-x64': 'canvas-darwin-x64',
+      'darwin-arm64': 'canvas-darwin-arm64',
+      'linux-x64': 'canvas-linux-x64-gnu',
+      'linux-arm64': 'canvas-linux-arm64-gnu',
+    };
+    const needed = bindingMap[`${platform}-${arch}`];
+    if (needed) {
+      const neededPath = path.join(napirsDir, needed);
+      if (!fs.existsSync(neededPath)) {
+        // Copy from source node_modules if available (e.g. force-installed cross-platform)
+        const srcPath = path.join(context.packager.projectDir, 'node_modules', '@napi-rs', needed);
+        if (fs.existsSync(srcPath)) {
+          console.log(`[afterPack] Copying missing ${needed} binding`);
+          copyDirSync(srcPath, neededPath);
+        } else {
+          console.warn(`[afterPack] WARNING: Missing @napi-rs/${needed} — install it with: npm install @napi-rs/${needed} --force`);
+        }
+      }
+      // Remove other platform bindings
+      const entries = fs.readdirSync(napirsDir);
+      for (const entry of entries) {
+        if (entry.startsWith('canvas-') && entry !== needed && entry !== 'canvas') {
+          const entryPath = path.join(napirsDir, entry);
+          console.log(`[afterPack] Removing @napi-rs/${entry}`);
+          fs.rmSync(entryPath, { recursive: true, force: true });
+        }
+      }
+    }
+  }
+
+  // 4. Remove unnecessary files from node_modules
   const nodeModulesPath = path.join(appPath, 'node_modules');
   if (fs.existsSync(nodeModulesPath)) {
     cleanDirectory(nodeModulesPath, ['.md', '.markdown']);
@@ -65,6 +101,19 @@ exports.default = async function(context) {
 
   console.log('[afterPack] Cleanup complete');
 };
+
+function copyDirSync(src, dest) {
+  fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDirSync(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+}
 
 function cleanDirectory(dir, extensions) {
   if (!fs.existsSync(dir)) return;

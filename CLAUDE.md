@@ -60,3 +60,5 @@ npm run lint:fix       # Auto-fix lint issues
 npm run format         # Prettier format
 npm run dist:win       # Package Windows installer
 ```
+
+**Phase:** Compositor Gallery — Complete (8/8)

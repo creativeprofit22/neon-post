@@ -5,8 +5,7 @@ import { join } from 'node:path';
 import { app } from 'electron';
 
 import { renderPost, renderSplitCard } from '../../compositor';
-import type { RenderInput } from '../../compositor';
-import { getTemplate, listTemplates, listTemplateIds, registerFonts, getLogoPath } from '../../templates';
+import { getTemplate, listTemplates, registerFonts, getLogoPath } from '../../templates';
 import { getBackgrounds } from '../../assets';
 import type { AssetSource } from '../../assets';
 import type { IPCDependencies } from './types';

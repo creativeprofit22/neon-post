@@ -12,7 +12,8 @@ export type GeneratedContentType =
   | 'image'
   | 'carousel'
   | 'story'
-  | 'repurpose';
+  | 'repurpose'
+  | 'video';
 
 export interface GeneratedContent {
   id: string;
@@ -25,6 +26,7 @@ export interface GeneratedContent {
   media_url: string | null;
   rating: number | null;
   used: boolean;
+  group_id: string | null;
   metadata: string | null;
   created_at: string;
   updated_at: string;
@@ -39,6 +41,7 @@ export interface CreateGeneratedContentInput {
   output: string;
   media_url?: string | null;
   rating?: number | null;
+  group_id?: string | null;
   metadata?: string | null;
 }
 
@@ -52,6 +55,7 @@ export interface UpdateGeneratedContentInput {
   media_url?: string | null;
   rating?: number | null;
   used?: boolean;
+  group_id?: string | null;
   metadata?: string | null;
 }
 
@@ -63,13 +67,14 @@ export const GENERATED_CONTENT_SCHEMA = `
     social_post_id TEXT REFERENCES social_posts(id) ON DELETE SET NULL,
     brand_config_id TEXT REFERENCES brand_config(id) ON DELETE SET NULL,
     content_type TEXT NOT NULL
-      CHECK(content_type IN ('caption', 'hook', 'thread', 'script', 'image_prompt', 'image', 'carousel', 'story', 'repurpose')),
+      CHECK(content_type IN ('caption', 'hook', 'thread', 'script', 'image_prompt', 'image', 'carousel', 'story', 'repurpose', 'video')),
     platform TEXT,
     prompt_used TEXT,
     output TEXT NOT NULL,
     media_url TEXT,
     rating INTEGER,
     used INTEGER NOT NULL DEFAULT 0,
+    group_id TEXT,
     metadata TEXT,
     created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ')),
     updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ'))
@@ -98,8 +103,8 @@ export class GeneratedContentStore {
       .prepare(
         `INSERT INTO generated_content
            (id, social_post_id, brand_config_id, content_type, platform,
-            prompt_used, output, media_url, rating, metadata)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            prompt_used, output, media_url, rating, group_id, metadata)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         id,
@@ -111,6 +116,7 @@ export class GeneratedContentStore {
         input.output,
         input.media_url ?? null,
         input.rating ?? null,
+        input.group_id ?? null,
         input.metadata ?? null
       );
     return this.getById(id)!;
@@ -170,6 +176,10 @@ export class GeneratedContentStore {
       fields.push('used = ?');
       values.push(input.used ? 1 : 0);
     }
+    if (input.group_id !== undefined) {
+      fields.push('group_id = ?');
+      values.push(input.group_id);
+    }
     if (input.metadata !== undefined) {
       fields.push('metadata = ?');
       values.push(input.metadata);
@@ -192,6 +202,13 @@ export class GeneratedContentStore {
   }
 
   // ============ Domain-specific queries ============
+
+  getByGroup(groupId: string): GeneratedContent[] {
+    const rows = this.db
+      .prepare('SELECT * FROM generated_content WHERE group_id = ? ORDER BY created_at ASC')
+      .all(groupId) as Array<Omit<GeneratedContent, 'used'> & { used: number }>;
+    return rows.map((r) => ({ ...r, used: r.used === 1 }));
+  }
 
   getByType(contentType: GeneratedContentType): GeneratedContent[] {
     const rows = this.db

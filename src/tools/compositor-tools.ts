@@ -33,6 +33,12 @@ export function setCompositorMemoryManager(memory: MemoryManager): void {
 // Helpers
 // ---------------------------------------------------------------------------
 
+const SINGLE_POST_TEMPLATES = ['bottom-bar', 'headline-center', 'headline-bottom', 'split-card', 'social-embed'];
+
+function pickRandomTemplate(): string {
+  return SINGLE_POST_TEMPLATES[Math.floor(Math.random() * SINGLE_POST_TEMPLATES.length)];
+}
+
 function getMediaDir(): string {
   const dir = join(app.getPath('documents'), 'Neon-post', 'media');
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
@@ -51,7 +57,9 @@ async function saveRenderResult(
   headline: string,
   templateId: string,
   platform?: string,
-  brandConfigId?: string
+  brandConfigId?: string,
+  groupId?: string,
+  contentType?: GeneratedContentType
 ): Promise<string> {
   const ext = result.mimeType === 'image/png' ? 'png' : 'jpg';
   const fileName = `post-${randomUUID().slice(0, 8)}.${ext}`;
@@ -61,12 +69,13 @@ async function saveRenderResult(
   // Save to generated_content gallery
   if (memoryManager) {
     memoryManager.generatedContent.create({
-      content_type: 'image' as GeneratedContentType,
+      content_type: contentType ?? 'image',
       platform: platform ?? null,
       prompt_used: headline,
       output: headline,
       media_url: filePath,
       brand_config_id: brandConfigId ?? null,
+      group_id: groupId ?? null,
       metadata: JSON.stringify({
         template: templateId,
         width: result.width,
@@ -89,7 +98,8 @@ function getRenderPostImageDefinition() {
     description:
       'Render a social media post image with a headline overlaid on a background image. ' +
       'Uses the compositor engine with brand fonts, templates, and watermarks. ' +
-      'The result is saved to the gallery automatically. ' +
+      'The result is saved to Documents/Neon-post/media/ and added to the gallery automatically. ' +
+      'The file_path in the response shows the exact output location. There is NO output_path parameter — the save location is automatic. ' +
       'For background images, either provide a local file path or use fetch_background first to get stock images.',
     input_schema: {
       type: 'object' as const,
@@ -105,11 +115,13 @@ function getRenderPostImageDefinition() {
         template: {
           type: 'string',
           description:
-            'Template ID. Options: "bottom-bar" (primary Douro branded — image top, divider, text bottom), ' +
-            '"headline-center" (text centered over image with overlay), ' +
-            '"headline-bottom" (text at bottom with gradient overlay), ' +
-            '"split-card" (left panel text, right panel image), ' +
-            '"carousel-slide" (carousel step with swipe CTA)',
+            'Template ID — VARY your choice across renders for visual diversity. Do NOT always use the same template. Options: ' +
+            '"bottom-bar" (branded — image top, circuit divider, text bottom with logo — BEST for branded posts), ' +
+            '"headline-center" (text centered over image with dark overlay), ' +
+            '"headline-bottom" (text at bottom with gradient fade), ' +
+            '"split-card" (left panel text + right panel image — great for quotes/tips), ' +
+            '"social-embed" (social post embed style), ' +
+            '"carousel-slide" (carousel step with swipe CTA — use with render_carousel).',
         },
         cta_text: {
           type: 'string',
@@ -165,7 +177,7 @@ async function handleRenderPostImage(input: unknown): Promise<string> {
 
   registerFonts();
 
-  const tid = templateId || 'headline-center';
+  const tid = templateId || pickRandomTemplate();
   const tmpl = getTemplate(tid);
   if (!tmpl) return JSON.stringify({ error: `Unknown template: ${tid}. Available: ${listTemplateIds().join(', ')}` });
 
@@ -210,7 +222,8 @@ function getRenderCarouselDefinition() {
     description:
       'Render a multi-slide carousel. Provide an array of headlines and either one shared background ' +
       'or one background per slide. Each slide is rendered with the carousel-slide template (or a specified template). ' +
-      'All slides are saved to the gallery.',
+      'All slides are saved to Documents/Neon-post/media/ and added to the gallery automatically. ' +
+      'There is NO output_path parameter — the save location is automatic. Check file_paths in the response for exact locations.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -269,6 +282,7 @@ async function handleRenderCarousel(input: unknown): Promise<string> {
   else renderFn = renderPost;
 
   const filePaths: string[] = [];
+  const groupId = randomUUID();
 
   try {
     for (let i = 0; i < headlines.length; i++) {
@@ -288,7 +302,7 @@ async function handleRenderCarousel(input: unknown): Promise<string> {
         brandHandle,
       });
 
-      const filePath = await saveRenderResult(result, headlines[i], tid, platform);
+      const filePath = await saveRenderResult(result, headlines[i], tid, platform, undefined, groupId, 'carousel');
       filePaths.push(filePath);
     }
 
@@ -296,6 +310,7 @@ async function handleRenderCarousel(input: unknown): Promise<string> {
       success: true,
       slides: filePaths.length,
       file_paths: filePaths,
+      group_id: groupId,
       template: tid,
       message: `Carousel rendered: ${filePaths.length} slides saved to gallery.`,
     });
@@ -595,7 +610,7 @@ async function handleRenderVideo(input: unknown): Promise<string> {
     // Save to gallery
     if (memoryManager) {
       memoryManager.generatedContent.create({
-        content_type: 'video' as GeneratedContentType,
+        content_type: 'video',
         platform: platform ?? null,
         prompt_used: headline,
         output: headline,

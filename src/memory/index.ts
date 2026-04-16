@@ -474,6 +474,65 @@ export class MemoryManager {
       this.db.exec('ALTER TABLE social_posts ADD COLUMN media_items TEXT');
       console.log('[Memory] Migrated social_posts table: added media_items column');
     }
+
+    // Migration: add group_id column and 'video' content type to generated_content
+    const gcColumns = this.db.pragma('table_info(generated_content)') as Array<{ name: string }>;
+    const gcColNames = new Set(gcColumns.map((c) => c.name));
+    if (!gcColNames.has('group_id')) {
+      this.db.exec('ALTER TABLE generated_content ADD COLUMN group_id TEXT');
+      console.log('[Memory] Migrated generated_content table: added group_id column');
+    }
+    // Ensure group_id index exists (safe for both new and migrated DBs)
+    this.db.exec(
+      'CREATE INDEX IF NOT EXISTS idx_generated_content_group ON generated_content(group_id)'
+    );
+
+    // Migration: update CHECK constraint to include 'video' content type
+    // SQLite cannot ALTER CHECK constraints, so recreate the table
+    try {
+      const hasVideoType = this.db
+        .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='generated_content'")
+        .get() as { sql: string } | undefined;
+      if (hasVideoType && !hasVideoType.sql.includes("'video'")) {
+        this.db.exec(`
+          CREATE TABLE generated_content_new (
+            id TEXT PRIMARY KEY,
+            social_post_id TEXT REFERENCES social_posts(id) ON DELETE SET NULL,
+            brand_config_id TEXT REFERENCES brand_config(id) ON DELETE SET NULL,
+            content_type TEXT NOT NULL
+              CHECK(content_type IN ('caption', 'hook', 'thread', 'script', 'image_prompt', 'image', 'carousel', 'story', 'repurpose', 'video')),
+            platform TEXT,
+            prompt_used TEXT,
+            output TEXT NOT NULL,
+            media_url TEXT,
+            rating INTEGER,
+            used INTEGER NOT NULL DEFAULT 0,
+            group_id TEXT,
+            metadata TEXT,
+            created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ')),
+            updated_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ'))
+          );
+          INSERT INTO generated_content_new SELECT
+            id, social_post_id, brand_config_id, content_type, platform,
+            prompt_used, output, media_url, rating, used, group_id, metadata,
+            created_at, updated_at
+          FROM generated_content;
+          DROP TABLE generated_content;
+          ALTER TABLE generated_content_new RENAME TO generated_content;
+          CREATE INDEX IF NOT EXISTS idx_generated_content_type ON generated_content(content_type);
+          CREATE INDEX IF NOT EXISTS idx_generated_content_platform ON generated_content(platform);
+          CREATE INDEX IF NOT EXISTS idx_generated_content_post ON generated_content(social_post_id);
+          CREATE INDEX IF NOT EXISTS idx_generated_content_brand ON generated_content(brand_config_id);
+          CREATE INDEX IF NOT EXISTS idx_generated_content_used ON generated_content(used);
+          CREATE INDEX IF NOT EXISTS idx_generated_content_group ON generated_content(group_id);
+        `);
+        console.log(
+          "[Memory] Migrated generated_content table: updated CHECK constraint to include 'video'"
+        );
+      }
+    } catch (err) {
+      console.warn('[Memory] Failed to migrate generated_content CHECK constraint:', err);
+    }
   }
 
   /**

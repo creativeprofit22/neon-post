@@ -279,6 +279,8 @@ contextBridge.exposeInMainWorld('pocketAgent', {
     validateKieKey: (key: string) => ipcRenderer.invoke('social:validateKieKey', key),
     validateAssemblyKey: (key: string) => ipcRenderer.invoke('social:validateAssemblyKey', key),
     downloadImage: (id: string) => ipcRenderer.invoke('social:downloadImage', id),
+    getGalleryGrouped: () => ipcRenderer.invoke('social:getGalleryGrouped'),
+    downloadCarousel: (groupId: string) => ipcRenderer.invoke('social:downloadCarousel', groupId),
     generateImage: (data: Record<string, unknown>) =>
       ipcRenderer.invoke('social:generateImage', data),
     getCalendarPosts: (startDate: string, endDate: string) =>
