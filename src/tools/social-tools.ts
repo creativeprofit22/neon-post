@@ -573,7 +573,8 @@ function getSchedulePostDefinition() {
   return {
     name: 'schedule_post',
     description:
-      'Schedule a post for later publishing. Creates a draft/scheduled post entry in the database.',
+      'Schedule a post for later publishing. Creates a draft/scheduled post entry in the database. ' +
+      'For carousel posts, pass all image file paths from render_carousel\'s file_paths result as comma-separated media_urls.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -595,7 +596,9 @@ function getSchedulePostDefinition() {
         },
         media_urls: {
           type: 'string',
-          description: 'Comma-separated media URLs or file paths',
+          description:
+            'Comma-separated media file paths or URLs. For carousels: pass the file_paths from render_carousel ' +
+            '(e.g. "C:\\path\\post-abc.png,C:\\path\\post-def.png"). For single images: pass the file_path from render_post_image.',
         },
       },
       required: ['platform', 'content', 'scheduled_at'],

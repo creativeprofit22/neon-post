@@ -106,7 +106,11 @@ function getRenderPostImageDefinition() {
       properties: {
         headline: {
           type: 'string',
-          description: 'The headline text to render on the image',
+          description:
+            'The headline text to render on the image. Supports {brace} markup for red accent text — ' +
+            'wrap 1-2 key words in curly braces to highlight them in brand red (#d42918). ' +
+            'Example: "THIS CEO JUST {REPLACED 40%} OF HIS WORKFORCE WITH AI". ' +
+            'ALWAYS use {brace} markup on at least one word per headline for visual impact.',
         },
         background_path: {
           type: 'string',
@@ -230,7 +234,9 @@ function getRenderCarouselDefinition() {
         headlines: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Array of headline strings, one per slide',
+          description:
+            'Array of headline strings, one per slide. Use {brace} markup to highlight key words in brand red — ' +
+            'e.g. "YOUR COMPETITOR JUST {SHIPPED} WHAT YOU PLANNED". ALWAYS use {brace} on at least one word per slide.',
         },
         background_paths: {
           type: 'array',

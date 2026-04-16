@@ -79,6 +79,14 @@ const SCHEDULER_TOOLS = [
   'mcp__neon-post__delete_scheduled_task',
 ];
 const GREP_TOOLS = ['mcp__grep__searchGitHub'];
+const COMPOSITOR_TOOLS = [
+  'render_post_image',
+  'render_carousel',
+  'render_video',
+  'list_templates',
+  'fetch_background',
+  'preview_template',
+];
 const SWITCH_TOOL = ['mcp__neon-post__switch_agent'];
 const SOCIAL_TOOLS = [
   'mcp__neon-post__search_content',
@@ -244,6 +252,7 @@ export const AGENT_MODES: Record<AgentModeId, AgentMode> = {
       ...NOTIFY_TOOLS,
       ...MEMORY_TOOLS,
       ...SOCIAL_TOOLS,
+      ...COMPOSITOR_TOOLS,
       ...SWITCH_TOOL,
     ],
     mcpServers: ['neon-post'],
